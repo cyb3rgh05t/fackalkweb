@@ -23,7 +23,10 @@ async function apiCall(url, method = "GET", data = null) {
     const response = await fetch(url, options);
 
     if (!response.ok) {
-      throw new Error("HTTP error! status: " + response.status);
+      const errorData = await response.json();
+      throw new Error(
+        errorData.error || "HTTP error! status: " + response.status
+      );
     }
 
     return await response.json();
@@ -213,12 +216,12 @@ async function loadKunden() {
                 <td>
                     <button class="btn btn-sm btn-secondary" onclick="editKunde(${
                       kunde.id
-                    })">
+                    })" title="Bearbeiten">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="deleteKunde(${
                       kunde.id
-                    })">
+                    })" title="Löschen">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
@@ -226,6 +229,9 @@ async function loadKunden() {
         `
       )
       .join("");
+
+    // Suchfunktionalität aktivieren
+    setTimeout(() => addSearchToTable("kunden-table", "kunden-search"), 100);
   } catch (error) {
     console.error("Failed to load customers:", error);
   }
@@ -249,12 +255,12 @@ async function loadFahrzeuge() {
                 <td>
                     <button class="btn btn-sm btn-secondary" onclick="editFahrzeug(${
                       fahrzeug.id
-                    })">
+                    })" title="Bearbeiten">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="deleteFahrzeug(${
                       fahrzeug.id
-                    })">
+                    })" title="Löschen">
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
@@ -262,6 +268,12 @@ async function loadFahrzeuge() {
         `
       )
       .join("");
+
+    // Suchfunktionalität aktivieren
+    setTimeout(
+      () => addSearchToTable("fahrzeuge-table", "fahrzeuge-search"),
+      100
+    );
   } catch (error) {
     console.error("Failed to load vehicles:", error);
   }
@@ -279,31 +291,56 @@ async function loadAuftraege() {
                 <td>${auftrag.kunde_name || "-"}</td>
                 <td>${auftrag.kennzeichen || ""} ${auftrag.marke || ""}</td>
                 <td>${formatDate(auftrag.datum)}</td>
-                <td><span class="status status-${auftrag.status}">${
-          auftrag.status
-        }</span></td>
+                <td>
+                    <select class="status status-${
+                      auftrag.status
+                    }" onchange="updateAuftragStatus(${
+          auftrag.id
+        }, this.value)" style="background: transparent; border: none; color: inherit;">
+                        <option value="offen" ${
+                          auftrag.status === "offen" ? "selected" : ""
+                        }>Offen</option>
+                        <option value="bearbeitung" ${
+                          auftrag.status === "bearbeitung" ? "selected" : ""
+                        }>In Bearbeitung</option>
+                        <option value="abgeschlossen" ${
+                          auftrag.status === "abgeschlossen" ? "selected" : ""
+                        }>Abgeschlossen</option>
+                    </select>
+                </td>
                 <td>${formatCurrency(auftrag.gesamt_kosten)}</td>
                 <td>
                     <button class="btn btn-sm btn-secondary" onclick="viewAuftrag(${
                       auftrag.id
-                    })">
+                    })" title="Anzeigen">
                         <i class="fas fa-eye"></i>
                     </button>
                     <button class="btn btn-sm btn-primary" onclick="editAuftrag(${
                       auftrag.id
-                    })">
+                    })" title="Bearbeiten">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-success" onclick="createRechnungFromAuftrag(${
                       auftrag.id
-                    })">
+                    })" title="Rechnung erstellen">
                         <i class="fas fa-file-invoice"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteAuftrag(${
+                      auftrag.id
+                    })" title="Löschen">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </td>
             </tr>
         `
       )
       .join("");
+
+    // Suchfunktionalität aktivieren
+    setTimeout(
+      () => addSearchToTable("auftraege-table", "auftraege-search"),
+      100
+    );
   } catch (error) {
     console.error("Failed to load orders:", error);
   }
@@ -321,26 +358,59 @@ async function loadRechnungen() {
                 <td>${rechnung.kunde_name || "-"}</td>
                 <td>${rechnung.kennzeichen || ""} ${rechnung.marke || ""}</td>
                 <td>${formatDate(rechnung.rechnungsdatum)}</td>
-                <td><span class="status status-${rechnung.status}">${
-          rechnung.status
-        }</span></td>
+                <td>
+                    <select class="status status-${
+                      rechnung.status
+                    }" onchange="updateRechnungStatus(${
+          rechnung.id
+        }, this.value)" style="background: transparent; border: none; color: inherit;">
+                        <option value="offen" ${
+                          rechnung.status === "offen" ? "selected" : ""
+                        }>Offen</option>
+                        <option value="bezahlt" ${
+                          rechnung.status === "bezahlt" ? "selected" : ""
+                        }>Bezahlt</option>
+                        <option value="mahnung" ${
+                          rechnung.status === "mahnung" ? "selected" : ""
+                        }>Mahnung</option>
+                        <option value="storniert" ${
+                          rechnung.status === "storniert" ? "selected" : ""
+                        }>Storniert</option>
+                    </select>
+                </td>
                 <td>${formatCurrency(rechnung.gesamtbetrag)}</td>
                 <td>
                     <button class="btn btn-sm btn-secondary" onclick="viewRechnung(${
                       rechnung.id
-                    })">
+                    })" title="Anzeigen">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="btn btn-sm btn-primary" onclick="printRechnung(${
+                    <button class="btn btn-sm btn-primary" onclick="editRechnung(${
                       rechnung.id
-                    })">
+                    })" title="Bearbeiten">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-success" onclick="printRechnung(${
+                      rechnung.id
+                    })" title="Drucken">
                         <i class="fas fa-print"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteRechnung(${
+                      rechnung.id
+                    })" title="Löschen">
+                        <i class="fas fa-trash"></i>
                     </button>
                 </td>
             </tr>
         `
       )
       .join("");
+
+    // Suchfunktionalität aktivieren
+    setTimeout(
+      () => addSearchToTable("rechnungen-table", "rechnungen-search"),
+      100
+    );
   } catch (error) {
     console.error("Failed to load invoices:", error);
   }
@@ -363,6 +433,33 @@ async function loadEinstellungen() {
     });
   } catch (error) {
     console.error("Failed to load settings:", error);
+  }
+}
+
+// Status Update Functions
+async function updateAuftragStatus(id, status) {
+  try {
+    const auftrag = await apiCall(`/api/auftraege/${id}`);
+    auftrag.status = status;
+    await apiCall(`/api/auftraege/${id}`, "PUT", auftrag);
+    showNotification("Status erfolgreich aktualisiert", "success");
+    loadAuftraege();
+  } catch (error) {
+    showNotification("Fehler beim Aktualisieren des Status", "error");
+    loadAuftraege(); // Reload to reset the select
+  }
+}
+
+async function updateRechnungStatus(id, status) {
+  try {
+    const rechnung = await apiCall(`/api/rechnungen/${id}`);
+    rechnung.status = status;
+    await apiCall(`/api/rechnungen/${id}`, "PUT", rechnung);
+    showNotification("Status erfolgreich aktualisiert", "success");
+    loadRechnungen();
+  } catch (error) {
+    showNotification("Fehler beim Aktualisieren des Status", "error");
+    loadRechnungen(); // Reload to reset the select
   }
 }
 
@@ -461,21 +558,42 @@ async function saveKunde(kundeId = null) {
 
   try {
     if (kundeId) {
-      // Update - not implemented in this demo
-      showNotification("Update-Funktion noch nicht implementiert", "warning");
+      await apiCall(`/api/kunden/${kundeId}`, "PUT", data);
+      showNotification("Kunde erfolgreich aktualisiert", "success");
     } else {
       await apiCall("/api/kunden", "POST", data);
       showNotification("Kunde erfolgreich erstellt", "success");
-      closeModal();
-      loadKunden();
     }
+    closeModal();
+    loadKunden();
   } catch (error) {
     showNotification("Fehler beim Speichern des Kunden", "error");
   }
 }
 
+async function deleteKunde(id) {
+  if (
+    confirm(
+      "Kunde wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+    )
+  ) {
+    try {
+      await apiCall(`/api/kunden/${id}`, "DELETE");
+      showNotification("Kunde erfolgreich gelöscht", "success");
+      loadKunden();
+    } catch (error) {
+      showNotification("Fehler beim Löschen des Kunden", "error");
+    }
+  }
+}
+
 // Fahrzeug Modal
-function showFahrzeugModal(fahrzeugId = null) {
+async function showFahrzeugModal(fahrzeugId = null) {
+  // Sicherstellen, dass Kunden geladen sind
+  if (kunden.length === 0) {
+    await loadKunden();
+  }
+
   const fahrzeug = fahrzeugId ? fahrzeuge.find((f) => f.id === fahrzeugId) : {};
   const isEdit = !!fahrzeugId;
 
@@ -567,24 +685,72 @@ async function saveFahrzeug(fahrzeugId = null) {
 
   try {
     if (fahrzeugId) {
-      showNotification("Update-Funktion noch nicht implementiert", "warning");
+      await apiCall(`/api/fahrzeuge/${fahrzeugId}`, "PUT", data);
+      showNotification("Fahrzeug erfolgreich aktualisiert", "success");
     } else {
       await apiCall("/api/fahrzeuge", "POST", data);
       showNotification("Fahrzeug erfolgreich erstellt", "success");
-      closeModal();
-      loadFahrzeuge();
     }
+    closeModal();
+    loadFahrzeuge();
   } catch (error) {
     showNotification("Fehler beim Speichern des Fahrzeugs", "error");
   }
 }
 
+async function deleteFahrzeug(id) {
+  if (
+    confirm(
+      "Fahrzeug wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+    )
+  ) {
+    try {
+      await apiCall(`/api/fahrzeuge/${id}`, "DELETE");
+      showNotification("Fahrzeug erfolgreich gelöscht", "success");
+      loadFahrzeuge();
+    } catch (error) {
+      showNotification("Fehler beim Löschen des Fahrzeugs", "error");
+    }
+  }
+}
+
 // Auftrag Modal
-function showAuftragModal(auftragId = null) {
+async function showAuftragModal(auftragId = null) {
+  // Sicherstellen, dass Kunden geladen sind
+  if (kunden.length === 0) {
+    await loadKunden();
+  }
+
   const isEdit = !!auftragId;
 
+  if (isEdit) {
+    // Für Bearbeitung: Lade Auftragsdaten vom Server
+    loadAuftragForEdit(auftragId);
+  } else {
+    // Für neuen Auftrag: Zeige leeres Formular
+    displayAuftragModal(null);
+  }
+}
+
+async function loadAuftragForEdit(auftragId) {
+  try {
+    const auftrag = await apiCall(`/api/auftraege/${auftragId}`);
+    displayAuftragModal(auftrag);
+  } catch (error) {
+    showNotification("Fehler beim Laden des Auftrags", "error");
+  }
+}
+
+function displayAuftragModal(auftrag = null) {
+  const isEdit = !!auftrag;
+
   const kundenOptions = kunden
-    .map((k) => `<option value="${k.id}">${k.name}</option>`)
+    .map(
+      (k) =>
+        `<option value="${k.id}" ${
+          k.id === auftrag?.kunden_id ? "selected" : ""
+        }>${k.name}</option>`
+    )
     .join("");
 
   const arbeitsschritte = [
@@ -599,17 +765,26 @@ function showAuftragModal(auftragId = null) {
   ];
 
   const arbeitsschritteRows = arbeitsschritte
-    .map(
-      (schritt, index) => `
+    .map((schritt, index) => {
+      const position = auftrag?.positionen?.[index] || {};
+      return `
         <tr>
-            <td><input type="text" class="form-input" value="${schritt}" name="beschreibung_${index}"></td>
-            <td><input type="number" step="0.01" class="form-input" value="110" name="stundenpreis_${index}"></td>
-            <td><input type="number" step="0.01" class="form-input" value="0" name="zeit_${index}" onchange="calculateAuftragRow(${index})"></td>
+            <td><input type="text" class="form-input" value="${
+              position.beschreibung || schritt
+            }" name="beschreibung_${index}"></td>
+            <td><input type="number" step="0.01" class="form-input" value="${
+              position.stundenpreis || 110
+            }" name="stundenpreis_${index}"></td>
+            <td><input type="number" step="0.01" class="form-input" value="${
+              position.zeit || 0
+            }" name="zeit_${index}" onchange="calculateAuftragRow(${index})"></td>
             <td>Std.</td>
-            <td><input type="number" step="0.01" class="form-input" value="0" name="gesamt_${index}" readonly></td>
+            <td><input type="number" step="0.01" class="form-input" value="${
+              position.gesamt || 0
+            }" name="gesamt_${index}" readonly></td>
         </tr>
-    `
-    )
+      `;
+    })
     .join("");
 
   const content = `
@@ -631,14 +806,22 @@ function showAuftragModal(auftragId = null) {
                 <div class="form-group">
                     <label class="form-label">Auftragsdatum *</label>
                     <input type="date" class="form-input" name="datum" value="${
-                      new Date().toISOString().split("T")[0]
+                      auftrag?.datum || new Date().toISOString().split("T")[0]
                     }" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Basis-Stundenpreis (€)</label>
-                    <input type="number" step="0.01" class="form-input" name="basis_stundenpreis" value="${
-                      einstellungen.basis_stundenpreis || 110
-                    }">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" name="status">
+                        <option value="offen" ${
+                          auftrag?.status === "offen" ? "selected" : ""
+                        }>Offen</option>
+                        <option value="bearbeitung" ${
+                          auftrag?.status === "bearbeitung" ? "selected" : ""
+                        }>In Bearbeitung</option>
+                        <option value="abgeschlossen" ${
+                          auftrag?.status === "abgeschlossen" ? "selected" : ""
+                        }>Abgeschlossen</option>
+                    </select>
                 </div>
             </div>
             
@@ -677,22 +860,40 @@ function showAuftragModal(auftragId = null) {
             
             <div class="form-group" style="margin-top: 2rem;">
                 <label class="form-label">Bemerkungen</label>
-                <textarea class="form-textarea" name="bemerkungen" rows="3"></textarea>
+                <textarea class="form-textarea" name="bemerkungen" rows="3">${
+                  auftrag?.bemerkungen || ""
+                }</textarea>
             </div>
         </form>
     `;
 
   const footer = `
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
-        <button type="button" class="btn btn-primary" onclick="saveAuftrag()">
-            <i class="fas fa-save"></i> Auftrag erstellen
+        <button type="button" class="btn btn-primary" onclick="saveAuftrag(${
+          auftrag?.id || null
+        })">
+            <i class="fas fa-save"></i> ${
+              isEdit ? "Aktualisieren" : "Erstellen"
+            }
         </button>
     `;
 
   createModal(isEdit ? "Auftrag bearbeiten" : "Neuer Auftrag", content, footer);
+
+  // Fahrzeuge für bereits ausgewählten Kunden laden
+  if (auftrag?.kunden_id) {
+    loadKundenFahrzeuge(auftrag.kunden_id, auftrag.fahrzeug_id);
+  }
+
+  // Berechnungen aktualisieren
+  setTimeout(() => {
+    for (let i = 0; i < 8; i++) {
+      calculateAuftragRow(i);
+    }
+  }, 100);
 }
 
-async function loadKundenFahrzeuge(kundenId) {
+async function loadKundenFahrzeuge(kundenId, selectedFahrzeugId = null) {
   if (!kundenId) return;
 
   try {
@@ -705,7 +906,9 @@ async function loadKundenFahrzeuge(kundenId) {
       kundenFahrzeuge
         .map(
           (f) =>
-            `<option value="${f.id}">${f.kennzeichen} - ${f.marke} ${f.modell}</option>`
+            `<option value="${f.id}" ${
+              f.id == selectedFahrzeugId ? "selected" : ""
+            }>${f.kennzeichen} - ${f.marke} ${f.modell}</option>`
         )
         .join("");
   } catch (error) {
@@ -716,13 +919,16 @@ async function loadKundenFahrzeuge(kundenId) {
 function calculateAuftragRow(index) {
   const stundenpreis =
     parseFloat(
-      document.querySelector(`[name="stundenpreis_${index}"]`).value
+      document.querySelector(`[name="stundenpreis_${index}"]`)?.value
     ) || 0;
   const zeit =
-    parseFloat(document.querySelector(`[name="zeit_${index}"]`).value) || 0;
+    parseFloat(document.querySelector(`[name="zeit_${index}"]`)?.value) || 0;
   const gesamt = stundenpreis * zeit;
 
-  document.querySelector(`[name="gesamt_${index}"]`).value = gesamt.toFixed(2);
+  const gesamtInput = document.querySelector(`[name="gesamt_${index}"]`);
+  if (gesamtInput) {
+    gesamtInput.value = gesamt.toFixed(2);
+  }
 
   // Gesamtsummen berechnen
   let gesamtZeit = 0;
@@ -738,16 +944,17 @@ function calculateAuftragRow(index) {
     }
   }
 
-  document.getElementById("gesamt-zeit").textContent =
-    gesamtZeit.toFixed(2) + " Std.";
-  document.getElementById("gesamt-kosten").textContent =
-    formatCurrency(gesamtKosten);
-  document.getElementById("gesamt-mwst").textContent = formatCurrency(
-    gesamtKosten * 1.19
-  );
+  const gesamtZeitEl = document.getElementById("gesamt-zeit");
+  const gesamtKostenEl = document.getElementById("gesamt-kosten");
+  const gesamtMwstEl = document.getElementById("gesamt-mwst");
+
+  if (gesamtZeitEl) gesamtZeitEl.textContent = gesamtZeit.toFixed(2) + " Std.";
+  if (gesamtKostenEl) gesamtKostenEl.textContent = formatCurrency(gesamtKosten);
+  if (gesamtMwstEl)
+    gesamtMwstEl.textContent = formatCurrency(gesamtKosten * 1.19);
 }
 
-async function saveAuftrag() {
+async function saveAuftrag(auftragId = null) {
   const form = document.getElementById("auftrag-form");
   const formData = new FormData(form);
 
@@ -773,24 +980,77 @@ async function saveAuftrag() {
     kunden_id: parseInt(formData.get("kunden_id")),
     fahrzeug_id: parseInt(formData.get("fahrzeug_id")),
     datum: formData.get("datum"),
+    status: formData.get("status"),
     positionen,
     bemerkungen: formData.get("bemerkungen"),
   };
 
   try {
-    await apiCall("/api/auftraege", "POST", data);
-    showNotification("Auftrag erfolgreich erstellt", "success");
+    if (auftragId) {
+      await apiCall(`/api/auftraege/${auftragId}`, "PUT", data);
+      showNotification("Auftrag erfolgreich aktualisiert", "success");
+    } else {
+      await apiCall("/api/auftraege", "POST", data);
+      showNotification("Auftrag erfolgreich erstellt", "success");
+    }
     closeModal();
     loadAuftraege();
   } catch (error) {
-    showNotification("Fehler beim Erstellen des Auftrags", "error");
+    showNotification("Fehler beim Speichern des Auftrags", "error");
+  }
+}
+
+async function deleteAuftrag(id) {
+  if (
+    confirm(
+      "Auftrag wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+    )
+  ) {
+    try {
+      await apiCall(`/api/auftraege/${id}`, "DELETE");
+      showNotification("Auftrag erfolgreich gelöscht", "success");
+      loadAuftraege();
+    } catch (error) {
+      showNotification("Fehler beim Löschen des Auftrags", "error");
+    }
   }
 }
 
 // Rechnung Modal
-function showRechnungModal(auftragId = null) {
+async function showRechnungModal(rechnungId = null) {
+  // Sicherstellen, dass Kunden geladen sind
+  if (kunden.length === 0) {
+    await loadKunden();
+  }
+
+  const isEdit = !!rechnungId;
+
+  if (isEdit) {
+    loadRechnungForEdit(rechnungId);
+  } else {
+    displayRechnungModal(null);
+  }
+}
+
+async function loadRechnungForEdit(rechnungId) {
+  try {
+    const rechnung = await apiCall(`/api/rechnungen/${rechnungId}`);
+    displayRechnungModal(rechnung);
+  } catch (error) {
+    showNotification("Fehler beim Laden der Rechnung", "error");
+  }
+}
+
+function displayRechnungModal(rechnung = null) {
+  const isEdit = !!rechnung;
+
   const kundenOptions = kunden
-    .map((k) => `<option value="${k.id}">${k.name}</option>`)
+    .map(
+      (k) =>
+        `<option value="${k.id}" ${
+          k.id === rechnung?.kunden_id ? "selected" : ""
+        }>${k.name}</option>`
+    )
     .join("");
 
   const standardPositionen = [
@@ -853,21 +1113,36 @@ function showRechnungModal(auftragId = null) {
   ];
 
   const positionenRows = standardPositionen
-    .map(
-      (pos, index) => `
+    .map((pos, index) => {
+      const position = rechnung?.positionen?.[index] || {};
+      return `
         <tr>
-            <td><input type="text" class="form-input" value="${pos.beschreibung}" name="beschreibung_${index}"></td>
-            <td><input type="number" step="0.01" class="form-input" value="0" name="menge_${index}" onchange="calculateRechnungRow(${index})"></td>
-            <td>${pos.einheit}</td>
-            <td><input type="number" step="0.01" class="form-input" value="${pos.einzelpreis}" name="einzelpreis_${index}" onchange="calculateRechnungRow(${index})"></td>
-            <td>${pos.mwst}%</td>
-            <td><input type="number" step="0.01" class="form-input" value="0" name="gesamt_${index}" readonly></td>
-            <input type="hidden" name="kategorie_${index}" value="${pos.kategorie}">
-            <input type="hidden" name="einheit_${index}" value="${pos.einheit}">
-            <input type="hidden" name="mwst_${index}" value="${pos.mwst}">
+            <td><input type="text" class="form-input" value="${
+              position.beschreibung || pos.beschreibung
+            }" name="beschreibung_${index}"></td>
+            <td><input type="number" step="0.01" class="form-input" value="${
+              position.menge || 0
+            }" name="menge_${index}" onchange="calculateRechnungRow(${index})"></td>
+            <td>${position.einheit || pos.einheit}</td>
+            <td><input type="number" step="0.01" class="form-input" value="${
+              position.einzelpreis || pos.einzelpreis
+            }" name="einzelpreis_${index}" onchange="calculateRechnungRow(${index})"></td>
+            <td>${position.mwst_prozent || pos.mwst}%</td>
+            <td><input type="number" step="0.01" class="form-input" value="${
+              position.gesamt || 0
+            }" name="gesamt_${index}" readonly></td>
+            <input type="hidden" name="kategorie_${index}" value="${
+        position.kategorie || pos.kategorie
+      }">
+            <input type="hidden" name="einheit_${index}" value="${
+        position.einheit || pos.einheit
+      }">
+            <input type="hidden" name="mwst_${index}" value="${
+        position.mwst_prozent || pos.mwst
+      }">
         </tr>
-    `
-    )
+      `;
+    })
     .join("");
 
   const content = `
@@ -889,16 +1164,38 @@ function showRechnungModal(auftragId = null) {
                 <div class="form-group">
                     <label class="form-label">Rechnungsdatum *</label>
                     <input type="date" class="form-input" name="rechnungsdatum" value="${
+                      rechnung?.rechnungsdatum ||
                       new Date().toISOString().split("T")[0]
                     }" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Auftragsdatum</label>
-                    <input type="date" class="form-input" name="auftragsdatum">
+                    <input type="date" class="form-input" name="auftragsdatum" value="${
+                      rechnung?.auftragsdatum || ""
+                    }">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Rabatt (%)</label>
-                    <input type="number" step="0.01" class="form-input" name="rabatt_prozent" value="0" onchange="calculateRechnungTotal()">
+                    <input type="number" step="0.01" class="form-input" name="rabatt_prozent" value="${
+                      rechnung?.rabatt_prozent || 0
+                    }" onchange="calculateRechnungTotal()">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <select class="form-select" name="status">
+                        <option value="offen" ${
+                          rechnung?.status === "offen" ? "selected" : ""
+                        }>Offen</option>
+                        <option value="bezahlt" ${
+                          rechnung?.status === "bezahlt" ? "selected" : ""
+                        }>Bezahlt</option>
+                        <option value="mahnung" ${
+                          rechnung?.status === "mahnung" ? "selected" : ""
+                        }>Mahnung</option>
+                        <option value="storniert" ${
+                          rechnung?.status === "storniert" ? "selected" : ""
+                        }>Storniert</option>
+                    </select>
                 </div>
             </div>
             
@@ -952,23 +1249,47 @@ function showRechnungModal(auftragId = null) {
 
   const footer = `
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
-        <button type="button" class="btn btn-primary" onclick="saveRechnung()">
-            <i class="fas fa-save"></i> Rechnung erstellen
+        <button type="button" class="btn btn-primary" onclick="saveRechnung(${
+          rechnung?.id || null
+        })">
+            <i class="fas fa-save"></i> ${
+              isEdit ? "Aktualisieren" : "Erstellen"
+            }
         </button>
     `;
 
-  createModal("Neue Rechnung", content, footer);
+  createModal(
+    isEdit ? "Rechnung bearbeiten" : "Neue Rechnung",
+    content,
+    footer
+  );
+
+  // Fahrzeuge für bereits ausgewählten Kunden laden
+  if (rechnung?.kunden_id) {
+    loadKundenFahrzeuge(rechnung.kunden_id, rechnung.fahrzeug_id);
+  }
+
+  // Berechnungen aktualisieren
+  setTimeout(() => {
+    for (let i = 0; i < 8; i++) {
+      calculateRechnungRow(i);
+    }
+  }, 100);
 }
 
 function calculateRechnungRow(index) {
   const menge =
-    parseFloat(document.querySelector(`[name="menge_${index}"]`).value) || 0;
+    parseFloat(document.querySelector(`[name="menge_${index}"]`)?.value) || 0;
   const einzelpreis =
-    parseFloat(document.querySelector(`[name="einzelpreis_${index}"]`).value) ||
-    0;
+    parseFloat(
+      document.querySelector(`[name="einzelpreis_${index}"]`)?.value
+    ) || 0;
   const gesamt = menge * einzelpreis;
 
-  document.querySelector(`[name="gesamt_${index}"]`).value = gesamt.toFixed(2);
+  const gesamtInput = document.querySelector(`[name="gesamt_${index}"]`);
+  if (gesamtInput) {
+    gesamtInput.value = gesamt.toFixed(2);
+  }
   calculateRechnungTotal();
 }
 
@@ -996,7 +1317,7 @@ function calculateRechnungTotal() {
   }
 
   const rabattProzent =
-    parseFloat(document.querySelector('[name="rabatt_prozent"]').value) || 0;
+    parseFloat(document.querySelector('[name="rabatt_prozent"]')?.value) || 0;
   const rabattBetrag = zwischensumme * (rabattProzent / 100);
   const nettoNachRabatt = zwischensumme - rabattBetrag;
 
@@ -1004,19 +1325,30 @@ function calculateRechnungTotal() {
   const mwst7 = mwst7Basis * (1 - rabattProzent / 100) * 0.07;
   const gesamtbetrag = nettoNachRabatt + mwst19 + mwst7;
 
-  document.getElementById("zwischensumme").textContent =
-    formatCurrency(zwischensumme);
-  document.getElementById("rabatt-betrag").textContent =
-    formatCurrency(rabattBetrag);
-  document.getElementById("netto-nach-rabatt").textContent =
-    formatCurrency(nettoNachRabatt);
-  document.getElementById("mwst-19").textContent = formatCurrency(mwst19);
-  document.getElementById("mwst-7").textContent = formatCurrency(mwst7);
-  document.getElementById("gesamtbetrag").textContent =
-    formatCurrency(gesamtbetrag);
+  const elements = {
+    zwischensumme: document.getElementById("zwischensumme"),
+    "rabatt-betrag": document.getElementById("rabatt-betrag"),
+    "netto-nach-rabatt": document.getElementById("netto-nach-rabatt"),
+    "mwst-19": document.getElementById("mwst-19"),
+    "mwst-7": document.getElementById("mwst-7"),
+    gesamtbetrag: document.getElementById("gesamtbetrag"),
+  };
+
+  if (elements.zwischensumme)
+    elements.zwischensumme.textContent = formatCurrency(zwischensumme);
+  if (elements["rabatt-betrag"])
+    elements["rabatt-betrag"].textContent = formatCurrency(rabattBetrag);
+  if (elements["netto-nach-rabatt"])
+    elements["netto-nach-rabatt"].textContent = formatCurrency(nettoNachRabatt);
+  if (elements["mwst-19"])
+    elements["mwst-19"].textContent = formatCurrency(mwst19);
+  if (elements["mwst-7"])
+    elements["mwst-7"].textContent = formatCurrency(mwst7);
+  if (elements.gesamtbetrag)
+    elements.gesamtbetrag.textContent = formatCurrency(gesamtbetrag);
 }
 
-async function saveRechnung() {
+async function saveRechnung(rechnungId = null) {
   const form = document.getElementById("rechnung-form");
   const formData = new FormData(form);
 
@@ -1046,16 +1378,38 @@ async function saveRechnung() {
     rechnungsdatum: formData.get("rechnungsdatum"),
     auftragsdatum: formData.get("auftragsdatum"),
     rabatt_prozent: parseFloat(formData.get("rabatt_prozent")) || 0,
+    status: formData.get("status"),
     positionen,
   };
 
   try {
-    await apiCall("/api/rechnungen", "POST", data);
-    showNotification("Rechnung erfolgreich erstellt", "success");
+    if (rechnungId) {
+      await apiCall(`/api/rechnungen/${rechnungId}`, "PUT", data);
+      showNotification("Rechnung erfolgreich aktualisiert", "success");
+    } else {
+      await apiCall("/api/rechnungen", "POST", data);
+      showNotification("Rechnung erfolgreich erstellt", "success");
+    }
     closeModal();
     loadRechnungen();
   } catch (error) {
-    showNotification("Fehler beim Erstellen der Rechnung", "error");
+    showNotification("Fehler beim Speichern der Rechnung", "error");
+  }
+}
+
+async function deleteRechnung(id) {
+  if (
+    confirm(
+      "Rechnung wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
+    )
+  ) {
+    try {
+      await apiCall(`/api/rechnungen/${id}`, "DELETE");
+      showNotification("Rechnung erfolgreich gelöscht", "success");
+      loadRechnungen();
+    } catch (error) {
+      showNotification("Fehler beim Löschen der Rechnung", "error");
+    }
   }
 }
 
@@ -1084,13 +1438,196 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-// View functions (placeholder)
-function viewAuftrag(id) {
-  showNotification("Auftrag-Ansicht noch nicht implementiert", "info");
+// View functions
+async function viewAuftrag(id) {
+  try {
+    const auftrag = await apiCall(`/api/auftraege/${id}`);
+
+    const positionenHtml =
+      auftrag.positionen
+        ?.map(
+          (pos) => `
+      <tr>
+        <td>${pos.beschreibung}</td>
+        <td>${pos.zeit} ${pos.einheit}</td>
+        <td>${formatCurrency(pos.stundenpreis)}</td>
+        <td>${formatCurrency(pos.gesamt)}</td>
+      </tr>
+    `
+        )
+        .join("") || '<tr><td colspan="4">Keine Positionen</td></tr>';
+
+    const content = `
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Auftrag-Nr.:</label>
+          <div>${auftrag.auftrag_nr}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kunde:</label>
+          <div>${auftrag.name}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fahrzeug:</label>
+          <div>${auftrag.kennzeichen} - ${auftrag.marke} ${auftrag.modell}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Datum:</label>
+          <div>${formatDate(auftrag.datum)}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status:</label>
+          <div><span class="status status-${auftrag.status}">${
+      auftrag.status
+    }</span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gesamt:</label>
+          <div>${formatCurrency(auftrag.gesamt_kosten)}</div>
+        </div>
+      </div>
+      
+      <h3>Positionen</h3>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Beschreibung</th>
+            <th>Zeit</th>
+            <th>Stundenpreis</th>
+            <th>Gesamt</th>
+          </tr>
+        </thead>
+        <tbody>${positionenHtml}</tbody>
+      </table>
+      
+      ${
+        auftrag.bemerkungen
+          ? `<div class="form-group"><label class="form-label">Bemerkungen:</label><div>${auftrag.bemerkungen}</div></div>`
+          : ""
+      }
+    `;
+
+    createModal(`Auftrag ${auftrag.auftrag_nr}`, content);
+  } catch (error) {
+    showNotification("Fehler beim Laden des Auftrags", "error");
+  }
 }
 
-function viewRechnung(id) {
-  showNotification("Rechnungs-Ansicht noch nicht implementiert", "info");
+async function viewRechnung(id) {
+  try {
+    const rechnung = await apiCall(`/api/rechnungen/${id}`);
+
+    const positionenHtml =
+      rechnung.positionen
+        ?.map(
+          (pos) => `
+      <tr>
+        <td>${pos.beschreibung}</td>
+        <td>${pos.menge} ${pos.einheit}</td>
+        <td>${formatCurrency(pos.einzelpreis)}</td>
+        <td>${pos.mwst_prozent}%</td>
+        <td>${formatCurrency(pos.gesamt)}</td>
+      </tr>
+    `
+        )
+        .join("") || '<tr><td colspan="5">Keine Positionen</td></tr>';
+
+    const content = `
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Rechnung-Nr.:</label>
+          <div>${rechnung.rechnung_nr}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Kunde:</label>
+          <div>${rechnung.kunde_name}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fahrzeug:</label>
+          <div>${rechnung.kennzeichen} - ${rechnung.marke} ${
+      rechnung.modell
+    }</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rechnungsdatum:</label>
+          <div>${formatDate(rechnung.rechnungsdatum)}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status:</label>
+          <div><span class="status status-${rechnung.status}">${
+      rechnung.status
+    }</span></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Gesamtbetrag:</label>
+          <div><strong>${formatCurrency(rechnung.gesamtbetrag)}</strong></div>
+        </div>
+      </div>
+      
+      <h3>Positionen</h3>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Beschreibung</th>
+            <th>Menge</th>
+            <th>Einzelpreis</th>
+            <th>MwSt.</th>
+            <th>Gesamt</th>
+          </tr>
+        </thead>
+        <tbody>${positionenHtml}</tbody>
+      </table>
+      
+      <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>Zwischensumme netto:</span>
+          <span>${formatCurrency(rechnung.zwischensumme)}</span>
+        </div>
+        ${
+          rechnung.rabatt_prozent > 0
+            ? `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>Rabatt (${rechnung.rabatt_prozent}%):</span>
+          <span>${formatCurrency(rechnung.rabatt_betrag)}</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>Netto nach Rabatt:</span>
+          <span>${formatCurrency(rechnung.netto_nach_rabatt)}</span>
+        </div>
+        `
+            : ""
+        }
+        ${
+          rechnung.mwst_19 > 0
+            ? `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>MwSt. 19%:</span>
+          <span>${formatCurrency(rechnung.mwst_19)}</span>
+        </div>
+        `
+            : ""
+        }
+        ${
+          rechnung.mwst_7 > 0
+            ? `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>MwSt. 7%:</span>
+          <span>${formatCurrency(rechnung.mwst_7)}</span>
+        </div>
+        `
+            : ""
+        }
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1em; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+          <span>GESAMTBETRAG:</span>
+          <span>${formatCurrency(rechnung.gesamtbetrag)}</span>
+        </div>
+      </div>
+    `;
+
+    createModal(`Rechnung ${rechnung.rechnung_nr}`, content);
+  } catch (error) {
+    showNotification("Fehler beim Laden der Rechnung", "error");
+  }
 }
 
 function printRechnung(id) {
@@ -1098,7 +1635,11 @@ function printRechnung(id) {
 }
 
 function editAuftrag(id) {
-  showNotification("Auftrag-Bearbeitung noch nicht implementiert", "info");
+  showAuftragModal(id);
+}
+
+function editRechnung(id) {
+  showRechnungModal(id);
 }
 
 function editKunde(id) {
@@ -1109,23 +1650,78 @@ function editFahrzeug(id) {
   showFahrzeugModal(id);
 }
 
-function deleteKunde(id) {
-  if (confirm("Kunde wirklich löschen?")) {
-    showNotification("Lösch-Funktion noch nicht implementiert", "warning");
+async function createRechnungFromAuftrag(auftragId) {
+  try {
+    const auftrag = await apiCall(`/api/auftraege/${auftragId}`);
+
+    // Auftrag in Rechnung konvertieren
+    const rechnungsData = {
+      auftrag_id: auftrag.id,
+      kunden_id: auftrag.kunden_id,
+      fahrzeug_id: auftrag.fahrzeug_id,
+      rechnungsdatum: new Date().toISOString().split("T")[0],
+      auftragsdatum: auftrag.datum,
+      positionen: (auftrag.positionen || []).map((pos) => ({
+        kategorie: "ARBEITSZEITEN",
+        beschreibung: pos.beschreibung,
+        menge: pos.zeit,
+        einheit: pos.einheit,
+        einzelpreis: pos.stundenpreis,
+        mwst_prozent: 19,
+        gesamt: pos.gesamt,
+      })),
+      rabatt_prozent: 0,
+      status: "offen",
+    };
+
+    // Rechnung erstellen
+    const result = await apiCall("/api/rechnungen", "POST", rechnungsData);
+
+    showNotification(
+      `Rechnung ${result.rechnung_nr} erfolgreich aus Auftrag erstellt`,
+      "success"
+    );
+
+    // Auftrag als abgeschlossen markieren
+    auftrag.status = "abgeschlossen";
+    await apiCall(`/api/auftraege/${auftragId}`, "PUT", auftrag);
+
+    // Listen aktualisieren
+    loadAuftraege();
+    loadRechnungen();
+
+    // Zur Rechnungssektion wechseln
+    showSection("rechnungen");
+  } catch (error) {
+    showNotification("Fehler beim Erstellen der Rechnung aus Auftrag", "error");
   }
 }
 
-function deleteFahrzeug(id) {
-  if (confirm("Fahrzeug wirklich löschen?")) {
-    showNotification("Lösch-Funktion noch nicht implementiert", "warning");
-  }
+// Search functionality
+function addSearchToTable(tableId, searchInputId) {
+  const searchInput = document.getElementById(searchInputId);
+  const table = document.getElementById(tableId);
+
+  if (!searchInput || !table) return;
+
+  searchInput.addEventListener("input", function () {
+    const searchTerm = this.value.toLowerCase();
+    const rows = table.querySelectorAll("tbody tr");
+
+    rows.forEach((row) => {
+      const text = row.textContent.toLowerCase();
+      row.style.display = text.includes(searchTerm) ? "" : "none";
+    });
+  });
 }
 
-function createRechnungFromAuftrag(auftragId) {
-  showNotification(
-    "Rechnung aus Auftrag erstellen - noch nicht implementiert",
-    "info"
-  );
+// Initialize search for all tables
+function initializeSearch() {
+  // Diese Funktion wird nach dem Laden der Daten aufgerufen
+  addSearchToTable("kunden-table", "kunden-search");
+  addSearchToTable("fahrzeuge-table", "fahrzeuge-search");
+  addSearchToTable("auftraege-table", "auftraege-search");
+  addSearchToTable("rechnungen-table", "rechnungen-search");
 }
 
 // Initialize app

@@ -131,7 +131,7 @@
 
       .card-header {
         display: flex;
-        justify-content: between;
+        justify-content: space-between;
         align-items: center;
         margin-bottom: 1.5rem;
         padding-bottom: 1rem;
@@ -142,6 +142,38 @@
         font-size: 1.5rem;
         font-weight: 600;
         color: var(--text-primary);
+      }
+
+      /* Search Box */
+      .search-box {
+        position: relative;
+        margin-bottom: 1rem;
+        max-width: 400px;
+      }
+
+      .search-input {
+        width: 100%;
+        padding: 0.75rem 1rem 0.75rem 2.5rem;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        color: var(--text-primary);
+        font-size: 0.95rem;
+        transition: all 0.3s ease;
+      }
+
+      .search-input:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+
+      .search-icon {
+        position: absolute;
+        left: 0.75rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
       }
 
       /* Buttons */
@@ -298,6 +330,21 @@
       .status-abgeschlossen {
         background: rgba(16, 185, 129, 0.2);
         color: var(--accent-success);
+      }
+
+      .status-bezahlt {
+        background: rgba(16, 185, 129, 0.2);
+        color: var(--accent-success);
+      }
+
+      .status-mahnung {
+        background: rgba(245, 158, 11, 0.2);
+        color: var(--accent-warning);
+      }
+
+      .status-storniert {
+        background: rgba(239, 68, 68, 0.2);
+        color: var(--accent-danger);
       }
 
       /* Modal */
@@ -591,6 +638,15 @@
           </div>
 
           <div class="card">
+            <div class="search-box">
+              <i class="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                class="search-input"
+                id="auftraege-search"
+                placeholder="Aufträge durchsuchen..."
+              />
+            </div>
             <div class="table-container">
               <table class="table" id="auftraege-table">
                 <thead>
@@ -620,6 +676,15 @@
           </div>
 
           <div class="card">
+            <div class="search-box">
+              <i class="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                class="search-input"
+                id="rechnungen-search"
+                placeholder="Rechnungen durchsuchen..."
+              />
+            </div>
             <div class="table-container">
               <table class="table" id="rechnungen-table">
                 <thead>
@@ -649,6 +714,15 @@
           </div>
 
           <div class="card">
+            <div class="search-box">
+              <i class="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                class="search-input"
+                id="kunden-search"
+                placeholder="Kunden durchsuchen..."
+              />
+            </div>
             <div class="table-container">
               <table class="table" id="kunden-table">
                 <thead>
@@ -677,6 +751,15 @@
           </div>
 
           <div class="card">
+            <div class="search-box">
+              <i class="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                class="search-input"
+                id="fahrzeuge-search"
+                placeholder="Fahrzeuge durchsuchen..."
+              />
+            </div>
             <div class="table-container">
               <table class="table" id="fahrzeuge-table">
                 <thead>

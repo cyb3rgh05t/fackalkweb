@@ -256,6 +256,21 @@ app.get("/api/kunden", (req, res) => {
   });
 });
 
+app.get("/api/kunden/:id", (req, res) => {
+  const { id } = req.params;
+  db.get("SELECT * FROM kunden WHERE id = ?", [id], (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    if (!row) {
+      res.status(404).json({ error: "Kunde nicht gefunden" });
+      return;
+    }
+    res.json(row);
+  });
+});
+
 app.post("/api/kunden", (req, res) => {
   const { name, strasse, plz, ort, telefon, email } = req.body;
 
@@ -283,6 +298,76 @@ app.post("/api/kunden", (req, res) => {
   });
 });
 
+app.put("/api/kunden/:id", (req, res) => {
+  const { id } = req.params;
+  const { name, strasse, plz, ort, telefon, email } = req.body;
+
+  const sql = `UPDATE kunden 
+               SET name = ?, strasse = ?, plz = ?, ort = ?, telefon = ?, email = ?, 
+                   aktualisiert_am = CURRENT_TIMESTAMP 
+               WHERE id = ?`;
+
+  db.run(sql, [name, strasse, plz, ort, telefon, email, id], function (err) {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    if (this.changes === 0) {
+      res.status(404).json({ error: "Kunde nicht gefunden" });
+      return;
+    }
+    res.json({ success: true, changes: this.changes });
+  });
+});
+
+app.delete("/api/kunden/:id", (req, res) => {
+  const { id } = req.params;
+
+  // Prüfen ob Kunde noch Fahrzeuge oder Aufträge hat
+  db.get(
+    "SELECT COUNT(*) as count FROM fahrzeuge WHERE kunden_id = ?",
+    [id],
+    (err, fahrzeugRow) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      db.get(
+        "SELECT COUNT(*) as count FROM auftraege WHERE kunden_id = ?",
+        [id],
+        (err, auftragRow) => {
+          if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+          }
+
+          if (fahrzeugRow.count > 0 || auftragRow.count > 0) {
+            res.status(400).json({
+              error:
+                "Kunde kann nicht gelöscht werden. Es existieren noch zugehörige Fahrzeuge oder Aufträge.",
+            });
+            return;
+          }
+
+          // Kunde löschen
+          db.run("DELETE FROM kunden WHERE id = ?", [id], function (err) {
+            if (err) {
+              res.status(500).json({ error: err.message });
+              return;
+            }
+            if (this.changes === 0) {
+              res.status(404).json({ error: "Kunde nicht gefunden" });
+              return;
+            }
+            res.json({ success: true, changes: this.changes });
+          });
+        }
+      );
+    }
+  );
+});
+
 // === FAHRZEUGE API ===
 app.get("/api/fahrzeuge", (req, res) => {
   const { kunden_id } = req.query;
@@ -304,6 +389,26 @@ app.get("/api/fahrzeuge", (req, res) => {
       return;
     }
     res.json(rows);
+  });
+});
+
+app.get("/api/fahrzeuge/:id", (req, res) => {
+  const { id } = req.params;
+  const sql = `SELECT f.*, k.name as kunde_name 
+               FROM fahrzeuge f 
+               LEFT JOIN kunden k ON f.kunden_id = k.id 
+               WHERE f.id = ?`;
+
+  db.get(sql, [id], (err, row) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    if (!row) {
+      res.status(404).json({ error: "Fahrzeug nicht gefunden" });
+      return;
+    }
+    res.json(row);
   });
 });
 
@@ -331,6 +436,78 @@ app.post("/api/fahrzeuge", (req, res) => {
         return;
       }
       res.json({ id: this.lastID });
+    }
+  );
+});
+
+app.put("/api/fahrzeuge/:id", (req, res) => {
+  const { id } = req.params;
+  const {
+    kunden_id,
+    kennzeichen,
+    marke,
+    modell,
+    vin,
+    baujahr,
+    farbe,
+    farbcode,
+  } = req.body;
+
+  const sql = `UPDATE fahrzeuge 
+               SET kunden_id = ?, kennzeichen = ?, marke = ?, modell = ?, 
+                   vin = ?, baujahr = ?, farbe = ?, farbcode = ? 
+               WHERE id = ?`;
+
+  db.run(
+    sql,
+    [kunden_id, kennzeichen, marke, modell, vin, baujahr, farbe, farbcode, id],
+    function (err) {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      if (this.changes === 0) {
+        res.status(404).json({ error: "Fahrzeug nicht gefunden" });
+        return;
+      }
+      res.json({ success: true, changes: this.changes });
+    }
+  );
+});
+
+app.delete("/api/fahrzeuge/:id", (req, res) => {
+  const { id } = req.params;
+
+  // Prüfen ob Fahrzeug noch Aufträge hat
+  db.get(
+    "SELECT COUNT(*) as count FROM auftraege WHERE fahrzeug_id = ?",
+    [id],
+    (err, row) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      if (row.count > 0) {
+        res.status(400).json({
+          error:
+            "Fahrzeug kann nicht gelöscht werden. Es existieren noch zugehörige Aufträge.",
+        });
+        return;
+      }
+
+      // Fahrzeug löschen
+      db.run("DELETE FROM fahrzeuge WHERE id = ?", [id], function (err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        if (this.changes === 0) {
+          res.status(404).json({ error: "Fahrzeug nicht gefunden" });
+          return;
+        }
+        res.json({ success: true, changes: this.changes });
+      });
     }
   );
 });
@@ -474,6 +651,149 @@ app.post("/api/auftraege", (req, res) => {
       }
     );
   });
+});
+
+app.put("/api/auftraege/:id", (req, res) => {
+  const { id } = req.params;
+  const { kunden_id, fahrzeug_id, datum, positionen, bemerkungen, status } =
+    req.body;
+
+  // Basis-Stundenpreis aus Einstellungen holen
+  db.get(
+    'SELECT value FROM einstellungen WHERE key = "basis_stundenpreis"',
+    (err, row) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      const basisStundenpreis = parseFloat(row?.value || 110);
+
+      // Gesamtzeiten und -kosten berechnen
+      let gesamtZeit = 0;
+      let gesamtKosten = 0;
+
+      positionen.forEach((pos) => {
+        gesamtZeit += parseFloat(pos.zeit || 0);
+        gesamtKosten += parseFloat(pos.gesamt || 0);
+      });
+
+      const mwstBetrag = gesamtKosten * 0.19;
+
+      const sql = `UPDATE auftraege 
+                   SET kunden_id = ?, fahrzeug_id = ?, datum = ?, basis_stundenpreis = ?,
+                       gesamt_zeit = ?, gesamt_kosten = ?, mwst_betrag = ?, bemerkungen = ?, status = ?
+                   WHERE id = ?`;
+
+      db.run(
+        sql,
+        [
+          kunden_id,
+          fahrzeug_id,
+          datum,
+          basisStundenpreis,
+          gesamtZeit,
+          gesamtKosten,
+          mwstBetrag,
+          bemerkungen,
+          status || "offen",
+          id,
+        ],
+        function (err) {
+          if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+          }
+
+          if (this.changes === 0) {
+            res.status(404).json({ error: "Auftrag nicht gefunden" });
+            return;
+          }
+
+          // Alte Positionen löschen
+          db.run(
+            "DELETE FROM auftrag_positionen WHERE auftrag_id = ?",
+            [id],
+            (err) => {
+              if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+              }
+
+              // Neue Positionen speichern
+              const stmt =
+                db.prepare(`INSERT INTO auftrag_positionen (auftrag_id, beschreibung, stundenpreis, zeit, einheit, gesamt, reihenfolge) 
+                                    VALUES (?, ?, ?, ?, ?, ?, ?)`);
+
+              positionen.forEach((pos, index) => {
+                stmt.run([
+                  id,
+                  pos.beschreibung,
+                  pos.stundenpreis,
+                  pos.zeit,
+                  pos.einheit,
+                  pos.gesamt,
+                  index,
+                ]);
+              });
+
+              stmt.finalize();
+              res.json({ success: true, changes: this.changes });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+app.delete("/api/auftraege/:id", (req, res) => {
+  const { id } = req.params;
+
+  // Prüfen ob Auftrag bereits eine Rechnung hat
+  db.get(
+    "SELECT COUNT(*) as count FROM rechnungen WHERE auftrag_id = ?",
+    [id],
+    (err, row) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      if (row.count > 0) {
+        res.status(400).json({
+          error:
+            "Auftrag kann nicht gelöscht werden. Es existiert bereits eine zugehörige Rechnung.",
+        });
+        return;
+      }
+
+      // Erst Positionen löschen
+      db.run(
+        "DELETE FROM auftrag_positionen WHERE auftrag_id = ?",
+        [id],
+        (err) => {
+          if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+          }
+
+          // Dann Auftrag löschen
+          db.run("DELETE FROM auftraege WHERE id = ?", [id], function (err) {
+            if (err) {
+              res.status(500).json({ error: err.message });
+              return;
+            }
+            if (this.changes === 0) {
+              res.status(404).json({ error: "Auftrag nicht gefunden" });
+              return;
+            }
+            res.json({ success: true, changes: this.changes });
+          });
+        }
+      );
+    }
+  );
 });
 
 // === RECHNUNGEN API ===
@@ -651,6 +971,162 @@ app.post("/api/rechnungen", (req, res) => {
       }
     );
   });
+});
+
+app.put("/api/rechnungen/:id", (req, res) => {
+  const { id } = req.params;
+  const {
+    auftrag_id,
+    kunden_id,
+    fahrzeug_id,
+    rechnungsdatum,
+    auftragsdatum,
+    positionen,
+    rabatt_prozent,
+    status,
+  } = req.body;
+
+  // Beträge berechnen
+  let zwischensumme = 0;
+  let mwst19Basis = 0;
+  let mwst7Basis = 0;
+
+  positionen.forEach((pos) => {
+    const gesamt = parseFloat(pos.gesamt || 0);
+    zwischensumme += gesamt;
+
+    if (pos.mwst_prozent === 19) {
+      mwst19Basis += gesamt;
+    } else if (pos.mwst_prozent === 7) {
+      mwst7Basis += gesamt;
+    }
+  });
+
+  const rabattProzent = parseFloat(rabatt_prozent || 0);
+  const rabattBetrag = zwischensumme * (rabattProzent / 100);
+  const nettoNachRabatt = zwischensumme - rabattBetrag;
+
+  const mwst19 = mwst19Basis * (1 - rabattProzent / 100) * 0.19;
+  const mwst7 = mwst7Basis * (1 - rabattProzent / 100) * 0.07;
+  const gesamtbetrag = nettoNachRabatt + mwst19 + mwst7;
+
+  // Standard-Texte aus Einstellungen holen
+  db.all(
+    'SELECT key, value FROM einstellungen WHERE key IN ("zahlungsbedingungen", "gewaehrleistung")',
+    (err, settings) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      const zahlungsbedingungen =
+        settings.find((s) => s.key === "zahlungsbedingungen")?.value || "";
+      const gewaehrleistung =
+        settings.find((s) => s.key === "gewaehrleistung")?.value || "";
+
+      const sql = `UPDATE rechnungen 
+                   SET auftrag_id = ?, kunden_id = ?, fahrzeug_id = ?, rechnungsdatum = ?, auftragsdatum = ?,
+                       zwischensumme = ?, rabatt_prozent = ?, rabatt_betrag = ?, netto_nach_rabatt = ?,
+                       mwst_19 = ?, mwst_7 = ?, gesamtbetrag = ?, zahlungsbedingungen = ?, gewaehrleistung = ?, status = ?
+                   WHERE id = ?`;
+
+      db.run(
+        sql,
+        [
+          auftrag_id,
+          kunden_id,
+          fahrzeug_id,
+          rechnungsdatum,
+          auftragsdatum,
+          zwischensumme,
+          rabattProzent,
+          rabattBetrag,
+          nettoNachRabatt,
+          mwst19,
+          mwst7,
+          gesamtbetrag,
+          zahlungsbedingungen,
+          gewaehrleistung,
+          status || "offen",
+          id,
+        ],
+        function (err) {
+          if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+          }
+
+          if (this.changes === 0) {
+            res.status(404).json({ error: "Rechnung nicht gefunden" });
+            return;
+          }
+
+          // Alte Positionen löschen
+          db.run(
+            "DELETE FROM rechnung_positionen WHERE rechnung_id = ?",
+            [id],
+            (err) => {
+              if (err) {
+                res.status(500).json({ error: err.message });
+                return;
+              }
+
+              // Neue Positionen speichern
+              const stmt =
+                db.prepare(`INSERT INTO rechnung_positionen (rechnung_id, kategorie, beschreibung, menge, einheit, einzelpreis, mwst_prozent, gesamt, reihenfolge) 
+                                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+
+              positionen.forEach((pos, index) => {
+                stmt.run([
+                  id,
+                  pos.kategorie,
+                  pos.beschreibung,
+                  pos.menge,
+                  pos.einheit,
+                  pos.einzelpreis,
+                  pos.mwst_prozent,
+                  pos.gesamt,
+                  index,
+                ]);
+              });
+
+              stmt.finalize();
+              res.json({ success: true, changes: this.changes });
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+app.delete("/api/rechnungen/:id", (req, res) => {
+  const { id } = req.params;
+
+  // Erst Positionen löschen
+  db.run(
+    "DELETE FROM rechnung_positionen WHERE rechnung_id = ?",
+    [id],
+    (err) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+
+      // Dann Rechnung löschen
+      db.run("DELETE FROM rechnungen WHERE id = ?", [id], function (err) {
+        if (err) {
+          res.status(500).json({ error: err.message });
+          return;
+        }
+        if (this.changes === 0) {
+          res.status(404).json({ error: "Rechnung nicht gefunden" });
+          return;
+        }
+        res.json({ success: true, changes: this.changes });
+      });
+    }
+  );
 });
 
 // === EINSTELLUNGEN API ===

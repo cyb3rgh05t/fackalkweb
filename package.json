@@ -9,13 +9,14 @@
     "init-db": "node scripts/init-db.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "sqlite3": "^5.1.6",
     "body-parser": "^1.20.2",
-    "cors": "^2.8.5",
-    "helmet": "^7.0.0",
     "compression": "^1.7.4",
-    "express-rate-limit": "^6.7.0"
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "express-rate-limit": "^6.7.0",
+    "helmet": "^7.0.0",
+    "multer": "^2.0.1",
+    "sqlite3": "^5.1.6"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

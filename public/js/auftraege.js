@@ -466,3 +466,4 @@ async function createRechnungFromAuftrag(auftragId) {
     showNotification("Fehler beim Erstellen der Rechnung aus Auftrag", "error");
   }
 }
+window.showAuftragModal = showAuftragModal;

@@ -588,3 +588,4 @@ async function viewRechnung(id) {
 function printRechnung(id) {
   showNotification("Druck-Funktion noch nicht implementiert", "info");
 }
+window.showRechnungModal = showRechnungModal;

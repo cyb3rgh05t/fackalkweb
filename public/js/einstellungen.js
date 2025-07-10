@@ -1,5 +1,8 @@
 import { apiCall, showNotification } from "./utils.js";
 
+// Debounce-Timer für das Speichern
+let saveTimer = null;
+
 export async function loadEinstellungen() {
   try {
     const settings = await apiCall("/api/einstellungen");
@@ -93,7 +96,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (form) {
       form.addEventListener("submit", async function (e) {
         e.preventDefault();
-        await saveSettings(formId);
+        await saveSettingsBatch(formId);
       });
     }
   });
@@ -102,27 +105,68 @@ document.addEventListener("DOMContentLoaded", function () {
   showSettingsTab("firma");
 });
 
-async function saveSettings(formId) {
+// NEUE BATCH-SAVE FUNKTION (LÖSUNG FÜR DAS PROBLEM)
+async function saveSettingsBatch(formId) {
   const form = document.getElementById(formId);
   const formData = new FormData(form);
-  const updates = [];
+  const updates = {};
 
+  // Alle Formularwerte sammeln
   for (const [key, value] of formData.entries()) {
-    if (key && value !== undefined) {
-      updates.push(apiCall(`/api/einstellungen/${key}`, "PUT", { value }));
+    if (key && value !== undefined && value !== "") {
+      updates[key] = value;
     }
   }
 
-  try {
-    await Promise.all(updates);
-    showNotification("Einstellungen erfolgreich gespeichert", "success");
-    loadEinstellungen();
+  // Zeige Lade-Indikator
+  const submitButton = form.querySelector('button[type="submit"]');
+  const originalText = submitButton.innerHTML;
+  submitButton.innerHTML =
+    '<i class="fas fa-spinner fa-spin"></i> Speichere...';
+  submitButton.disabled = true;
 
-    // Andere Komponenten über Änderungen informieren
-    window.dispatchEvent(new CustomEvent("settingsUpdated"));
+  try {
+    // Ein einziger API-Call für alle Einstellungen
+    await apiCall("/api/einstellungen/batch", "PUT", { settings: updates });
+
+    showNotification("Einstellungen erfolgreich gespeichert", "success");
+
+    // Einstellungen lokal aktualisieren
+    Object.assign(window.einstellungen, updates);
+
+    // Debounced Event für andere Module (verhindert Spam)
+    debouncedSettingsUpdate();
   } catch (err) {
-    showNotification("Fehler beim Speichern der Einstellungen", "error");
+    console.error("Save error:", err);
+    showNotification(`Fehler beim Speichern: ${err.message}`, "error");
+  } finally {
+    // Button zurücksetzen
+    submitButton.innerHTML = originalText;
+    submitButton.disabled = false;
   }
+}
+
+// Debounced Settings Update (verhindert zu viele Events)
+function debouncedSettingsUpdate() {
+  // Vorherigen Timer abbrechen
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+  }
+
+  // Neuen Timer setzen
+  saveTimer = setTimeout(() => {
+    window.dispatchEvent(
+      new CustomEvent("settingsUpdated", {
+        detail: { timestamp: Date.now() },
+      })
+    );
+  }, 500); // 500ms Verzögerung
+}
+
+// FALLBACK: Alte Funktion für Kompatibilität
+async function saveSettings(formId) {
+  console.warn("saveSettings (old) called - using batch update instead");
+  return saveSettingsBatch(formId);
 }
 
 // Exportiere Funktionen die in anderen Modulen benötigt werden
@@ -132,4 +176,17 @@ export function getSetting(key, defaultValue = "") {
 
 export function getSettings() {
   return window.einstellungen || {};
+}
+
+// Neue Hilfsfunktion: Einzelne Einstellung aktualisieren
+export async function updateSingleSetting(key, value) {
+  try {
+    await apiCall(`/api/einstellungen/${key}`, "PUT", { value });
+    window.einstellungen[key] = value;
+    debouncedSettingsUpdate();
+    return true;
+  } catch (err) {
+    console.error(`Failed to update setting ${key}:`, err);
+    return false;
+  }
 }

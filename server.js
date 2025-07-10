@@ -58,29 +58,103 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Rate Limiting - unterschiedliche Limits für verschiedene Endpunkte
+// OPTIMIERTE RATE LIMITS (LÖSUNG FÜR DAS PROBLEM)
+
+// Allgemeines Rate Limit - erhöht für normale Nutzung
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 Minuten
-  max: 100,
+  max: 500, // Erhöht von 100 auf 500
   message: { error: "Zu viele Anfragen, versuchen Sie es später erneut" },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
+// Spezielles Rate Limit für Einstellungen - sehr großzügig
+const settingsLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 Minuten
+  max: 100, // 100 Einstellungs-Updates pro 5 Minuten
+  message: {
+    error: "Zu viele Einstellungsänderungen, versuchen Sie es später erneut",
+  },
+  keyGenerator: (req) => {
+    // Separate Limits für Batch vs. Single Updates
+    return req.path.includes("/batch") ? `batch_${req.ip}` : `single_${req.ip}`;
+  },
+});
+
+// Sehr restriktives Limit nur für Upload-Endpunkte
 const uploadLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5 Minuten
   max: 10, // Maximal 10 Uploads pro 5 Minuten
   message: { error: "Upload-Limit erreicht, versuchen Sie es später erneut" },
 });
 
+// Export/Import Limit
 const exportLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 Minute
   max: 5, // Maximal 5 Exports pro Minute
   message: { error: "Export-Limit erreicht, versuchen Sie es später erneut" },
 });
 
-app.use("/api/", generalLimiter);
+// RATE LIMITER ANWENDEN - RICHTIGE REIHENFOLGE WICHTIG!
+
+// 1. Spezifische Limits zuerst (werden zuerst geprüft)
+app.use("/api/einstellungen", settingsLimiter);
+app.use("/api/upload", uploadLimiter);
 app.use("/api/*/export", exportLimiter);
 
-app.use(express.static(path.join(__dirname, "public")));
+// 2. Allgemeines Limit für alle anderen API-Calls
+app.use("/api/", generalLimiter);
+
+// DEBUGGING: Rate Limit Status loggen
+app.use("/api/", (req, res, next) => {
+  // Rate Limit Headers für Debugging
+  res.on("finish", () => {
+    if (res.statusCode === 429) {
+      console.warn(
+        `⚠️  Rate Limit erreicht: ${req.method} ${req.url} - IP: ${req.ip}`
+      );
+    }
+  });
+  next();
+});
+
+// ALTERNATIVE: Conditional Rate Limiting basierend auf Request-Typ
+const smartLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: (req) => {
+    // Verschiedene Limits je nach Endpunkt
+    if (req.path.includes("/einstellungen/batch")) {
+      return 50; // Großzügig für Batch-Updates
+    }
+    if (req.path.includes("/einstellungen/")) {
+      return 200; // Mittel für einzelne Einstellungen
+    }
+    if (req.path.includes("/upload")) {
+      return 10; // Restriktiv für Uploads
+    }
+    return 300; // Standard für alles andere
+  },
+  message: (req) => ({
+    error: "Rate limit exceeded",
+    endpoint: req.path,
+    tip: req.path.includes("/einstellungen/")
+      ? "Verwenden Sie den Batch-Update Endpunkt für mehrere Einstellungen"
+      : "Versuchen Sie es später erneut",
+  }),
+});
+
+// FEHLERBEHANDLUNG für Rate Limits
+app.use((err, req, res, next) => {
+  if (err.status === 429) {
+    console.error(`Rate Limit Fehler: ${req.method} ${req.url}`, {
+      ip: req.ip,
+      userAgent: req.get("User-Agent"),
+      timestamp: new Date().toISOString(),
+    });
+  }
+  next(err);
+});
 
 // Logging Middleware
 app.use((req, res, next) => {
@@ -410,4 +484,11 @@ process.on("uncaughtException", (error) => {
   gracefulShutdown("UNCAUGHT_EXCEPTION");
 });
 
-module.exports = app;
+module.exports = {
+  generalLimiter,
+  settingsLimiter,
+  uploadLimiter,
+  exportLimiter,
+  smartLimiter,
+  app,
+};

@@ -112,10 +112,22 @@ function addExtendedStatistics(auftraege, rechnungen) {
     );
   }
 
-  // Aufträge in Bearbeitung
+  // 🔧 FIX: Aufträge in Bearbeitung - korrekter Status "in_bearbeitung"
   const auftraegeInBearbeitung = auftraege.filter(
-    (a) => a.status === "bearbeitung"
+    (a) => a.status === "in_bearbeitung"
   ).length;
+
+  // Zusätzliche Debug-Info
+  console.log("📊 Dashboard-Statistiken:");
+  console.log("- Alle Aufträge:", auftraege.length);
+  console.log("- Aufträge in Bearbeitung:", auftraegeInBearbeitung);
+  console.log(
+    "- Status-Verteilung:",
+    auftraege.reduce((acc, a) => {
+      acc[a.status] = (acc[a.status] || 0) + 1;
+      return acc;
+    }, {})
+  );
 
   // Überfällige Rechnungen (älter als Zahlungsziel)
   const zahlungszielTage = parseInt(getSetting("zahlungsziel_tage", "14"));
@@ -128,11 +140,14 @@ function addExtendedStatistics(auftraege, rechnungen) {
     return diffDays > zahlungszielTage;
   }).length;
 
-  // Durchschnittlicher Auftragswert
+  // 💡 VERBESSERT: Durchschnittlicher Auftragswert mit besserer Berechnung
+  const auftraegeWithCosts = auftraege.filter(
+    (a) => a.gesamt_kosten && a.gesamt_kosten > 0
+  );
   const durchschnittAuftragswert =
-    auftraege.length > 0
-      ? auftraege.reduce((sum, a) => sum + (a.gesamt_kosten || 0), 0) /
-        auftraege.length
+    auftraegeWithCosts.length > 0
+      ? auftraegeWithCosts.reduce((sum, a) => sum + (a.gesamt_kosten || 0), 0) /
+        auftraegeWithCosts.length
       : 0;
 
   // Jahresumsatz
@@ -144,22 +159,37 @@ function addExtendedStatistics(auftraege, rechnungen) {
     })
     .reduce((sum, r) => sum + (r.gesamtbetrag || 0), 0);
 
+  // 🎨 VERBESSERTE Karten mit besseren Tooltips und Farben
   extendedStatsContainer.innerHTML = `
-    <div class="stat-card" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);">
+    <div class="stat-card" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);" title="Aufträge mit Status 'in_bearbeitung'">
       <div class="stat-number">${auftraegeInBearbeitung}</div>
       <div class="stat-label">In Bearbeitung</div>
+      <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.25rem;">
+        aktuelle Arbeiten
+      </div>
     </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+    <div class="stat-card" style="background: linear-gradient(135deg, #ef4444, #dc2626);" title="Rechnungen älter als ${zahlungszielTage} Tage">
       <div class="stat-number">${ueberfaelligeRechnungen}</div>
       <div class="stat-label">Überfällige Rechnungen</div>
+      <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.25rem;">
+        > ${zahlungszielTage} Tage alt
+      </div>
     </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #06b6d4, #0891b2);">
+    <div class="stat-card" style="background: linear-gradient(135deg, #06b6d4, #0891b2);" title="Durchschnittswert aller Aufträge mit Kosten (${
+      auftraegeWithCosts.length
+    } von ${auftraege.length})">
       <div class="stat-number">${formatCurrency(durchschnittAuftragswert)}</div>
-      <div class="stat-label">Ø Auftragswert</div>
+      <div class="stat-label">⌀ Auftragswert</div>
+      <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.25rem;">
+        aus ${auftraegeWithCosts.length} Aufträgen
+      </div>
     </div>
-    <div class="stat-card" style="background: linear-gradient(135deg, #10b981, #059669);">
+    <div class="stat-card" style="background: linear-gradient(135deg, #10b981, #059669);" title="Summe aller bezahlten Rechnungen in ${currentYear}">
       <div class="stat-number">${formatCurrency(jahresUmsatz)}</div>
       <div class="stat-label">Jahresumsatz ${currentYear}</div>
+      <div style="font-size: 0.75rem; opacity: 0.8; margin-top: 0.25rem;">
+        nur bezahlte Rechnungen
+      </div>
     </div>
   `;
 }
@@ -177,8 +207,14 @@ function updateAuftraegeTable(auftraege) {
         <td>${auftrag.kunde_name || "-"}</td>
         <td>${auftrag.kennzeichen || ""} ${auftrag.marke || ""}</td>
         <td>${formatDate(auftrag.datum)}</td>
-        <td><span class="status status-${auftrag.status}">${
-        auftrag.status
+        <td><span class="status status-${auftrag.status.replace("_", "-")}">${
+        auftrag.status === "in_bearbeitung"
+          ? "In Bearbeitung"
+          : auftrag.status === "offen"
+          ? "Offen"
+          : auftrag.status === "abgeschlossen"
+          ? "Abgeschlossen"
+          : auftrag.status
       }</span></td>
         <td>${formatCurrency(auftrag.gesamt_kosten)}</td>
       </tr>

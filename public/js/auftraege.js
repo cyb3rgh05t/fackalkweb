@@ -20,12 +20,20 @@ async function loadAuftraege() {
         (auftrag) => `
         <tr onclick="viewAuftrag(${auftrag.id})" style="cursor: pointer;">
           <td>${auftrag.auftrag_nr}</td>
-          <td>${auftrag.name}</td>
-          <td>${auftrag.kennzeichen} - ${auftrag.marke} ${auftrag.modell}</td>
+          <td>${auftrag.kunde_name || auftrag.name || "-"}</td>
+          <td>${auftrag.kennzeichen || ""} - ${auftrag.marke || ""} ${
+          auftrag.modell || ""
+        }</td>
           <td>${formatDate(auftrag.datum)}</td>
           <td>
-            <span class="status status-${auftrag.status}">${
-          auftrag.status
+            <span class="status status-${auftrag.status.replace("_", "-")}">${
+          auftrag.status === "in_bearbeitung"
+            ? "In Bearbeitung"
+            : auftrag.status === "offen"
+            ? "Offen"
+            : auftrag.status === "abgeschlossen"
+            ? "Abgeschlossen"
+            : auftrag.status
         }</span>
           </td>
           <td>${formatCurrency(auftrag.gesamt_kosten)}</td>

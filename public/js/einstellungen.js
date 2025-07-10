@@ -5,10 +5,19 @@ let saveTimer = null;
 
 export async function loadEinstellungen() {
   try {
+    console.log("🔧 Lade Einstellungen...");
     const settings = await apiCall("/api/einstellungen");
+
+    // Einstellungen global verfügbar machen
     window.einstellungen = {};
     settings.forEach(
       (setting) => (window.einstellungen[setting.key] = setting.value)
+    );
+
+    console.log(
+      "✅ Einstellungen geladen:",
+      Object.keys(window.einstellungen).length,
+      "Einträge"
     );
 
     // Alle Formulare füllen
@@ -24,9 +33,43 @@ export async function loadEinstellungen() {
         logoPreview.innerHTML = `<img src="${window.einstellungen.firmen_logo}" alt="Firmenlogo" style="max-width: 200px; max-height: 100px;">`;
       }
     }
+
+    // Event für andere Module senden
+    window.dispatchEvent(
+      new CustomEvent("settingsLoaded", {
+        detail: window.einstellungen,
+      })
+    );
   } catch (err) {
-    console.error("Failed to load settings:", err);
+    console.error("❌ Fehler beim Laden der Einstellungen:", err);
+    // Fallback: Leere Einstellungen setzen
+    window.einstellungen = {};
   }
+}
+
+// Hilfsfunktion: Einstellung sicher abrufen
+export function getSetting(key, defaultValue = "") {
+  // Warten bis Einstellungen geladen sind
+  if (!window.einstellungen) {
+    console.warn(
+      `⚠️ Einstellungen noch nicht geladen - verwende Standardwert für ${key}`
+    );
+    return defaultValue;
+  }
+  return window.einstellungen[key] || defaultValue;
+}
+
+// Hilfsfunktion: Einstellungen sicher setzen
+export function setSetting(key, value) {
+  if (!window.einstellungen) {
+    window.einstellungen = {};
+  }
+  window.einstellungen[key] = value;
+}
+
+// Hilfsfunktion: Alle Einstellungen abrufen
+export function getSettings() {
+  return window.einstellungen || {};
 }
 
 function fillForm(formId, settings) {
@@ -54,58 +97,7 @@ window.showSettingsTab = function (tabName) {
   document.getElementById(`${tabName}-settings`).classList.add("active");
 };
 
-// Logo-Upload-Funktionalität
-window.handleLogoUpload = function (event) {
-  const file = event.target.files[0];
-  if (!file) return;
-
-  // Datei-Validierung
-  if (!file.type.startsWith("image/")) {
-    showNotification("Bitte wählen Sie eine Bilddatei aus", "error");
-    return;
-  }
-
-  if (file.size > 2 * 1024 * 1024) {
-    // 2MB
-    showNotification("Die Datei ist zu groß. Maximal 2MB erlaubt.", "error");
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = function (e) {
-    const logoPreview = document.getElementById("logo-preview");
-    logoPreview.innerHTML = `<img src="${e.target.result}" alt="Firmenlogo" style="max-width: 200px; max-height: 100px;">`;
-
-    // Base64 in verstecktes Feld speichern
-    document.querySelector('[name="firmen_logo"]').value = e.target.result;
-  };
-  reader.readAsDataURL(file);
-};
-
-document.addEventListener("DOMContentLoaded", function () {
-  // Event-Listener für alle Einstellungsformulare
-  const forms = [
-    "firma-form",
-    "leistungen-form",
-    "rechnungen-form",
-    "auftraege-form",
-  ];
-
-  forms.forEach((formId) => {
-    const form = document.getElementById(formId);
-    if (form) {
-      form.addEventListener("submit", async function (e) {
-        e.preventDefault();
-        await saveSettingsBatch(formId);
-      });
-    }
-  });
-
-  // Standard-Tab anzeigen
-  showSettingsTab("firma");
-});
-
-// NEUE BATCH-SAVE FUNKTION (LÖSUNG FÜR DAS PROBLEM)
+// VERBESSERTE BATCH-SAVE FUNKTION
 async function saveSettingsBatch(formId) {
   const form = document.getElementById(formId);
   const formData = new FormData(form);
@@ -134,59 +126,68 @@ async function saveSettingsBatch(formId) {
     // Einstellungen lokal aktualisieren
     Object.assign(window.einstellungen, updates);
 
-    // Debounced Event für andere Module (verhindert Spam)
-    debouncedSettingsUpdate();
-  } catch (err) {
-    console.error("Save error:", err);
-    showNotification(`Fehler beim Speichern: ${err.message}`, "error");
+    // Event für andere Module senden
+    window.dispatchEvent(
+      new CustomEvent("settingsUpdated", {
+        detail: { updated: updates, all: window.einstellungen },
+      })
+    );
+  } catch (error) {
+    console.error("❌ Fehler beim Speichern:", error);
+    showNotification("Fehler beim Speichern der Einstellungen", "error");
   } finally {
-    // Button zurücksetzen
+    // Lade-Indikator zurücksetzen
     submitButton.innerHTML = originalText;
     submitButton.disabled = false;
   }
 }
 
-// Debounced Settings Update (verhindert zu viele Events)
-function debouncedSettingsUpdate() {
-  // Vorherigen Timer abbrechen
-  if (saveTimer) {
-    clearTimeout(saveTimer);
+// Event-Listener für Formulare
+document.addEventListener("DOMContentLoaded", function () {
+  const forms = [
+    "firma-form",
+    "leistungen-form",
+    "rechnungen-form",
+    "auftraege-form",
+  ];
+
+  forms.forEach((formId) => {
+    const form = document.getElementById(formId);
+    if (form) {
+      form.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        await saveSettingsBatch(formId);
+      });
+    }
+  });
+
+  // Standard-Tab anzeigen
+  showSettingsTab("firma");
+});
+
+// Logo-Upload-Funktionalität
+window.handleLogoUpload = function (event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Datei-Validierung
+  if (!file.type.startsWith("image/")) {
+    showNotification("Bitte wählen Sie eine Bilddatei aus", "error");
+    return;
   }
 
-  // Neuen Timer setzen
-  saveTimer = setTimeout(() => {
-    window.dispatchEvent(
-      new CustomEvent("settingsUpdated", {
-        detail: { timestamp: Date.now() },
-      })
-    );
-  }, 500); // 500ms Verzögerung
-}
-
-// FALLBACK: Alte Funktion für Kompatibilität
-async function saveSettings(formId) {
-  console.warn("saveSettings (old) called - using batch update instead");
-  return saveSettingsBatch(formId);
-}
-
-// Exportiere Funktionen die in anderen Modulen benötigt werden
-export function getSetting(key, defaultValue = "") {
-  return window.einstellungen?.[key] || defaultValue;
-}
-
-export function getSettings() {
-  return window.einstellungen || {};
-}
-
-// Neue Hilfsfunktion: Einzelne Einstellung aktualisieren
-export async function updateSingleSetting(key, value) {
-  try {
-    await apiCall(`/api/einstellungen/${key}`, "PUT", { value });
-    window.einstellungen[key] = value;
-    debouncedSettingsUpdate();
-    return true;
-  } catch (err) {
-    console.error(`Failed to update setting ${key}:`, err);
-    return false;
+  if (file.size > 2 * 1024 * 1024) {
+    showNotification("Die Datei ist zu groß. Maximal 2MB erlaubt.", "error");
+    return;
   }
-}
+
+  const reader = new FileReader();
+  reader.onload = function (e) {
+    const logoPreview = document.getElementById("logo-preview");
+    logoPreview.innerHTML = `<img src="${e.target.result}" alt="Firmenlogo" style="max-width: 200px; max-height: 100px;">`;
+
+    // Base64 in verstecktes Feld speichern
+    document.querySelector('[name="firmen_logo"]').value = e.target.result;
+  };
+  reader.readAsDataURL(file);
+};

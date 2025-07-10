@@ -294,7 +294,6 @@ body {
   background: var(--bg-secondary);
 }
 
-/* Status badges */
 .status {
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
@@ -308,6 +307,12 @@ body {
 }
 
 .status-bearbeitung {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--accent-warning);
+}
+
+/* NEUE CSS-Klasse für in_bearbeitung Status */
+.status-in-bearbeitung {
   background: rgba(245, 158, 11, 0.2);
   color: var(--accent-warning);
 }

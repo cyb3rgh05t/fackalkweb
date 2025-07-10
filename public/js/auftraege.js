@@ -6,6 +6,7 @@ import {
 } from "./utils.js";
 import { addSearchToTable } from "./search.js";
 import { createModal, closeModal } from "./modals.js";
+import { getSetting, getSettings } from "./einstellungen.js";
 
 // Aufträge laden und in die Tabelle einfügen
 export async function loadAuftraege() {
@@ -81,10 +82,14 @@ window.updateAuftragStatus = updateAuftragStatus;
 window.createRechnungFromAuftrag = createRechnungFromAuftrag;
 
 export async function showAuftragModal(auftragId = null) {
-  // Kunden laden falls nicht vorhanden
+  // Einstellungen und Kunden laden
   if (!window.kunden || window.kunden.length === 0) {
     window.kunden = await apiCall("/api/kunden");
   }
+  if (!window.einstellungen) {
+    await import("./einstellungen.js").then((m) => m.loadEinstellungen());
+  }
+
   if (auftragId) {
     loadAuftragForEdit(auftragId);
   } else {
@@ -111,17 +116,21 @@ function displayAuftragModal(auftrag = null) {
         }>${k.name}</option>`
     )
     .join("");
-  const arbeitsschritte = [
-    "Demontage/Vorbereitung",
-    "Schleifen/Spachteln",
-    "Grundierung",
-    "Zwischenschliff",
-    "Basislack",
-    "Klarlack",
-    "Polieren/Finish",
-    "Montage",
-  ];
-  const arbeitsschritteRows = arbeitsschritte
+
+  // Standard-Arbeitsschritte aus Einstellungen holen
+  const standardArbeitsschritte = getSetting(
+    "standard_arbeitsschritte",
+    "Demontage/Vorbereitung\nSchleifen/Spachteln\nGrundierung\nZwischenschliff\nBasislack\nKlarlack\nPolieren/Finish\nMontage"
+  )
+    .split("\n")
+    .filter((s) => s.trim());
+
+  // Basis-Stundenpreis aus Einstellungen
+  const basisStundenpreis = parseFloat(
+    getSetting("basis_stundenpreis", "110.00")
+  );
+
+  const arbeitsschritteRows = standardArbeitsschritte
     .map((schritt, index) => {
       const position = auftrag?.positionen?.[index] || {};
       return `
@@ -130,7 +139,7 @@ function displayAuftragModal(auftrag = null) {
               position.beschreibung || schritt
             }" name="beschreibung_${index}"></td>
             <td><input type="number" step="0.01" class="form-input" value="${
-              position.stundenpreis || 110
+              position.stundenpreis || basisStundenpreis
             }" name="stundenpreis_${index}"></td>
             <td><input type="number" step="0.01" class="form-input" value="${
               position.zeit || 0
@@ -143,6 +152,7 @@ function displayAuftragModal(auftrag = null) {
       `;
     })
     .join("");
+
   const content = `
         <form id="auftrag-form">
             <div class="form-grid">
@@ -179,6 +189,11 @@ function displayAuftragModal(auftrag = null) {
                         }>Abgeschlossen</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Basis-Stundenpreis (€)</label>
+                    <input type="number" step="0.01" class="form-input" name="basis_stundenpreis" value="${basisStundenpreis}" readonly>
+                    <small class="text-muted">Wird aus den Einstellungen übernommen</small>
+                </div>
             </div>
             <h3 style="margin: 2rem 0 1rem 0;">Arbeitszeiten</h3>
             <div class="table-container">
@@ -207,7 +222,7 @@ function displayAuftragModal(auftrag = null) {
                     <span id="gesamt-kosten">0,00 €</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <strong>Mit 19% MwSt:</strong>
+                    <strong>Mit ${getSetting("mwst_satz", "19")}% MwSt:</strong>
                     <span id="gesamt-mwst">0,00 €</span>
                 </div>
             </div>
@@ -219,6 +234,7 @@ function displayAuftragModal(auftrag = null) {
             </div>
         </form>
     `;
+
   const footer = `
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
         <button type="button" class="btn btn-primary" onclick="saveAuftrag(${
@@ -229,13 +245,15 @@ function displayAuftragModal(auftrag = null) {
             }
         </button>
     `;
+
   createModal(isEdit ? "Auftrag bearbeiten" : "Neuer Auftrag", content, footer);
 
   if (auftrag?.kunden_id) {
     loadKundenFahrzeuge(auftrag.kunden_id, auftrag.fahrzeug_id);
   }
+
   setTimeout(() => {
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < standardArbeitsschritte.length; i++) {
       calculateAuftragRow(i);
     }
   }, 100);
@@ -276,9 +294,13 @@ window.calculateAuftragRow = function (index) {
   const gesamt = stundenpreis * zeit;
   const gesamtInput = document.querySelector(`[name="gesamt_${index}"]`);
   if (gesamtInput) gesamtInput.value = gesamt.toFixed(2);
+
+  // Gesamtsummen berechnen
   let gesamtZeit = 0,
     gesamtKosten = 0;
-  for (let i = 0; i < 8; i++) {
+  const maxRows = document.querySelectorAll('[name^="zeit_"]').length;
+
+  for (let i = 0; i < maxRows; i++) {
     const zeitInput = document.querySelector(`[name="zeit_${i}"]`);
     const gesamtInput = document.querySelector(`[name="gesamt_${i}"]`);
     if (zeitInput && gesamtInput) {
@@ -286,20 +308,27 @@ window.calculateAuftragRow = function (index) {
       gesamtKosten += parseFloat(gesamtInput.value) || 0;
     }
   }
+
+  const mwstSatz = parseFloat(getSetting("mwst_satz", "19")) / 100;
+
   const gesamtZeitEl = document.getElementById("gesamt-zeit");
   const gesamtKostenEl = document.getElementById("gesamt-kosten");
   const gesamtMwstEl = document.getElementById("gesamt-mwst");
+
   if (gesamtZeitEl) gesamtZeitEl.textContent = gesamtZeit.toFixed(2) + " Std.";
   if (gesamtKostenEl) gesamtKostenEl.textContent = formatCurrency(gesamtKosten);
   if (gesamtMwstEl)
-    gesamtMwstEl.textContent = formatCurrency(gesamtKosten * 1.19);
+    gesamtMwstEl.textContent = formatCurrency(gesamtKosten * (1 + mwstSatz));
 };
 
 window.saveAuftrag = async function (auftragId = null) {
   const form = document.getElementById("auftrag-form");
   const formData = new FormData(form);
   const positionen = [];
-  for (let i = 0; i < 8; i++) {
+
+  const maxRows = document.querySelectorAll('[name^="beschreibung_"]').length;
+
+  for (let i = 0; i < maxRows; i++) {
     const beschreibung = formData.get(`beschreibung_${i}`);
     const stundenpreis = parseFloat(formData.get(`stundenpreis_${i}`)) || 0;
     const zeit = parseFloat(formData.get(`zeit_${i}`)) || 0;
@@ -314,6 +343,7 @@ window.saveAuftrag = async function (auftragId = null) {
       });
     }
   }
+
   const data = {
     kunden_id: parseInt(formData.get("kunden_id")),
     fahrzeug_id: parseInt(formData.get("fahrzeug_id")),
@@ -322,6 +352,7 @@ window.saveAuftrag = async function (auftragId = null) {
     positionen,
     bemerkungen: formData.get("bemerkungen"),
   };
+
   try {
     if (auftragId) {
       await apiCall(`/api/auftraege/${auftragId}`, "PUT", data);
@@ -329,6 +360,13 @@ window.saveAuftrag = async function (auftragId = null) {
     } else {
       await apiCall("/api/auftraege", "POST", data);
       showNotification("Auftrag erfolgreich erstellt", "success");
+
+      // E-Mail-Benachrichtigung senden falls aktiviert
+      const emailBenachrichtigung = getSetting("email_benachrichtigung", "0");
+      if (emailBenachrichtigung === "1") {
+        // Hier würde die E-Mail-Funktionalität implementiert werden
+        console.log("E-Mail-Benachrichtigung würde gesendet werden");
+      }
     }
     closeModal();
     loadAuftraege();
@@ -353,7 +391,6 @@ async function deleteAuftrag(id) {
   }
 }
 
-// Status Update Funktion
 async function updateAuftragStatus(id, status) {
   try {
     const auftrag = await apiCall(`/api/auftraege/${id}`);
@@ -367,7 +404,6 @@ async function updateAuftragStatus(id, status) {
   }
 }
 
-// Modal zum Anzeigen (View)
 async function viewAuftrag(id) {
   try {
     const auftrag = await apiCall(`/api/auftraege/${id}`);
@@ -384,6 +420,9 @@ async function viewAuftrag(id) {
     `
         )
         .join("") || '<tr><td colspan="4">Keine Positionen</td></tr>';
+
+    const mwstSatz = getSetting("mwst_satz", "19");
+
     const content = `
       <div class="form-grid">
         <div class="form-group"><label class="form-label">Auftrag-Nr.:</label><div>${
@@ -403,7 +442,7 @@ async function viewAuftrag(id) {
         }">${auftrag.status}</span></div></div>
         <div class="form-group"><label class="form-label">Gesamt:</label><div>${formatCurrency(
           auftrag.gesamt_kosten
-        )}</div></div>
+        )} (inkl. ${mwstSatz}% MwSt.)</div></div>
       </div>
       <h3>Positionen</h3>
       <table class="table">
@@ -429,10 +468,11 @@ async function viewAuftrag(id) {
   }
 }
 
-// Rechnung aus Auftrag erzeugen (wie bisher)
 async function createRechnungFromAuftrag(auftragId) {
   try {
     const auftrag = await apiCall(`/api/auftraege/${auftragId}`);
+    const mwstSatz = parseFloat(getSetting("mwst_satz", "19"));
+
     // Auftrag in Rechnung umwandeln
     const rechnungsData = {
       auftrag_id: auftrag.id,
@@ -446,24 +486,32 @@ async function createRechnungFromAuftrag(auftragId) {
         menge: pos.zeit,
         einheit: pos.einheit,
         einzelpreis: pos.stundenpreis,
-        mwst_prozent: 19,
+        mwst_prozent: mwstSatz,
         gesamt: pos.gesamt,
       })),
       rabatt_prozent: 0,
       status: "offen",
     };
+
     const result = await apiCall("/api/rechnungen", "POST", rechnungsData);
     showNotification(
       `Rechnung ${result.rechnung_nr} erfolgreich aus Auftrag erstellt`,
       "success"
     );
+
     auftrag.status = "abgeschlossen";
     await apiCall(`/api/auftraege/${auftragId}`, "PUT", auftrag);
     loadAuftraege();
-    // Du kannst optional hier loadRechnungen(); aufrufen
     window.showSection("rechnungen");
   } catch (error) {
     showNotification("Fehler beim Erstellen der Rechnung aus Auftrag", "error");
   }
 }
+
+// Event Listener für Einstellungsänderungen
+window.addEventListener("settingsUpdated", () => {
+  console.log("Einstellungen wurden aktualisiert - Aufträge-Modul reagiert");
+  // Hier könnten weitere Aktionen ausgeführt werden
+});
+
 window.showAuftragModal = showAuftragModal;

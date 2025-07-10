@@ -499,3 +499,128 @@ body {
     transform: translateX(0);
   }
 }
+
+/* Einstellungen Tab-System */
+.settings-tabs {
+  display: flex;
+  background: var(--bg-tertiary);
+  border-radius: 12px;
+  padding: 0.5rem;
+  margin-bottom: 2rem;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.settings-tab {
+  padding: 1rem 1.5rem;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: max-content;
+}
+
+.settings-tab:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.settings-tab.active {
+  background: var(--accent-primary);
+  color: var(--text-primary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+.settings-content {
+  display: none;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.settings-content.active {
+  display: block;
+}
+
+/* Text-Muted für Hinweise */
+.text-muted {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  font-style: italic;
+  margin-top: 0.25rem;
+  display: block;
+}
+
+/* Logo-Upload Bereich */
+#logo-preview {
+  border: 2px dashed var(--border-color);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  background: var(--bg-tertiary);
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#logo-preview img {
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+#logo-preview:empty::before {
+  content: "Kein Logo hochgeladen";
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Form-Verbesserungen für Einstellungen */
+.settings-content .form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.settings-content .card {
+  margin-bottom: 0;
+}
+
+.settings-content h3 {
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 0.5rem;
+}
+
+/* Responsive Anpassungen für Tabs */
+@media (max-width: 768px) {
+  .settings-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-primary) var(--bg-tertiary);
+  }
+
+  .settings-tabs::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .settings-tabs::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+  }
+
+  .settings-tabs::-webkit-scrollbar-thumb {
+    background: var(--accent-primary);
+    border-radius: 2px;
+  }
+
+  .settings-tab {
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+  }
+}

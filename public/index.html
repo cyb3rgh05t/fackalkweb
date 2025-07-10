@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Lackiererei - Rechnungs- und Auftragssystem</title>
+    <title>KFZFacPRO</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
@@ -19,8 +19,8 @@
       <div class="container">
         <div class="header-content">
           <div class="logo">
-            <i class="fas fa-paint-brush"></i>
-            Lackiererei
+            <i class="fa-solid fa-wallet"></i>
+            KFZFacPRO
           </div>
           <nav class="nav">
             <button class="nav-item active" onclick="showSection('dashboard')">
@@ -280,62 +280,404 @@
         <section id="einstellungen" class="section">
           <h1 style="margin-bottom: 2rem">Einstellungen</h1>
 
-          <div class="card">
-            <div class="card-header">
-              <h2 class="card-title">Grundeinstellungen</h2>
+          <!-- Tab-Navigation -->
+          <div class="settings-tabs">
+            <button
+              class="settings-tab active"
+              data-tab="firma"
+              onclick="showSettingsTab('firma')"
+            >
+              <i class="fas fa-building"></i> Firmendaten
+            </button>
+            <button
+              class="settings-tab"
+              data-tab="leistungen"
+              onclick="showSettingsTab('leistungen')"
+            >
+              <i class="fas fa-tools"></i> Leistungen
+            </button>
+            <button
+              class="settings-tab"
+              data-tab="rechnungen"
+              onclick="showSettingsTab('rechnungen')"
+            >
+              <i class="fas fa-file-invoice"></i> Rechnungen
+            </button>
+            <button
+              class="settings-tab"
+              data-tab="auftraege"
+              onclick="showSettingsTab('auftraege')"
+            >
+              <i class="fas fa-clipboard-list"></i> Aufträge
+            </button>
+          </div>
+
+          <!-- Firmendaten -->
+          <div id="firma-settings" class="settings-content active">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Firmendaten</h2>
+              </div>
+              <form id="firma-form">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Firmenname *</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="firmenname"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Rechtsform</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="rechtsform"
+                      placeholder="z.B. GmbH, UG, Einzelunternehmen"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Geschäftsführer</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="geschaeftsfuehrer"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Straße, Hausnummer</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="firmen_strasse"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">PLZ</label>
+                    <input type="text" class="form-input" name="firmen_plz" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Ort</label>
+                    <input type="text" class="form-input" name="firmen_ort" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Telefon</label>
+                    <input
+                      type="tel"
+                      class="form-input"
+                      name="firmen_telefon"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Fax</label>
+                    <input type="tel" class="form-input" name="firmen_fax" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">E-Mail</label>
+                    <input
+                      type="email"
+                      class="form-input"
+                      name="firmen_email"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Website</label>
+                    <input
+                      type="url"
+                      class="form-input"
+                      name="firmen_website"
+                      placeholder="https://www.ihre-website.de"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Steuernummer</label>
+                    <input type="text" class="form-input" name="steuernummer" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">USt-IdNr.</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="umsatzsteuer_id"
+                    />
+                  </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem 0">Bankverbindung</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Bank</label>
+                    <input type="text" class="form-input" name="bank_name" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">IBAN</label>
+                    <input type="text" class="form-input" name="bank_iban" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">BIC</label>
+                    <input type="text" class="form-input" name="bank_bic" />
+                  </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem 0">Firmenlogo</h3>
+                <div class="form-group">
+                  <label class="form-label">Logo hochladen</label>
+                  <input
+                    type="file"
+                    class="form-input"
+                    accept="image/*"
+                    onchange="handleLogoUpload(event)"
+                  />
+                  <input type="hidden" name="firmen_logo" />
+                  <div id="logo-preview" style="margin-top: 1rem"></div>
+                  <small class="text-muted"
+                    >Maximale Dateigröße: 2MB. Empfohlene Formate: PNG,
+                    JPG</small
+                  >
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i> Firmendaten speichern
+                </button>
+              </form>
             </div>
-            <form id="einstellungen-form">
-              <div class="form-grid">
-                <div class="form-group">
-                  <label class="form-label">Basis-Stundenpreis (€)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    class="form-input"
-                    name="basis_stundenpreis"
-                  />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Standard MwSt-Satz (%)</label>
-                  <input
-                    type="number"
-                    class="form-input"
-                    name="mwst_standard"
-                  />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Ermäßigter MwSt-Satz (%)</label>
-                  <input
-                    type="number"
-                    class="form-input"
-                    name="mwst_ermaessigt"
-                  />
-                </div>
-                <div class="form-group">
-                  <label class="form-label">Firmenname</label>
-                  <input type="text" class="form-input" name="firmenname" />
-                </div>
+          </div>
+
+          <!-- Leistungen -->
+          <div id="leistungen-settings" class="settings-content">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Leistungen & Preise</h2>
               </div>
-              <div class="form-group">
-                <label class="form-label">Zahlungsbedingungen</label>
-                <textarea
-                  class="form-textarea"
-                  name="zahlungsbedingungen"
-                  rows="3"
-                ></textarea>
+              <form id="leistungen-form">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Basis-Stundenpreis (€) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      class="form-input"
+                      name="basis_stundenpreis"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Anfahrtspauschale (€)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      class="form-input"
+                      name="anfahrtspauschale"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Mindestauftragswert (€)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      class="form-input"
+                      name="mindestauftragswert"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label"
+                      >Standard Arbeitszeit (Std.)</label
+                    >
+                    <input
+                      type="number"
+                      step="0.5"
+                      class="form-input"
+                      name="standard_arbeitszeit"
+                      placeholder="8.0"
+                    />
+                  </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem 0">Zusatzleistungen</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Express-Zuschlag (%)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      class="form-input"
+                      name="express_zuschlag"
+                      placeholder="20"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Wochenend-Zuschlag (%)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      class="form-input"
+                      name="wochenend_zuschlag"
+                      placeholder="30"
+                    />
+                  </div>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i> Leistungen speichern
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Rechnungen -->
+          <div id="rechnungen-settings" class="settings-content">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Rechnungseinstellungen</h2>
               </div>
-              <div class="form-group">
-                <label class="form-label">Gewährleistung</label>
-                <textarea
-                  class="form-textarea"
-                  name="gewaehrleistung"
-                  rows="2"
-                ></textarea>
+              <form id="rechnungen-form">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Mehrwertsteuer (%) *</label>
+                    <input
+                      type="number"
+                      step="1"
+                      class="form-input"
+                      name="mwst_satz"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label"
+                      >Skonto bei Zahlung innerhalb (Tage)</label
+                    >
+                    <input
+                      type="number"
+                      class="form-input"
+                      name="skonto_tage"
+                      placeholder="10"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Skonto-Prozentsatz (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      class="form-input"
+                      name="skonto_prozent"
+                      placeholder="2.0"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Zahlungsziel (Tage)</label>
+                    <input
+                      type="number"
+                      class="form-input"
+                      name="zahlungsziel_tage"
+                      placeholder="14"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Zahlungsbedingungen</label>
+                  <textarea
+                    class="form-textarea"
+                    name="zahlungsbedingungen"
+                    rows="4"
+                    placeholder="Zahlbar innerhalb 14 Tagen netto. Bei Überschreitung der Zahlungsfrist werden Verzugszinsen in Höhe von 9% über dem Basiszinssatz berechnet."
+                  ></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Gewährleistung</label>
+                  <textarea
+                    class="form-textarea"
+                    name="gewaehrleistung"
+                    rows="3"
+                    placeholder="3 Jahre auf Lackierarbeiten bei ordnungsgemäßer Behandlung."
+                  ></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Rechnungshinweise</label>
+                  <textarea
+                    class="form-textarea"
+                    name="rechnungshinweise"
+                    rows="3"
+                    placeholder="Zusätzliche Hinweise die auf jeder Rechnung erscheinen sollen..."
+                  ></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i> Rechnungseinstellungen speichern
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Aufträge -->
+          <div id="auftraege-settings" class="settings-content">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Auftragseinstellungen</h2>
               </div>
-              <button type="submit" class="btn btn-primary">
-                <i class="fas fa-save"></i> Speichern
-              </button>
-            </form>
+              <form id="auftraege-form">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label"
+                      >Standard Bearbeitungszeit (Tage)</label
+                    >
+                    <input
+                      type="number"
+                      class="form-input"
+                      name="standard_bearbeitungszeit"
+                      placeholder="5"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label"
+                      >Automatische Status-Aktualisierung</label
+                    >
+                    <select class="form-select" name="auto_status_update">
+                      <option value="0">Deaktiviert</option>
+                      <option value="1">Aktiviert</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label"
+                      >E-Mail-Benachrichtigung bei neuen Aufträgen</label
+                    >
+                    <select class="form-select" name="email_benachrichtigung">
+                      <option value="0">Deaktiviert</option>
+                      <option value="1">Aktiviert</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Benachrichtigungs-E-Mail</label>
+                    <input
+                      type="email"
+                      class="form-input"
+                      name="benachrichtigung_email"
+                    />
+                  </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem 0">Standard Arbeitsschritte</h3>
+                <div class="form-group">
+                  <label class="form-label"
+                    >Vordefinierte Arbeitsschritte (einer pro Zeile)</label
+                  >
+                  <textarea
+                    class="form-textarea"
+                    name="standard_arbeitsschritte"
+                    rows="8"
+                    placeholder="Demontage/Vorbereitung&#10;Schleifen/Spachteln&#10;Grundierung&#10;Zwischenschliff&#10;Basislack&#10;Klarlack&#10;Polieren/Finish&#10;Montage"
+                  ></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i> Auftragseinstellungen speichern
+                </button>
+              </form>
+            </div>
           </div>
         </section>
       </div>

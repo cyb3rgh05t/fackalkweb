@@ -174,11 +174,41 @@ function initializeDatabase() {
 function insertDefaultData() {
   console.log("📊 Füge Standard-Daten ein...");
 
-  // Standard-Einstellungen
+  // Erweiterte Standard-Einstellungen
   const defaultSettings = [
+    // Firmendaten
+    ["firmenname", "FAF Lackiererei", "Name der Firma"],
+    ["rechtsform", "", "Rechtsform der Firma"],
+    ["geschaeftsfuehrer", "", "Name des Geschäftsführers"],
+    ["firmen_strasse", "Musterstraße 123", "Firmen-Straße und Hausnummer"],
+    ["firmen_plz", "12345", "Firmen-PLZ"],
+    ["firmen_ort", "Musterstadt", "Firmen-Ort"],
+    ["firmen_telefon", "+49 123 456789", "Firmen-Telefonnummer"],
+    ["firmen_fax", "", "Firmen-Faxnummer"],
+    ["firmen_email", "info@faf-lackiererei.de", "Firmen E-Mail"],
+    ["firmen_website", "", "Firmen-Website"],
+    ["steuernummer", "", "Steuernummer der Firma"],
+    ["umsatzsteuer_id", "", "Umsatzsteuer-Identifikationsnummer"],
+    ["firmen_logo", "", "Base64-kodiertes Firmenlogo"],
+
+    // Bankverbindung
+    ["bank_name", "", "Name der Bank"],
+    ["bank_iban", "", "IBAN"],
+    ["bank_bic", "", "BIC"],
+
+    // Leistungen & Preise
     ["basis_stundenpreis", "110.00", "Standard Stundenpreis in Euro"],
-    ["mwst_standard", "19", "Standard MwSt-Satz in Prozent"],
-    ["mwst_ermaessigt", "7", "Ermäßigter MwSt-Satz in Prozent"],
+    ["anfahrtspauschale", "0.00", "Anfahrtspauschale in Euro"],
+    ["mindestauftragswert", "0.00", "Mindestauftragswert in Euro"],
+    ["standard_arbeitszeit", "8.0", "Standard Arbeitszeit pro Tag in Stunden"],
+    ["express_zuschlag", "20", "Express-Zuschlag in Prozent"],
+    ["wochenend_zuschlag", "30", "Wochenend-Zuschlag in Prozent"],
+
+    // Rechnungseinstellungen
+    ["mwst_satz", "19", "Mehrwertsteuersatz in Prozent"],
+    ["skonto_tage", "10", "Skonto-Tage"],
+    ["skonto_prozent", "2.0", "Skonto-Prozentsatz"],
+    ["zahlungsziel_tage", "14", "Zahlungsziel in Tagen"],
     [
       "zahlungsbedingungen",
       "Zahlbar innerhalb 14 Tagen netto. Bei Überschreitung der Zahlungsfrist werden Verzugszinsen in Höhe von 9% über dem Basiszinssatz berechnet.",
@@ -189,10 +219,28 @@ function insertDefaultData() {
       "3 Jahre auf Lackierarbeiten bei ordnungsgemäßer Behandlung.",
       "Standard Gewährleistung",
     ],
-    ["firmenname", "FAF Lackiererei", "Name der Firma"],
-    ["firmen_adresse", "Musterstraße 123\n12345 Musterstadt", "Firmenadresse"],
-    ["firmen_telefon", "+49 123 456789", "Firmen-Telefonnummer"],
-    ["firmen_email", "info@faf-lackiererei.de", "Firmen E-Mail"],
+    ["rechnungshinweise", "", "Zusätzliche Hinweise für Rechnungen"],
+
+    // Auftragseinstellungen
+    ["standard_bearbeitungszeit", "5", "Standard Bearbeitungszeit in Tagen"],
+    [
+      "auto_status_update",
+      "0",
+      "Automatische Status-Aktualisierung (0=aus, 1=an)",
+    ],
+    [
+      "email_benachrichtigung",
+      "0",
+      "E-Mail-Benachrichtigung bei neuen Aufträgen (0=aus, 1=an)",
+    ],
+    ["benachrichtigung_email", "", "E-Mail-Adresse für Benachrichtigungen"],
+    [
+      "standard_arbeitsschritte",
+      "Demontage/Vorbereitung\nSchleifen/Spachteln\nGrundierung\nZwischenschliff\nBasislack\nKlarlack\nPolieren/Finish\nMontage",
+      "Standard Arbeitsschritte (getrennt durch Zeilenumbrüche)",
+    ],
+
+    // System-Einstellungen (behalten)
     ["next_auftrag_nr", "1", "Nächste Auftragsnummer"],
     ["next_rechnung_nr", "1", "Nächste Rechnungsnummer"],
     ["next_kunden_nr", "1", "Nächste Kundennummer"],

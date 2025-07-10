@@ -6,6 +6,7 @@ import {
 } from "./utils.js";
 import { addSearchToTable } from "./search.js";
 import { createModal, closeModal } from "./modals.js";
+import { getSetting, getSettings } from "./einstellungen.js";
 
 // Rechnungen laden und Tabelle füllen
 export async function loadRechnungen() {
@@ -87,6 +88,10 @@ export async function showRechnungModal(rechnungId = null) {
   if (!window.kunden || window.kunden.length === 0) {
     window.kunden = await apiCall("/api/kunden");
   }
+  if (!window.einstellungen) {
+    await import("./einstellungen.js").then((m) => m.loadEinstellungen());
+  }
+
   if (rechnungId) {
     loadRechnungForEdit(rechnungId);
   } else {
@@ -113,64 +118,72 @@ function displayRechnungModal(rechnung = null) {
         }>${k.name}</option>`
     )
     .join("");
+
+  // Einstellungen aus dem System holen
+  const mwstSatz = parseInt(getSetting("mwst_satz", "19"));
+  const basisStundenpreis = parseFloat(
+    getSetting("basis_stundenpreis", "110.00")
+  );
+
   const standardPositionen = [
     {
       kategorie: "ARBEITSZEITEN",
       beschreibung: "Vorarbeiten/Schleifen",
       einheit: "Std.",
-      einzelpreis: 110,
-      mwst: 19,
+      einzelpreis: basisStundenpreis,
+      mwst: mwstSatz,
     },
     {
       kategorie: "ARBEITSZEITEN",
       beschreibung: "Grundierung",
       einheit: "Std.",
-      einzelpreis: 110,
-      mwst: 19,
+      einzelpreis: basisStundenpreis,
+      mwst: mwstSatz,
     },
     {
       kategorie: "ARBEITSZEITEN",
       beschreibung: "Lackierung",
       einheit: "Std.",
-      einzelpreis: 110,
-      mwst: 19,
+      einzelpreis: basisStundenpreis,
+      mwst: mwstSatz,
     },
     {
       kategorie: "ARBEITSZEITEN",
       beschreibung: "Polieren/Finish",
       einheit: "Std.",
-      einzelpreis: 110,
-      mwst: 19,
+      einzelpreis: basisStundenpreis,
+      mwst: mwstSatz,
     },
     {
       kategorie: "MATERIALIEN",
       beschreibung: "Grundierung",
       einheit: "Liter",
       einzelpreis: 0,
-      mwst: 19,
+      mwst: mwstSatz,
     },
     {
       kategorie: "MATERIALIEN",
       beschreibung: "Basislack",
       einheit: "Liter",
       einzelpreis: 0,
-      mwst: 19,
+      mwst: mwstSatz,
     },
     {
       kategorie: "MATERIALIEN",
       beschreibung: "Klarlack",
       einheit: "Liter",
       einzelpreis: 0,
-      mwst: 19,
+      mwst: mwstSatz,
     },
     {
       kategorie: "MATERIALIEN",
       beschreibung: "Schleifpapier/Verbrauchsmaterial",
       einheit: "Pauschal",
       einzelpreis: 0,
-      mwst: 19,
+      mwst: mwstSatz,
     },
   ];
+
   const positionenRows = standardPositionen
     .map((pos, index) => {
       const position = rechnung?.positionen?.[index] || {};
@@ -203,6 +216,12 @@ function displayRechnungModal(rechnung = null) {
       `;
     })
     .join("");
+
+  // Zahlungsbedingungen und Gewährleistung aus Einstellungen
+  const zahlungsbedingungen = getSetting("zahlungsbedingungen", "");
+  const gewaehrleistung = getSetting("gewaehrleistung", "");
+  const zahlungszielTage = getSetting("zahlungsziel_tage", "14");
+
   const content = `
         <form id="rechnung-form">
             <div class="form-grid">
@@ -255,7 +274,18 @@ function displayRechnungModal(rechnung = null) {
                         }>Storniert</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">MwSt-Satz</label>
+                    <input type="number" class="form-input" value="${mwstSatz}%" readonly>
+                    <small class="text-muted">Wird aus den Einstellungen übernommen</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Zahlungsziel</label>
+                    <input type="text" class="form-input" value="${zahlungszielTage} Tage" readonly>
+                    <small class="text-muted">Wird aus den Einstellungen übernommen</small>
+                </div>
             </div>
+            
             <h3 style="margin: 2rem 0 1rem 0;">Positionen</h3>
             <div class="table-container">
                 <table class="table">
@@ -274,6 +304,7 @@ function displayRechnungModal(rechnung = null) {
                     </tbody>
                 </table>
             </div>
+            
             <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
                     <span>Zwischensumme netto:</span>
@@ -288,20 +319,29 @@ function displayRechnungModal(rechnung = null) {
                     <span id="netto-nach-rabatt">0,00 €</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>MwSt. 19%:</span>
-                    <span id="mwst-19">0,00 €</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>MwSt. 7%:</span>
-                    <span id="mwst-7">0,00 €</span>
+                    <span>MwSt. ${mwstSatz}%:</span>
+                    <span id="mwst-gesamt">0,00 €</span>
                 </div>
                 <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1em; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
                     <span>GESAMTBETRAG:</span>
                     <span id="gesamtbetrag">0,00 €</span>
                 </div>
             </div>
+
+            <h3 style="margin: 2rem 0 1rem 0;">Zahlungsbedingungen & Gewährleistung</h3>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Zahlungsbedingungen</label>
+                    <textarea class="form-textarea" name="zahlungsbedingungen" rows="3">${zahlungsbedingungen}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Gewährleistung</label>
+                    <textarea class="form-textarea" name="gewaehrleistung" rows="2">${gewaehrleistung}</textarea>
+                </div>
+            </div>
         </form>
     `;
+
   const footer = `
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
         <button type="button" class="btn btn-primary" onclick="saveRechnung(${
@@ -312,14 +352,17 @@ function displayRechnungModal(rechnung = null) {
             }
         </button>
     `;
+
   createModal(
     isEdit ? "Rechnung bearbeiten" : "Neue Rechnung",
     content,
     footer
   );
+
   if (rechnung?.kunden_id) {
     loadKundenFahrzeuge(rechnung.kunden_id, rechnung.fahrzeug_id);
   }
+
   setTimeout(() => {
     for (let i = 0; i < 8; i++) {
       calculateRechnungRow(i);
@@ -366,45 +409,40 @@ window.calculateRechnungRow = function (index) {
 };
 
 window.calculateRechnungTotal = function () {
-  let zwischensumme = 0,
-    mwst19Basis = 0,
-    mwst7Basis = 0;
+  let zwischensumme = 0;
+  const mwstSatz = parseInt(getSetting("mwst_satz", "19"));
+
   for (let i = 0; i < 8; i++) {
     const gesamtInput = document.querySelector(`[name="gesamt_${i}"]`);
-    const mwstInput = document.querySelector(`[name="mwst_${i}"]`);
-    if (gesamtInput && mwstInput) {
+    if (gesamtInput) {
       const gesamt = parseFloat(gesamtInput.value) || 0;
-      const mwst = parseFloat(mwstInput.value) || 0;
       zwischensumme += gesamt;
-      if (mwst === 19) mwst19Basis += gesamt;
-      else if (mwst === 7) mwst7Basis += gesamt;
     }
   }
+
   const rabattProzent =
     parseFloat(document.querySelector('[name="rabatt_prozent"]')?.value) || 0;
   const rabattBetrag = zwischensumme * (rabattProzent / 100);
   const nettoNachRabatt = zwischensumme - rabattBetrag;
-  const mwst19 = mwst19Basis * (1 - rabattProzent / 100) * 0.19;
-  const mwst7 = mwst7Basis * (1 - rabattProzent / 100) * 0.07;
-  const gesamtbetrag = nettoNachRabatt + mwst19 + mwst7;
+  const mwstBetrag = nettoNachRabatt * (mwstSatz / 100);
+  const gesamtbetrag = nettoNachRabatt + mwstBetrag;
+
   const elements = {
     zwischensumme: document.getElementById("zwischensumme"),
     "rabatt-betrag": document.getElementById("rabatt-betrag"),
     "netto-nach-rabatt": document.getElementById("netto-nach-rabatt"),
-    "mwst-19": document.getElementById("mwst-19"),
-    "mwst-7": document.getElementById("mwst-7"),
+    "mwst-gesamt": document.getElementById("mwst-gesamt"),
     gesamtbetrag: document.getElementById("gesamtbetrag"),
   };
+
   if (elements.zwischensumme)
     elements.zwischensumme.textContent = formatCurrency(zwischensumme);
   if (elements["rabatt-betrag"])
     elements["rabatt-betrag"].textContent = formatCurrency(rabattBetrag);
   if (elements["netto-nach-rabatt"])
     elements["netto-nach-rabatt"].textContent = formatCurrency(nettoNachRabatt);
-  if (elements["mwst-19"])
-    elements["mwst-19"].textContent = formatCurrency(mwst19);
-  if (elements["mwst-7"])
-    elements["mwst-7"].textContent = formatCurrency(mwst7);
+  if (elements["mwst-gesamt"])
+    elements["mwst-gesamt"].textContent = formatCurrency(mwstBetrag);
   if (elements.gesamtbetrag)
     elements.gesamtbetrag.textContent = formatCurrency(gesamtbetrag);
 };
@@ -413,6 +451,7 @@ window.saveRechnung = async function (rechnungId = null) {
   const form = document.getElementById("rechnung-form");
   const formData = new FormData(form);
   const positionen = [];
+
   for (let i = 0; i < 8; i++) {
     const beschreibung = formData.get(`beschreibung_${i}`);
     const menge = parseFloat(formData.get(`menge_${i}`)) || 0;
@@ -430,6 +469,7 @@ window.saveRechnung = async function (rechnungId = null) {
       });
     }
   }
+
   const data = {
     kunden_id: parseInt(formData.get("kunden_id")),
     fahrzeug_id: parseInt(formData.get("fahrzeug_id")),
@@ -437,8 +477,11 @@ window.saveRechnung = async function (rechnungId = null) {
     auftragsdatum: formData.get("auftragsdatum"),
     rabatt_prozent: parseFloat(formData.get("rabatt_prozent")) || 0,
     status: formData.get("status"),
+    zahlungsbedingungen: formData.get("zahlungsbedingungen"),
+    gewaehrleistung: formData.get("gewaehrleistung"),
     positionen,
   };
+
   try {
     if (rechnungId) {
       await apiCall(`/api/rechnungen/${rechnungId}`, "PUT", data);
@@ -486,6 +529,21 @@ async function updateRechnungStatus(id, status) {
 async function viewRechnung(id) {
   try {
     const rechnung = await apiCall(`/api/rechnungen/${id}`);
+    const settings = getSettings();
+
+    // Firmendaten aus Einstellungen
+    const firmenname = getSetting("firmenname", "FAF Lackiererei");
+    const firmenStrasse = getSetting("firmen_strasse", "");
+    const firmenPlz = getSetting("firmen_plz", "");
+    const firmenOrt = getSetting("firmen_ort", "");
+    const firmenTelefon = getSetting("firmen_telefon", "");
+    const firmenEmail = getSetting("firmen_email", "");
+    const steuernummer = getSetting("steuernummer", "");
+    const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
+    const bankName = getSetting("bank_name", "");
+    const bankIban = getSetting("bank_iban", "");
+    const bankBic = getSetting("bank_bic", "");
+
     const positionenHtml =
       rechnung.positionen
         ?.map(
@@ -500,29 +558,60 @@ async function viewRechnung(id) {
     `
         )
         .join("") || '<tr><td colspan="5">Keine Positionen</td></tr>';
+
     const content = `
-      <div class="form-grid">
-        <div class="form-group"><label class="form-label">Rechnung-Nr.:</label><div>${
-          rechnung.rechnung_nr
-        }</div></div>
-        <div class="form-group"><label class="form-label">Kunde:</label><div>${
-          rechnung.kunde_name
-        }</div></div>
-        <div class="form-group"><label class="form-label">Fahrzeug:</label><div>${
-          rechnung.kennzeichen
-        } - ${rechnung.marke} ${rechnung.modell}</div></div>
-        <div class="form-group"><label class="form-label">Rechnungsdatum:</label><div>${formatDate(
-          rechnung.rechnungsdatum
-        )}</div></div>
-        <div class="form-group"><label class="form-label">Status:</label><div><span class="status status-${
-          rechnung.status
-        }">${rechnung.status}</span></div></div>
-        <div class="form-group"><label class="form-label">Gesamtbetrag:</label><div><strong>${formatCurrency(
-          rechnung.gesamtbetrag
-        )}</strong></div></div>
+      <!-- Firmen-Header -->
+      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid var(--accent-primary);">
+        <div>
+          <h1 style="color: var(--accent-primary); margin-bottom: 0.5rem;">${firmenname}</h1>
+          <div style="color: var(--text-secondary); line-height: 1.4;">
+            ${firmenStrasse}<br>
+            ${firmenPlz} ${firmenOrt}<br>
+            Tel: ${firmenTelefon}<br>
+            E-Mail: ${firmenEmail}
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <h2 style="color: var(--accent-primary); margin-bottom: 1rem;">RECHNUNG</h2>
+          <div><strong>Rechnung-Nr.:</strong> ${rechnung.rechnung_nr}</div>
+          <div><strong>Datum:</strong> ${formatDate(
+            rechnung.rechnungsdatum
+          )}</div>
+          ${
+            rechnung.auftragsdatum
+              ? `<div><strong>Auftragsdatum:</strong> ${formatDate(
+                  rechnung.auftragsdatum
+                )}</div>`
+              : ""
+          }
+        </div>
       </div>
-      <h3>Positionen</h3>
-      <table class="table">
+
+      <!-- Kundendaten -->
+      <div style="margin-bottom: 2rem;">
+        <h3>Rechnungsempfänger:</h3>
+        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+          <strong>${rechnung.kunde_name}</strong><br>
+          ${rechnung.strasse || ""}<br>
+          ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
+          ${rechnung.telefon ? `Tel: ${rechnung.telefon}` : ""}
+        </div>
+      </div>
+
+      <!-- Fahrzeugdaten -->
+      <div style="margin-bottom: 2rem;">
+        <h3>Fahrzeug:</h3>
+        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+          <strong>${rechnung.kennzeichen} - ${rechnung.marke} ${
+      rechnung.modell
+    }</strong><br>
+          ${rechnung.vin ? `VIN: ${rechnung.vin}` : ""}
+        </div>
+      </div>
+
+      <!-- Positionen -->
+      <h3>Leistungen:</h3>
+      <table class="table" style="margin-bottom: 2rem;">
         <thead>
           <tr>
             <th>Beschreibung</th>
@@ -534,7 +623,9 @@ async function viewRechnung(id) {
         </thead>
         <tbody>${positionenHtml}</tbody>
       </table>
-      <div style="margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
+
+      <!-- Rechnungssumme -->
+      <div style="margin: 2rem 0; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
           <span>Zwischensumme netto:</span>
           <span>${formatCurrency(rechnung.zwischensumme)}</span>
@@ -544,7 +635,7 @@ async function viewRechnung(id) {
             ? `
         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
           <span>Rabatt (${rechnung.rabatt_prozent}%):</span>
-          <span>${formatCurrency(rechnung.rabatt_betrag)}</span>
+          <span>-${formatCurrency(rechnung.rabatt_betrag)}</span>
         </div>
         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
           <span>Netto nach Rabatt:</span>
@@ -553,39 +644,131 @@ async function viewRechnung(id) {
         `
             : ""
         }
-        ${
-          rechnung.mwst_19 > 0
-            ? `
         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span>MwSt. 19%:</span>
-          <span>${formatCurrency(rechnung.mwst_19)}</span>
+          <span>MwSt. ${getSetting("mwst_satz", "19")}%:</span>
+          <span>${formatCurrency(
+            rechnung.mwst_19 || rechnung.mwst_7 || 0
+          )}</span>
         </div>
-        `
-            : ""
-        }
-        ${
-          rechnung.mwst_7 > 0
-            ? `
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span>MwSt. 7%:</span>
-          <span>${formatCurrency(rechnung.mwst_7)}</span>
-        </div>
-        `
-            : ""
-        }
-        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1em; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; border-top: 1px solid var(--border-color); padding-top: 0.5rem; margin-top: 1rem;">
           <span>GESAMTBETRAG:</span>
           <span>${formatCurrency(rechnung.gesamtbetrag)}</span>
         </div>
       </div>
+
+      <!-- Zahlungsinformationen -->
+      ${
+        rechnung.zahlungsbedingungen || rechnung.gewaehrleistung || bankIban
+          ? `
+      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+        ${
+          rechnung.zahlungsbedingungen
+            ? `
+        <div style="margin-bottom: 1rem;">
+          <h4>Zahlungsbedingungen:</h4>
+          <p style="margin-top: 0.5rem;">${rechnung.zahlungsbedingungen}</p>
+        </div>
+        `
+            : ""
+        }
+        
+        ${
+          bankIban
+            ? `
+        <div style="margin-bottom: 1rem;">
+          <h4>Bankverbindung:</h4>
+          <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+            ${bankName ? `<div><strong>Bank:</strong> ${bankName}</div>` : ""}
+            <div><strong>IBAN:</strong> ${bankIban}</div>
+            ${bankBic ? `<div><strong>BIC:</strong> ${bankBic}</div>` : ""}
+          </div>
+        </div>
+        `
+            : ""
+        }
+
+        ${
+          rechnung.gewaehrleistung
+            ? `
+        <div>
+          <h4>Gewährleistung:</h4>
+          <p style="margin-top: 0.5rem;">${rechnung.gewaehrleistung}</p>
+        </div>
+        `
+            : ""
+        }
+      </div>
+      `
+          : ""
+      }
+
+      <!-- Firmendaten Footer -->
+      ${
+        steuernummer || umsatzsteuerId
+          ? `
+      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-muted); font-size: 0.9em;">
+        ${steuernummer ? `Steuernummer: ${steuernummer}` : ""}
+        ${steuernummer && umsatzsteuerId ? " | " : ""}
+        ${umsatzsteuerId ? `USt-IdNr.: ${umsatzsteuerId}` : ""}
+      </div>
+      `
+          : ""
+      }
     `;
-    createModal(`Rechnung ${rechnung.rechnung_nr}`, content);
+
+    const footer = `
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Schließen</button>
+      <button type="button" class="btn btn-success" onclick="printRechnung(${id})">
+        <i class="fas fa-print"></i> Drucken
+      </button>
+    `;
+
+    createModal(`Rechnung ${rechnung.rechnung_nr}`, content, footer);
   } catch (error) {
     showNotification("Fehler beim Laden der Rechnung", "error");
   }
 }
 
 function printRechnung(id) {
-  showNotification("Druck-Funktion noch nicht implementiert", "info");
+  // Aktuelles Modal-Inhalt für Druck vorbereiten
+  const modalContent = document.querySelector(".modal-body");
+  if (modalContent) {
+    const printWindow = window.open("", "_blank");
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Rechnung</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 2cm; }
+            table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+            th { background-color: #f5f5f5; }
+            .text-right { text-align: right; }
+            @media print { 
+              button { display: none; }
+              .modal-header, .modal-footer { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          ${modalContent.innerHTML}
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 250);
+  } else {
+    showNotification("Druck-Funktion noch nicht verfügbar", "info");
+  }
 }
+
+// Event Listener für Einstellungsänderungen
+window.addEventListener("settingsUpdated", () => {
+  console.log("Einstellungen wurden aktualisiert - Rechnungen-Modul reagiert");
+});
+
 window.showRechnungModal = showRechnungModal;

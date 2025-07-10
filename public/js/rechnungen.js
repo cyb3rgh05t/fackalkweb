@@ -276,7 +276,7 @@ function displayRechnungModal(rechnung = null) {
                 </div>
                 <div class="form-group">
                     <label class="form-label">MwSt-Satz</label>
-                    <input type="number" class="form-input" value="${mwstSatz}%" readonly>
+                    <input type="text" class="form-input" value="${mwstSatz}%" readonly>
                     <small class="text-muted">Wird aus den Einstellungen übernommen</small>
                 </div>
                 <div class="form-group">
@@ -729,40 +729,267 @@ async function viewRechnung(id) {
   }
 }
 
-function printRechnung(id) {
-  // Aktuelles Modal-Inhalt für Druck vorbereiten
-  const modalContent = document.querySelector(".modal-body");
-  if (modalContent) {
+async function printRechnung(id) {
+  try {
+    // Prüfen ob bereits ein Modal mit Rechnungsinhalt geöffnet ist
+    const modalContent = document.querySelector(".modal-body");
+
+    if (modalContent && modalContent.innerHTML.includes("RECHNUNG")) {
+      // Modal ist bereits geöffnet - direkt drucken
+      printModalContent(modalContent);
+    } else {
+      // Kein Modal geöffnet - Rechnung laden und drucken
+      await printRechnungDirect(id);
+    }
+  } catch (error) {
+    console.error("Print error:", error);
+    showNotification("Fehler beim Drucken der Rechnung", "error");
+  }
+}
+
+// Hilfsfunktion: Modal-Inhalt drucken
+function printModalContent(modalContent) {
+  const printWindow = window.open("", "_blank");
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Rechnung</title>
+        <style>
+          body { font-family: Arial, sans-serif; margin: 2cm; }
+          table { width: 100%; border-collapse: collapse; margin: 1em 0; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          th { background-color: #f5f5f5; }
+          .text-right { text-align: right; }
+          @media print { 
+            button { display: none; }
+            .modal-header, .modal-footer { display: none; }
+          }
+        </style>
+      </head>
+      <body>
+        ${modalContent.innerHTML}
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  setTimeout(() => {
+    printWindow.print();
+    printWindow.close();
+  }, 250);
+}
+
+// Hilfsfunktion: Rechnung direkt drucken (ohne Modal)
+async function printRechnungDirect(id) {
+  try {
+    const rechnung = await apiCall(`/api/rechnungen/${id}`);
+
+    // Einstellungen importieren falls nicht verfügbar
+    if (!window.getSetting) {
+      const einstellungenModule = await import("./einstellungen.js");
+      window.getSetting = einstellungenModule.getSetting;
+    }
+
+    // Firmendaten aus Einstellungen laden
+    const firmenname = getSetting("firmenname", "FAF Lackiererei");
+    const firmenStrasse = getSetting("firmen_strasse", "");
+    const firmenPlz = getSetting("firmen_plz", "");
+    const firmenOrt = getSetting("firmen_ort", "");
+    const firmenTelefon = getSetting("firmen_telefon", "");
+    const firmenEmail = getSetting("firmen_email", "");
+    const steuernummer = getSetting("steuernummer", "");
+    const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
+    const bankName = getSetting("bank_name", "");
+    const bankIban = getSetting("bank_iban", "");
+    const bankBic = getSetting("bank_bic", "");
+
+    // HTML für Rechnung generieren
+    const positionenHtml =
+      rechnung.positionen
+        ?.map(
+          (pos) => `
+        <tr>
+          <td>${pos.beschreibung}</td>
+          <td>${pos.menge} ${pos.einheit}</td>
+          <td style="text-align: right;">${formatCurrency(pos.einzelpreis)}</td>
+          <td style="text-align: center;">${pos.mwst_prozent}%</td>
+          <td style="text-align: right;">${formatCurrency(pos.gesamt)}</td>
+        </tr>
+      `
+        )
+        .join("") || '<tr><td colspan="5">Keine Positionen</td></tr>';
+
+    const rechnungsHtml = `
+      <!-- Firmen-Header -->
+      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #007bff;">
+        <div>
+          <h1 style="color: #007bff; margin-bottom: 0.5rem; font-size: 24px;">${firmenname}</h1>
+          <div style="color: #666; line-height: 1.4; font-size: 14px;">
+            ${firmenStrasse}<br>
+            ${firmenPlz} ${firmenOrt}<br>
+            Tel: ${firmenTelefon}<br>
+            E-Mail: ${firmenEmail}
+          </div>
+        </div>
+        <div style="text-align: right;">
+          <h2 style="color: #007bff; margin-bottom: 1rem; font-size: 20px;">RECHNUNG</h2>
+          <div style="font-size: 14px;"><strong>Rechnung-Nr.:</strong> ${
+            rechnung.rechnung_nr
+          }</div>
+          <div style="font-size: 14px;"><strong>Datum:</strong> ${formatDate(
+            rechnung.rechnungsdatum
+          )}</div>
+          ${
+            rechnung.auftragsdatum
+              ? `<div style="font-size: 14px;"><strong>Auftragsdatum:</strong> ${formatDate(
+                  rechnung.auftragsdatum
+                )}</div>`
+              : ""
+          }
+        </div>
+      </div>
+
+      <!-- Kundendaten -->
+      <div style="margin-bottom: 2rem;">
+        <h3 style="font-size: 16px; margin-bottom: 0.5rem;">Rechnungsempfänger:</h3>
+        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; font-size: 14px;">
+          <strong>${rechnung.kunde_name}</strong><br>
+          ${rechnung.strasse || ""}<br>
+          ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
+          ${rechnung.telefon ? `Tel: ${rechnung.telefon}` : ""}
+        </div>
+      </div>
+
+      <!-- Fahrzeugdaten -->
+      <div style="margin-bottom: 2rem;">
+        <h3 style="font-size: 16px; margin-bottom: 0.5rem;">Fahrzeug:</h3>
+        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; font-size: 14px;">
+          <strong>${rechnung.kennzeichen} - ${rechnung.marke} ${
+      rechnung.modell
+    }</strong><br>
+          ${rechnung.vin ? `VIN: ${rechnung.vin}` : ""}
+        </div>
+      </div>
+
+      <!-- Positionen -->
+      <h3 style="font-size: 16px; margin-bottom: 0.5rem;">Leistungen:</h3>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem; font-size: 14px;">
+        <thead>
+          <tr style="background-color: #f5f5f5;">
+            <th style="padding: 12px 8px; text-align: left; border-bottom: 1px solid #ddd; font-weight: bold;">Beschreibung</th>
+            <th style="padding: 12px 8px; text-align: left; border-bottom: 1px solid #ddd; font-weight: bold;">Menge</th>
+            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #ddd; font-weight: bold;">Einzelpreis</th>
+            <th style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #ddd; font-weight: bold;">MwSt.</th>
+            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #ddd; font-weight: bold;">Gesamt</th>
+          </tr>
+        </thead>
+        <tbody>${positionenHtml}</tbody>
+      </table>
+
+      <!-- Rechnungssumme -->
+      <div style="margin: 2rem 0; padding: 1rem; background: #f8f9fa; border-radius: 8px; font-size: 14px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>Zwischensumme netto:</span>
+          <span><strong>${formatCurrency(
+            rechnung.zwischensumme
+          )}</strong></span>
+        </div>
+        ${
+          rechnung.rabatt_prozent > 0
+            ? `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>Rabatt (${rechnung.rabatt_prozent}%):</span>
+          <span><strong>-${formatCurrency(
+            rechnung.rabatt_betrag
+          )}</strong></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>Netto nach Rabatt:</span>
+          <span><strong>${formatCurrency(
+            rechnung.netto_nach_rabatt
+          )}</strong></span>
+        </div>
+        `
+            : ""
+        }
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>MwSt. (${rechnung.mwst_prozent || 19}%):</span>
+          <span><strong>${formatCurrency(rechnung.mwst_betrag)}</strong></span>
+        </div>
+        <div style="display: flex; justify-content: space-between; border-top: 1px solid #ddd; padding-top: 0.5rem; font-size: 18px; font-weight: bold;">
+          <span>Gesamtbetrag:</span>
+          <span>${formatCurrency(rechnung.gesamtbetrag)}</span>
+        </div>
+      </div>
+
+      <!-- Bankdaten -->
+      ${
+        bankIban
+          ? `
+      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd;">
+        <h4 style="font-size: 14px; margin-bottom: 0.5rem;">Bankverbindung:</h4>
+        <div style="font-size: 13px; color: #666;">
+          ${bankName}<br>
+          IBAN: ${bankIban}<br>
+          ${bankBic ? `BIC: ${bankBic}` : ""}
+        </div>
+      </div>
+      `
+          : ""
+      }
+
+      <!-- Steuerinformationen -->
+      ${
+        steuernummer || umsatzsteuerId
+          ? `
+      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 12px;">
+        ${steuernummer ? `Steuernummer: ${steuernummer}` : ""}
+        ${steuernummer && umsatzsteuerId ? " | " : ""}
+        ${umsatzsteuerId ? `USt-IdNr.: ${umsatzsteuerId}` : ""}
+      </div>
+      `
+          : ""
+      }
+    `;
+
+    // Print-Fenster öffnen
     const printWindow = window.open("", "_blank");
     printWindow.document.write(`
       <html>
         <head>
-          <title>Rechnung</title>
+          <title>Rechnung ${rechnung.rechnung_nr}</title>
           <style>
-            body { font-family: Arial, sans-serif; margin: 2cm; }
-            table { width: 100%; border-collapse: collapse; margin: 1em 0; }
-            th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-            th { background-color: #f5f5f5; }
-            .text-right { text-align: right; }
+            body { 
+              font-family: Arial, sans-serif; 
+              margin: 2cm; 
+              color: #333;
+            }
             @media print { 
+              body { margin: 1cm; }
               button { display: none; }
-              .modal-header, .modal-footer { display: none; }
+            }
+            @page {
+              margin: 1cm;
             }
           </style>
         </head>
         <body>
-          ${modalContent.innerHTML}
+          ${rechnungsHtml}
         </body>
       </html>
     `);
+
     printWindow.document.close();
     printWindow.focus();
+
+    // Kurz warten bis das Fenster vollständig geladen ist, dann drucken
     setTimeout(() => {
       printWindow.print();
       printWindow.close();
-    }, 250);
-  } else {
-    showNotification("Druck-Funktion noch nicht verfügbar", "info");
+    }, 500);
+  } catch (error) {
+    console.error("Error loading invoice for print:", error);
+    showNotification("Fehler beim Laden der Rechnung für Druck", "error");
   }
 }
 
@@ -770,5 +997,5 @@ function printRechnung(id) {
 window.addEventListener("settingsUpdated", () => {
   console.log("Einstellungen wurden aktualisiert - Rechnungen-Modul reagiert");
 });
-
+console.log("printRechnung v2.0 loaded - " + new Date().toISOString());
 window.showRechnungModal = showRechnungModal;

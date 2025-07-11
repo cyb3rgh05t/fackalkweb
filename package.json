@@ -7,7 +7,7 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "init-db": "node scripts/init-db.js",
-    "migration": "node scripts/migration.js"
+    "migration": "node scripts/migrate-db.js"
   },
   "dependencies": {
     "body-parser": "^1.20.2",

@@ -211,7 +211,7 @@ function createTables(db, resolve, reject) {
       stundenpreis DECIMAL(10,2),
       zeit DECIMAL(10,2),
       einheit TEXT DEFAULT 'Std.',
-      kosten DECIMAL(10,2),
+      gesamt DECIMAL(10,2),
       reihenfolge INTEGER,
       FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE CASCADE
     )`,

@@ -1,650 +1,1089 @@
+// Enhanced Print System - Fixed für direkte Script-Integration
 // Erweiterte Print-Funktionen mit Layout-Editor Integration
-// Ersetzt und erweitert die bestehenden Print-Funktionen
 
-import { getSetting } from "./einstellungen.js";
-import { generateLayoutCSS, DEFAULT_LAYOUT_SETTINGS } from "./layout-editor.js";
-import { formatCurrency } from "./utils.js";
+(function () {
+  "use strict";
 
-// Enhanced Print-System
-class EnhancedPrintSystem {
-  constructor() {
-    this.layoutSettings = {};
-    this.loadLayoutSettings();
-  }
+  // Hilfsfunktionen - Fallback falls nicht global verfügbar
+  function safeApiCall(url, method = "GET", data = null) {
+    // Versuche die globale apiCall Funktion zu verwenden
+    if (window.apiCall && typeof window.apiCall === "function") {
+      return window.apiCall(url, method, data);
+    }
 
-  // Layout-Einstellungen laden
-  loadLayoutSettings() {
-    this.layoutSettings = window.einstellungen || {};
+    // Fallback: eigene Implementierung
+    const options = {
+      method,
+      headers: { "Content-Type": "application/json" },
+    };
+    if (data) options.body = JSON.stringify(data);
 
-    // Fallback auf Standardwerte
-    Object.keys(DEFAULT_LAYOUT_SETTINGS).forEach((key) => {
-      if (!this.layoutSettings[key]) {
-        this.layoutSettings[key] = DEFAULT_LAYOUT_SETTINGS[key];
+    return fetch(url, options).then((response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
+      return response.json();
     });
   }
 
-  // Universelle Print-Funktion
-  async printDocument(type, id) {
-    try {
-      const data = await this.loadDocumentData(type, id);
-      const html = this.generatePrintHTML(type, data);
-      this.openPrintWindow(html, `${type} ${data.number}`);
-    } catch (error) {
-      console.error(`Fehler beim Drucken von ${type}:`, error);
-      showNotification(`Fehler beim Drucken des ${type}s`, "error");
+  function safeShowNotification(message, type = "info") {
+    // Versuche die globale showNotification Funktion zu verwenden
+    if (
+      window.showNotification &&
+      typeof window.showNotification === "function"
+    ) {
+      window.showNotification(message, type);
+      return;
+    }
+
+    // Fallback: console log mit Stil
+    const styles = {
+      error: "color: red; font-weight: bold;",
+      success: "color: green; font-weight: bold;",
+      warning: "color: orange; font-weight: bold;",
+      info: "color: blue; font-weight: bold;",
+    };
+
+    console.log(
+      `%c${type.toUpperCase()}: ${message}`,
+      styles[type] || styles.info
+    );
+
+    // Optional: einfaches alert als Fallback
+    if (type === "error") {
+      alert(`Fehler: ${message}`);
     }
   }
 
-  // Dokument-Daten laden
-  async loadDocumentData(type, id) {
-    const apiCall = window.apiCall;
-
-    if (type === "rechnung") {
-      return await apiCall(`/api/rechnungen/${id}`);
-    } else if (type === "auftrag") {
-      return await apiCall(`/api/auftraege/${id}`);
+  function getSetting(key, defaultValue = "") {
+    // Einstellungen aus window.einstellungen abrufen
+    if (window.einstellungen && window.einstellungen[key] !== undefined) {
+      return window.einstellungen[key];
     }
-
-    throw new Error(`Unbekannter Dokumenttyp: ${type}`);
+    return defaultValue;
   }
 
-  // Print-HTML generieren
-  generatePrintHTML(type, data) {
-    const css = generateLayoutCSS();
-    const header = this.generateHeader(type, data);
-    const customerInfo = this.generateCustomerInfo(data);
-    const positions = this.generatePositions(type, data);
-    const summary = this.generateSummary(type, data);
-    const footer = this.generateFooter();
-    const signature = this.generateSignature(type);
+  function formatCurrency(amount) {
+    // Versuche die globale formatCurrency Funktion zu verwenden
+    if (window.formatCurrency && typeof window.formatCurrency === "function") {
+      return window.formatCurrency(amount);
+    }
 
-    return `
-      <!DOCTYPE html>
-      <html lang="de">
-        <head>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${this.getDocumentTitle(type, data)}</title>
-          <style>
-            ${css}
-            /* Zusätzliche Print-Optimierungen */
-            @media print {
-              body { 
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
-              .no-print { display: none !important; }
-              .page-break-before { page-break-before: always; }
-              .page-break-after { page-break-after: always; }
-              .page-break-inside-avoid { page-break-inside: avoid; }
-            }
-            
-            /* Layout-spezifische Anpassungen */
-            .document-header {
-              ${this.getHeaderStyles()}
-            }
-            
-            .company-info {
-              ${this.getCompanyInfoStyles()}
-            }
-            
-            .document-title {
-              ${this.getDocumentTitleStyles()}
-            }
-            
-            .customer-section {
-              ${this.getCustomerSectionStyles()}
-            }
-            
-            .positions-table {
-              ${this.getPositionsTableStyles()}
-            }
-            
-            .summary-section {
-              ${this.getSummarySectionStyles()}
-            }
-          </style>
-        </head>
-        <body>
-          <div class="no-print print-controls">
-            <button onclick="window.print()" class="btn btn-primary">
-              <i class="fas fa-print"></i> Drucken
-            </button>
-            <button onclick="window.close()" class="btn btn-secondary">
-              <i class="fas fa-times"></i> Schließen
-            </button>
-          </div>
+    // Fallback: einfache Formatierung
+    return new Intl.NumberFormat("de-DE", {
+      style: "currency",
+      currency: "EUR",
+    }).format(amount || 0);
+  }
+
+  function formatDate(dateString) {
+    // Versuche die globale formatDate Funktion zu verwenden
+    if (window.formatDate && typeof window.formatDate === "function") {
+      return window.formatDate(dateString);
+    }
+
+    // Fallback: einfache Formatierung
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("de-DE");
+  }
+
+  // Layout-Standardwerte
+  const DEFAULT_LAYOUT_SETTINGS = {
+    // Schrift und Typographie
+    layout_font_family: "Arial, sans-serif",
+    layout_font_size_normal: "14px",
+    layout_font_size_small: "12px",
+    layout_font_size_large: "16px",
+    layout_font_size_h1: "24px",
+    layout_font_size_h2: "20px",
+    layout_font_size_h3: "18px",
+    layout_line_height: "1.5",
+    layout_letter_spacing: "0px",
+
+    // Farben
+    layout_color_primary: "#007bff",
+    layout_color_text: "#333333",
+    layout_color_muted: "#666666",
+    layout_color_border: "#dddddd",
+    layout_color_background: "#ffffff",
+    layout_table_header_bg: "#f5f5f5",
+
+    // Abstände und Margins
+    layout_page_margin: "2cm",
+    layout_print_margin: "1cm",
+    layout_section_spacing: "2rem",
+    layout_paragraph_spacing: "1rem",
+    layout_table_padding: "8px",
+    layout_header_padding: "1rem",
+
+    // Logo-Einstellungen
+    layout_logo_position: "top-left",
+    layout_logo_max_width: "200px",
+    layout_logo_max_height: "100px",
+    layout_logo_margin: "0 2rem 1rem 0",
+
+    // Header-Layout
+    layout_header_alignment: "space-between",
+    layout_header_border: "2px solid",
+
+    // Tabellen-Layout
+    layout_table_border: "1px solid #ddd",
+    layout_table_stripe: "disabled",
+    layout_table_border_collapse: "collapse",
+
+    // Footer-Layout
+    layout_footer_enabled: "true",
+    layout_footer_position: "bottom",
+    layout_footer_border_top: "true",
+    layout_footer_font_size: "12px",
+    layout_footer_alignment: "center",
+    layout_footer_margin_top: "2rem",
+
+    // Unterschriften-Bereich
+    layout_signature_enabled: "true",
+    layout_signature_height: "4cm",
+    layout_signature_border: "1px solid #333",
+    layout_signature_margin_top: "3cm",
+
+    // Druckoptionen
+    layout_print_page_size: "A4",
+    layout_print_orientation: "portrait",
+    layout_print_scale: "100%",
+    layout_auto_print: "false",
+    layout_close_after_print: "false",
+  };
+
+  // Enhanced Print-System Class
+  class EnhancedPrintSystem {
+    constructor() {
+      this.layoutSettings = {};
+      this.loadLayoutSettings();
+    }
+
+    // Layout-Einstellungen laden
+    loadLayoutSettings() {
+      this.layoutSettings = window.einstellungen || {};
+
+      // Fallback auf Standardwerte
+      Object.keys(DEFAULT_LAYOUT_SETTINGS).forEach((key) => {
+        if (!this.layoutSettings[key]) {
+          this.layoutSettings[key] = DEFAULT_LAYOUT_SETTINGS[key];
+        }
+      });
+    }
+
+    // Universelle Print-Funktion
+    async printDocument(type, id) {
+      try {
+        console.log(`Drucke ${type} mit ID: ${id}`);
+        const data = await this.loadDocumentData(type, id);
+        const html = this.generatePrintHTML(type, data);
+        this.openPrintWindow(html, this.getDocumentTitle(type, data));
+      } catch (error) {
+        console.error(`Fehler beim Drucken von ${type}:`, error);
+        safeShowNotification(
+          `Fehler beim Drucken des ${type}s: ${error.message}`,
+          "error"
+        );
+      }
+    }
+
+    // Dokument-Daten laden
+    async loadDocumentData(type, id) {
+      if (type === "rechnung") {
+        return await safeApiCall(`/api/rechnungen/${id}`);
+      } else if (type === "auftrag") {
+        return await safeApiCall(`/api/auftraege/${id}`);
+      }
+      throw new Error(`Unbekannter Dokumenttyp: ${type}`);
+    }
+
+    // CSS für Layout generieren
+    generateLayoutCSS() {
+      const settings = this.layoutSettings;
+
+      return `
+        /* Layout-generiertes CSS */
+        * {
+          box-sizing: border-box;
+        }
+        
+        body {
+          font-family: ${
+            settings.layout_font_family ||
+            DEFAULT_LAYOUT_SETTINGS.layout_font_family
+          };
+          font-size: ${
+            settings.layout_font_size_normal ||
+            DEFAULT_LAYOUT_SETTINGS.layout_font_size_normal
+          };
+          line-height: ${
+            settings.layout_line_height ||
+            DEFAULT_LAYOUT_SETTINGS.layout_line_height
+          };
+          color: ${
+            settings.layout_color_text ||
+            DEFAULT_LAYOUT_SETTINGS.layout_color_text
+          };
+          background-color: ${
+            settings.layout_color_background ||
+            DEFAULT_LAYOUT_SETTINGS.layout_color_background
+          };
+          margin: ${
+            settings.layout_page_margin ||
+            DEFAULT_LAYOUT_SETTINGS.layout_page_margin
+          };
+          padding: 0;
+        }
+        
+        @media print {
+          body {
+            margin: ${
+              settings.layout_print_margin ||
+              DEFAULT_LAYOUT_SETTINGS.layout_print_margin
+            } !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
           
-          <div class="document-container">
+          @page {
+            size: ${
+              settings.layout_print_page_size ||
+              DEFAULT_LAYOUT_SETTINGS.layout_print_page_size
+            };
+            margin: ${
+              settings.layout_print_margin ||
+              DEFAULT_LAYOUT_SETTINGS.layout_print_margin
+            };
+          }
+        }
+        
+        h1 {
+          font-size: ${
+            settings.layout_font_size_h1 ||
+            DEFAULT_LAYOUT_SETTINGS.layout_font_size_h1
+          };
+          color: ${
+            settings.layout_color_primary ||
+            DEFAULT_LAYOUT_SETTINGS.layout_color_primary
+          };
+          margin-bottom: ${
+            settings.layout_paragraph_spacing ||
+            DEFAULT_LAYOUT_SETTINGS.layout_paragraph_spacing
+          };
+        }
+        
+        h2 {
+          font-size: ${
+            settings.layout_font_size_h2 ||
+            DEFAULT_LAYOUT_SETTINGS.layout_font_size_h2
+          };
+          margin-bottom: ${
+            settings.layout_paragraph_spacing ||
+            DEFAULT_LAYOUT_SETTINGS.layout_paragraph_spacing
+          };
+        }
+        
+        h3 {
+          font-size: ${
+            settings.layout_font_size_h3 ||
+            DEFAULT_LAYOUT_SETTINGS.layout_font_size_h3
+          };
+          margin-bottom: ${
+            settings.layout_paragraph_spacing ||
+            DEFAULT_LAYOUT_SETTINGS.layout_paragraph_spacing
+          };
+        }
+        
+        .document-header {
+          display: flex;
+          justify-content: ${
+            settings.layout_header_alignment ||
+            DEFAULT_LAYOUT_SETTINGS.layout_header_alignment
+          };
+          align-items: flex-start;
+          margin-bottom: ${
+            settings.layout_section_spacing ||
+            DEFAULT_LAYOUT_SETTINGS.layout_section_spacing
+          };
+          padding: ${
+            settings.layout_header_padding ||
+            DEFAULT_LAYOUT_SETTINGS.layout_header_padding
+          };
+        }
+        
+        .company-logo {
+          max-width: ${
+            settings.layout_logo_max_width ||
+            DEFAULT_LAYOUT_SETTINGS.layout_logo_max_width
+          };
+          max-height: ${
+            settings.layout_logo_max_height ||
+            DEFAULT_LAYOUT_SETTINGS.layout_logo_max_height
+          };
+          margin: ${
+            settings.layout_logo_margin ||
+            DEFAULT_LAYOUT_SETTINGS.layout_logo_margin
+          };
+          display: block;
+        }
+        
+        .company-info {
+          text-align: ${
+            settings.layout_logo_position === "top-center"
+              ? "center"
+              : settings.layout_logo_position === "top-right"
+              ? "right"
+              : "left"
+          };
+          flex: 1;
+        }
+        
+        .document-title {
+          text-align: right;
+          flex-shrink: 0;
+        }
+        
+        .customer-vehicle-section {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: ${
+            settings.layout_section_spacing ||
+            DEFAULT_LAYOUT_SETTINGS.layout_section_spacing
+          };
+          page-break-inside: avoid;
+        }
+        
+        .customer-info {
+          flex: 1;
+          margin-right: 2rem;
+        }
+        
+        .vehicle-info {
+          flex: 1;
+          text-align: right;
+        }
+        
+        @media print {
+          .customer-vehicle-section {
+            display: flex !important;
+          }
+        }
+        
+        table {
+          width: 100%;
+          border-collapse: ${
+            settings.layout_table_border_collapse ||
+            DEFAULT_LAYOUT_SETTINGS.layout_table_border_collapse
+          };
+          margin-bottom: ${
+            settings.layout_section_spacing ||
+            DEFAULT_LAYOUT_SETTINGS.layout_section_spacing
+          };
+          page-break-inside: avoid;
+        }
+        
+        th, td {
+          padding: ${
+            settings.layout_table_padding ||
+            DEFAULT_LAYOUT_SETTINGS.layout_table_padding
+          };
+          border: ${
+            settings.layout_table_border ||
+            DEFAULT_LAYOUT_SETTINGS.layout_table_border
+          };
+          vertical-align: top;
+        }
+        
+        th {
+          background-color: ${
+            settings.layout_table_header_bg ||
+            DEFAULT_LAYOUT_SETTINGS.layout_table_header_bg
+          };
+          font-weight: bold;
+          color: ${
+            settings.layout_color_text ||
+            DEFAULT_LAYOUT_SETTINGS.layout_color_text
+          };
+        }
+        
+        tbody tr:nth-child(even) {
+          background-color: ${
+            settings.layout_table_stripe === "enabled"
+              ? "#fafafa"
+              : "transparent"
+          };
+        }
+        
+        .positions-section table {
+          font-size: ${
+            settings.layout_font_size_normal ||
+            DEFAULT_LAYOUT_SETTINGS.layout_font_size_normal
+          };
+        }
+        
+        .customer-section {
+          margin-bottom: ${
+            settings.layout_section_spacing ||
+            DEFAULT_LAYOUT_SETTINGS.layout_section_spacing
+          };
+        }
+        
+        .summary-section {
+          margin-top: ${
+            settings.layout_section_spacing ||
+            DEFAULT_LAYOUT_SETTINGS.layout_section_spacing
+          };
+        }
+        
+        .footer {
+          margin-top: ${
+            settings.layout_footer_margin_top ||
+            DEFAULT_LAYOUT_SETTINGS.layout_footer_margin_top
+          };
+          font-size: ${
+            settings.layout_footer_font_size ||
+            DEFAULT_LAYOUT_SETTINGS.layout_footer_font_size
+          };
+          text-align: ${
+            settings.layout_footer_alignment ||
+            DEFAULT_LAYOUT_SETTINGS.layout_footer_alignment
+          };
+          color: ${
+            settings.layout_color_muted ||
+            DEFAULT_LAYOUT_SETTINGS.layout_color_muted
+          };
+          ${
+            settings.layout_footer_border_top === "true"
+              ? `border-top: 1px solid ${
+                  settings.layout_color_border ||
+                  DEFAULT_LAYOUT_SETTINGS.layout_color_border
+                }; padding-top: 1rem;`
+              : ""
+          }
+        }
+        
+        .signature-section {
+          margin-top: ${
+            settings.layout_signature_margin_top ||
+            DEFAULT_LAYOUT_SETTINGS.layout_signature_margin_top
+          };
+          page-break-inside: avoid;
+        }
+        
+        .signature-box {
+          border: ${
+            settings.layout_signature_border ||
+            DEFAULT_LAYOUT_SETTINGS.layout_signature_border
+          };
+          height: ${
+            settings.layout_signature_height ||
+            DEFAULT_LAYOUT_SETTINGS.layout_signature_height
+          };
+          margin-bottom: 1rem;
+          position: relative;
+        }
+        
+        .signature-label {
+          position: absolute;
+          bottom: 5px;
+          left: 10px;
+          font-size: ${
+            settings.layout_font_size_small ||
+            DEFAULT_LAYOUT_SETTINGS.layout_font_size_small
+          };
+        }
+        
+        .total-amount {
+          font-size: ${
+            settings.layout_font_size_large ||
+            DEFAULT_LAYOUT_SETTINGS.layout_font_size_large
+          };
+          font-weight: bold;
+          color: ${
+            settings.layout_color_primary ||
+            DEFAULT_LAYOUT_SETTINGS.layout_color_primary
+          };
+        }
+      `;
+    }
+
+    // Print-HTML generieren
+    generatePrintHTML(type, data) {
+      const css = this.generateLayoutCSS();
+      const header = this.generateHeader(type, data);
+      const customerInfo = this.generateCustomerInfo(data);
+      const positions = this.generatePositions(type, data);
+      const summary = this.generateSummary(type, data);
+      const footer = this.generateFooter();
+      const signature = this.generateSignature(type);
+
+      return `
+        <!DOCTYPE html>
+        <html lang="de">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>${this.getDocumentTitle(type, data)}</title>
+            <style>${css}</style>
+          </head>
+          <body>
             ${header}
             ${customerInfo}
             ${positions}
             ${summary}
-            ${footer}
-            ${signature}
+            ${
+              this.layoutSettings.layout_footer_enabled === "true" ? footer : ""
+            }
+            ${
+              this.layoutSettings.layout_signature_enabled === "true" &&
+              type === "auftrag"
+                ? signature
+                : ""
+            }
+          </body>
+        </html>
+      `;
+    }
+
+    // Header generieren
+    generateHeader(type, data) {
+      const firmenname = getSetting("firmenname", "FAF Lackiererei");
+      const logoData = getSetting("firmen_logo", "");
+
+      // Debug-Ausgabe für Logo
+      console.log("Logo Debug:", {
+        hasLogo: !!logoData,
+        logoLength: logoData ? logoData.length : 0,
+        logoStart: logoData ? logoData.substring(0, 50) + "..." : "Kein Logo",
+        isDataUrl: logoData.startsWith("data:"),
+      });
+
+      // Logo mit verbesserter Behandlung
+      let logoHtml = "";
+      if (logoData && logoData.length > 0) {
+        let logoSrc = "";
+
+        // Prüfen ob bereits ein Data-URL
+        if (logoData.startsWith("data:")) {
+          // Bereits vollständiger Data-URL
+          logoSrc = logoData;
+          console.log("✅ Logo: Vollständiger Data-URL erkannt");
+        } else {
+          // Nur Base64-Daten, Präfix hinzufügen
+          const base64Data = logoData.replace(/^data:image\/[^;]+;base64,/, ""); // Eventuell vorhandenes Präfix entfernen
+          const isValidBase64 = base64Data.match(/^[A-Za-z0-9+/]*={0,2}$/);
+
+          if (isValidBase64) {
+            logoSrc = `data:image/png;base64,${base64Data}`;
+            console.log("✅ Logo: Base64-Daten mit Präfix versehen");
+          } else {
+            console.warn("❌ Logo: Base64-Format ungültig");
+          }
+        }
+
+        if (logoSrc) {
+          logoHtml = `<img src="${logoSrc}" alt="Firmenlogo" class="company-logo" 
+                           style="max-width: ${this.layoutSettings.layout_logo_max_width}; max-height: ${this.layoutSettings.layout_logo_max_height}; display: block;"
+                           onerror="this.style.display='none'; console.error('Logo konnte nicht geladen werden');">`;
+        }
+      } else {
+        console.log("ℹ️ Logo: Kein Logo in Einstellungen gefunden");
+      }
+
+      const documentTitle = type === "rechnung" ? "RECHNUNG" : "AUFTRAG";
+      const documentNumber =
+        type === "rechnung" ? data.rechnung_nr : data.auftrag_nr;
+
+      return `
+        <div class="document-header">
+          <div class="company-info">
+            ${logoHtml}
+            <h1 style="color: ${
+              this.layoutSettings.layout_color_primary
+            }; margin: ${logoHtml ? "0.5rem 0 0 0" : "0"}; font-size: ${
+        this.layoutSettings.layout_font_size_h1
+      };">${firmenname}</h1>
+            <div style="margin-top: 0.5rem; line-height: ${
+              this.layoutSettings.layout_line_height
+            };">
+              ${getSetting("firmen_strasse", "Musterstraße 123")}<br>
+              ${getSetting("firmen_plz", "12345")} ${getSetting(
+        "firmen_ort",
+        "Musterstadt"
+      )}<br>
+              Tel: ${getSetting("firmen_telefon", "+49 123 456789")}<br>
+              E-Mail: ${getSetting("firmen_email", "info@faf-lackiererei.de")}
+            </div>
+          </div>
+          <div class="document-title" style="text-align: right;">
+            <h1 style="color: ${
+              this.layoutSettings.layout_color_primary
+            }; margin: 0; font-size: ${
+        this.layoutSettings.layout_font_size_h1
+      };">${documentTitle}</h1>
+            <h2 style="margin: 0.5rem 0; font-size: ${
+              this.layoutSettings.layout_font_size_h2
+            };">Nr. ${documentNumber}</h2>
+            <p style="margin: 0; color: ${
+              this.layoutSettings.layout_color_muted
+            };">Datum: ${formatDate(data.rechnungsdatum || data.datum)}</p>
+          </div>
+        </div>
+        <hr style="border: none; border-top: ${
+          this.layoutSettings.layout_header_border
+        } ${this.layoutSettings.layout_color_primary}; margin: ${
+        this.layoutSettings.layout_section_spacing
+      } 0;">
+      `;
+    }
+
+    // Kundeninformationen generieren
+    generateCustomerInfo(data) {
+      return `
+        <div class="customer-vehicle-section" style="display: flex; justify-content: space-between; margin-bottom: ${
+          this.layoutSettings.layout_section_spacing
+        };">
+          <div class="customer-info" style="flex: 1; margin-right: 2rem;">
+            <h3 style="color: ${
+              this.layoutSettings.layout_color_primary
+            }; margin-bottom: 0.5rem;">Kunde:</h3>
+            <p style="margin: 0; line-height: ${
+              this.layoutSettings.layout_line_height
+            };">
+              ${data.kunde_name || data.name || "Unbekannter Kunde"}<br>
+              ${data.strasse || ""}<br>
+              ${data.plz || ""} ${data.ort || ""}
+            </p>
           </div>
           
-          <script>
-            // Auto-Print nach kurzer Verzögerung
-            setTimeout(() => {
-              if (${this.layoutSettings.layout_auto_print === "true"}) {
-                window.print();
-              }
-            }, 1000);
-            
-            // Fenster nach Druck schließen
-            window.addEventListener('afterprint', () => {
-              if (${this.layoutSettings.layout_close_after_print === "true"}) {
-                setTimeout(() => window.close(), 1000);
-              }
-            });
-          </script>
-        </body>
-      </html>
-    `;
-  }
-
-  // Header-Bereich generieren
-  generateHeader(type, data) {
-    const firmenname = getSetting("firmenname", "FAF Lackiererei");
-    const firmenStrasse = getSetting("firmen_strasse", "");
-    const firmenPlz = getSetting("firmen_plz", "");
-    const firmenOrt = getSetting("firmen_ort", "");
-    const firmenTelefon = getSetting("firmen_telefon", "");
-    const firmenEmail = getSetting("firmen_email", "");
-    const logo = getSetting("firmen_logo", "");
-
-    const logoHtml = logo
-      ? `
-      <div class="company-logo">
-        <img src="${logo}" alt="${firmenname}" style="max-width: ${this.layoutSettings.layout_logo_max_width}; max-height: ${this.layoutSettings.layout_logo_max_height};">
-      </div>
-    `
-      : "";
-
-    const documentTitle = type === "rechnung" ? "RECHNUNG" : "AUFTRAG";
-    const documentNumber =
-      type === "rechnung" ? data.rechnung_nr : data.auftrag_nr;
-    const documentDate = type === "rechnung" ? data.rechnungsdatum : data.datum;
-
-    return `
-      <div class="document-header header-section">
-        <div class="company-info">
-          ${logoHtml}
-          <h1>${firmenname}</h1>
-          <div class="company-address text-muted">
-            ${firmenStrasse ? `${firmenStrasse}<br>` : ""}
-            ${firmenPlz || firmenOrt ? `${firmenPlz} ${firmenOrt}<br>` : ""}
-            ${firmenTelefon ? `Tel: ${firmenTelefon}<br>` : ""}
-            ${firmenEmail ? `E-Mail: ${firmenEmail}` : ""}
+          ${
+            data.kennzeichen
+              ? `
+          <div class="vehicle-info" style="flex: 1; text-align: right;">
+            <h3 style="color: ${
+              this.layoutSettings.layout_color_primary
+            }; margin-bottom: 0.5rem;">Fahrzeug:</h3>
+            <p style="margin: 0; line-height: ${
+              this.layoutSettings.layout_line_height
+            };">
+              ${data.kennzeichen} - ${data.marke || ""} ${data.modell || ""}<br>
+              ${data.vin ? `VIN: ${data.vin}` : ""}
+              ${data.farbe ? `<br>Farbe: ${data.farbe}` : ""}
+            </p>
           </div>
-        </div>
-        <div class="document-title">
-          <h2>${documentTitle}</h2>
-          <div class="document-meta">
-            <div><strong>${
-              type === "rechnung" ? "Rechnung-Nr." : "Auftrag-Nr."
-            }:</strong> ${documentNumber}</div>
-            <div><strong>Datum:</strong> ${new Date(
-              documentDate
-            ).toLocaleDateString("de-DE")}</div>
-            ${
-              type === "rechnung" && data.auftragsdatum
-                ? `<div><strong>Auftragsdatum:</strong> ${new Date(
-                    data.auftragsdatum
-                  ).toLocaleDateString("de-DE")}</div>`
-                : ""
-            }
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // Kundeninformationen generieren
-  generateCustomerInfo(data) {
-    const kunde = data.kunde || {};
-    const fahrzeug = data.fahrzeug || {};
-
-    return `
-      <div class="customer-section">
-        <div class="customer-info">
-          <h4>Rechnungsadresse</h4>
-          <div class="customer-details">
-            ${kunde.name || "Kunde"}<br>
-            ${kunde.strasse || ""}<br>
-            ${kunde.plz || ""} ${kunde.ort || ""}<br>
-            ${kunde.telefon ? `Tel: ${kunde.telefon}<br>` : ""}
-            ${kunde.email ? `E-Mail: ${kunde.email}` : ""}
-          </div>
-        </div>
-        
-        <div class="vehicle-info">
-          <h4>Fahrzeugdaten</h4>
-          <div class="vehicle-details">
-            ${fahrzeug.marke || ""} ${fahrzeug.modell || ""}<br>
-            ${
-              fahrzeug.kennzeichen
-                ? `Kennzeichen: ${fahrzeug.kennzeichen}<br>`
-                : ""
-            }
-            ${fahrzeug.farbe ? `Farbe: ${fahrzeug.farbe}<br>` : ""}
-            ${fahrzeug.vin ? `VIN: ${fahrzeug.vin}` : ""}
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
-  // Positionen-Tabelle generieren
-  generatePositions(type, data) {
-    const positionen = data.positionen || [];
-
-    if (!positionen.length) {
-      return `
-        <div class="positions-section">
-          <h3>${
-            type === "rechnung" ? "Rechnungspositionen" : "Arbeitsschritte"
-          }</h3>
-          <div class="no-positions">Keine Positionen vorhanden</div>
+          `
+              : ""
+          }
         </div>
       `;
     }
 
-    const tableHeaders =
-      type === "rechnung"
-        ? ["Beschreibung", "Menge", "Einzelpreis", "MwSt", "Gesamt"]
-        : ["Beschreibung", "Zeit", "Stundenpreis", "Gesamt"];
+    // Positionen generieren
+    generatePositions(type, data) {
+      if (!data.positionen || data.positionen.length === 0) {
+        return "<p>Keine Positionen vorhanden.</p>";
+      }
 
-    const positionenHtml = positionen
-      .map((pos) => {
-        if (type === "rechnung") {
-          return `
-          <tr>
-            <td>${pos.beschreibung || ""}</td>
-            <td>${pos.menge || ""} ${pos.einheit || ""}</td>
-            <td class="text-right">${formatCurrency(pos.einzelpreis || 0)}</td>
-            <td class="text-center">${pos.mwst_prozent || 0}%</td>
-            <td class="text-right">${formatCurrency(pos.gesamt || 0)}</td>
-          </tr>
-        `;
-        } else {
-          return `
-          <tr>
-            <td>${pos.beschreibung || ""}</td>
-            <td class="text-center">${pos.zeit || ""} ${
-            pos.einheit || "Std"
-          }</td>
-            <td class="text-right">${formatCurrency(pos.stundenpreis || 0)}</td>
-            <td class="text-right">${formatCurrency(pos.gesamt || 0)}</td>
-          </tr>
-        `;
-        }
-      })
-      .join("");
+      const headers =
+        type === "rechnung"
+          ? [
+              "Beschreibung",
+              "Menge",
+              "Einheit",
+              "Einzelpreis",
+              "MwSt.",
+              "Gesamt",
+            ]
+          : ["Beschreibung", "Zeit", "Stundenpreis", "Gesamt"];
 
-    return `
-      <div class="positions-section">
-        <h3>${
-          type === "rechnung" ? "Rechnungspositionen" : "Arbeitsschritte"
-        }</h3>
-        <table class="positions-table">
-          <thead>
+      const positionsRows = data.positionen
+        .map((pos) => {
+          if (type === "rechnung") {
+            return `
             <tr>
-              ${tableHeaders.map((header) => `<th>${header}</th>`).join("")}
+              <td style="text-align: left;">${pos.beschreibung || ""}</td>
+              <td style="text-align: center;">${pos.menge || 0}</td>
+              <td style="text-align: center;">${pos.einheit || ""}</td>
+              <td style="text-align: right;">${formatCurrency(
+                pos.einzelpreis
+              )}</td>
+              <td style="text-align: center;">${pos.mwst_prozent || 0}%</td>
+              <td style="text-align: right; font-weight: bold;">${formatCurrency(
+                pos.gesamt
+              )}</td>
             </tr>
-          </thead>
-          <tbody>
-            ${positionenHtml}
-          </tbody>
-        </table>
-      </div>
-    `;
-  }
-
-  // Summen-Bereich generieren
-  generateSummary(type, data) {
-    if (type === "rechnung") {
-      return this.generateRechnungsSummary(data);
-    } else {
-      return this.generateAuftragsSummary(data);
-    }
-  }
-
-  // Rechnungs-Summe generieren
-  generateRechnungsSummary(data) {
-    const zwischensumme = data.zwischensumme || 0;
-    const rabattProzent = data.rabatt_prozent || 0;
-    const rabattBetrag = data.rabatt_betrag || 0;
-    const nettoNachRabatt = data.netto_nach_rabatt || zwischensumme;
-    const mwst19 = data.mwst_19 || 0;
-    const mwst7 = data.mwst_7 || 0;
-    const gesamtbetrag = data.gesamtbetrag || 0;
-
-    return `
-      <div class="summary-section">
-        <div class="summary-calculations">
-          <div class="summary-row">
-            <label>Zwischensumme:</label>
-            <span>${formatCurrency(zwischensumme)}</span>
-          </div>
-          
-          ${
-            rabattProzent > 0
-              ? `
-            <div class="summary-row">
-              <label>Rabatt (${rabattProzent}%):</label>
-              <span>-${formatCurrency(rabattBetrag)}</span>
-            </div>
-            <div class="summary-row">
-              <label>Netto nach Rabatt:</label>
-              <span>${formatCurrency(nettoNachRabatt)}</span>
-            </div>
-          `
-              : ""
+          `;
+          } else {
+            return `
+            <tr>
+              <td style="text-align: left;">${pos.beschreibung || ""}</td>
+              <td style="text-align: center;">${pos.zeit || 0} Std.</td>
+              <td style="text-align: right;">${formatCurrency(
+                pos.stundenpreis
+              )}</td>
+              <td style="text-align: right; font-weight: bold;">${formatCurrency(
+                pos.gesamt || pos.kosten || 0
+              )}</td>
+            </tr>
+          `;
           }
-          
-          ${
-            mwst19 > 0
-              ? `
-            <div class="summary-row">
-              <label>zzgl. 19% MwSt:</label>
-              <span>${formatCurrency(mwst19)}</span>
-            </div>
-          `
-              : ""
-          }
-          
-          ${
-            mwst7 > 0
-              ? `
-            <div class="summary-row">
-              <label>zzgl. 7% MwSt:</label>
-              <span>${formatCurrency(mwst7)}</span>
-            </div>
-          `
-              : ""
-          }
-          
-          <div class="summary-row total-row">
-            <label><strong>Gesamtbetrag:</strong></label>
-            <span><strong>${formatCurrency(gesamtbetrag)}</strong></span>
-          </div>
+        })
+        .join("");
+
+      return `
+        <div class="positions-section" style="margin-bottom: ${
+          this.layoutSettings.layout_section_spacing
+        };">
+          <h3 style="color: ${
+            this.layoutSettings.layout_color_primary
+          }; margin-bottom: 1rem; font-size: ${
+        this.layoutSettings.layout_font_size_h3
+      };">
+            ${type === "rechnung" ? "Rechnungspositionen" : "Arbeitsleistungen"}
+          </h3>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: ${
+            this.layoutSettings.layout_section_spacing
+          };">
+            <thead>
+              <tr style="background-color: ${
+                this.layoutSettings.layout_table_header_bg
+              };">
+                ${headers
+                  .map(
+                    (h) =>
+                      `<th style="padding: ${
+                        this.layoutSettings.layout_table_padding
+                      }; border: ${
+                        this.layoutSettings.layout_table_border
+                      }; font-weight: bold; text-align: ${
+                        h === "Beschreibung"
+                          ? "left"
+                          : h.includes("preis") || h === "Gesamt"
+                          ? "right"
+                          : "center"
+                      };">${h}</th>`
+                  )
+                  .join("")}
+              </tr>
+            </thead>
+            <tbody>
+              ${positionsRows}
+            </tbody>
+          </table>
         </div>
-        
-        ${this.generatePaymentTerms()}
-      </div>
-    `;
-  }
-
-  // Auftrags-Summe generieren
-  generateAuftragsSummary(data) {
-    const gesamtNetto = data.gesamt_kosten || 0;
-    const mwstSatz = parseFloat(getSetting("mwst_satz", "19"));
-    const mwstBetrag = gesamtNetto * (mwstSatz / 100);
-    const gesamtBrutto = gesamtNetto + mwstBetrag;
-
-    return `
-      <div class="summary-section">
-        <div class="summary-calculations">
-          <div class="summary-row">
-            <label>Gesamtkosten (netto):</label>
-            <span>${formatCurrency(gesamtNetto)}</span>
-          </div>
-          <div class="summary-row">
-            <label>zzgl. ${mwstSatz}% MwSt:</label>
-            <span>${formatCurrency(mwstBetrag)}</span>
-          </div>
-          <div class="summary-row total-row">
-            <label><strong>Gesamtbetrag (brutto):</strong></label>
-            <span><strong>${formatCurrency(gesamtBrutto)}</strong></span>
-          </div>
-        </div>
-        
-        ${this.generateWorkConditions()}
-      </div>
-    `;
-  }
-
-  // Zahlungsbedingungen generieren
-  generatePaymentTerms() {
-    const zahlungsbedingungen = getSetting(
-      "zahlungsbedingungen",
-      "Zahlbar innerhalb von 14 Tagen ohne Abzug."
-    );
-    const gewaehrleistung = getSetting(
-      "gewaehrleistung",
-      "Gewährleistung nach gesetzlichen Bestimmungen."
-    );
-
-    return `
-      <div class="payment-terms">
-        <div class="terms-section">
-          <h4>Zahlungsbedingungen</h4>
-          <p>${zahlungsbedingungen}</p>
-        </div>
-        <div class="warranty-section">
-          <h4>Gewährleistung</h4>
-          <p>${gewaehrleistung}</p>
-        </div>
-      </div>
-    `;
-  }
-
-  // Arbeitsbedingungen generieren
-  generateWorkConditions() {
-    const arbeitsbedingungen = getSetting(
-      "arbeitsbedingungen",
-      "Alle Arbeiten werden nach bestem Wissen und Gewissen ausgeführt."
-    );
-
-    return `
-      <div class="work-conditions">
-        <div class="conditions-section">
-          <h4>Arbeitsbedingungen</h4>
-          <p>${arbeitsbedingungen}</p>
-        </div>
-      </div>
-    `;
-  }
-
-  // Footer generieren
-  generateFooter() {
-    if (this.layoutSettings.layout_footer_enabled !== "true") {
-      return "";
+      `;
     }
 
-    const steuernummer = getSetting("steuernummer", "");
-    const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
-    const bankName = getSetting("bank_name", "");
-    const bankIban = getSetting("bank_iban", "");
-    const bankBic = getSetting("bank_bic", "");
-
-    const bankInfo =
-      bankName || bankIban
-        ? `
-      <div class="bank-info">
-        <h4>Bankverbindung</h4>
-        ${bankName ? `${bankName}<br>` : ""}
-        ${bankIban ? `IBAN: ${bankIban}<br>` : ""}
-        ${bankBic ? `BIC: ${bankBic}` : ""}
-      </div>
-    `
-        : "";
-
-    const taxInfo =
-      steuernummer || umsatzsteuerId
-        ? `
-      <div class="tax-info">
-        ${steuernummer ? `Steuernummer: ${steuernummer}` : ""}
-        ${steuernummer && umsatzsteuerId ? " | " : ""}
-        ${umsatzsteuerId ? `USt-IdNr.: ${umsatzsteuerId}` : ""}
-      </div>
-    `
-        : "";
-
-    return `
-      <div class="footer-section">
-        ${bankInfo}
-        ${taxInfo}
-      </div>
-    `;
-  }
-
-  // Unterschriften-Bereich generieren
-  generateSignature(type) {
-    if (
-      this.layoutSettings.layout_signature_enabled !== "true" ||
-      type !== "auftrag"
-    ) {
-      return "";
+    // Zusammenfassung generieren
+    generateSummary(type, data) {
+      if (type === "rechnung") {
+        return `
+          <div class="summary-section">
+            <table style="width: 300px; margin-left: auto;">
+              <tr>
+                <td>Zwischensumme:</td>
+                <td style="text-align: right;">${formatCurrency(
+                  data.zwischensumme || 0
+                )}</td>
+              </tr>
+              ${
+                data.rabatt_betrag > 0
+                  ? `
+              <tr>
+                <td>Rabatt (${data.rabatt_prozent || 0}%):</td>
+                <td style="text-align: right;">-${formatCurrency(
+                  data.rabatt_betrag || 0
+                )}</td>
+              </tr>
+              <tr>
+                <td>Netto nach Rabatt:</td>
+                <td style="text-align: right;">${formatCurrency(
+                  data.netto_nach_rabatt || 0
+                )}</td>
+              </tr>
+              `
+                  : ""
+              }
+              <tr>
+                <td>MwSt. 19%:</td>
+                <td style="text-align: right;">${formatCurrency(
+                  data.mwst_19 || 0
+                )}</td>
+              </tr>
+              <tr>
+                <td>MwSt. 7%:</td>
+                <td style="text-align: right;">${formatCurrency(
+                  data.mwst_7 || 0
+                )}</td>
+              </tr>
+              <tr style="border-top: 2px solid black; font-weight: bold;">
+                <td>Gesamtbetrag:</td>
+                <td style="text-align: right;" class="total-amount">${formatCurrency(
+                  data.gesamtbetrag || 0
+                )}</td>
+              </tr>
+            </table>
+            
+            <div style="margin-top: 2rem;">
+              <p><strong>Zahlungsbedingungen:</strong><br>
+              ${
+                data.zahlungsbedingungen ||
+                getSetting(
+                  "zahlungstext",
+                  "Zahlbar innerhalb von 14 Tagen ohne Abzug."
+                )
+              }</p>
+              
+              <p><strong>Gewährleistung:</strong><br>
+              ${
+                data.gewaehrleistung ||
+                getSetting(
+                  "gewaehrleistung",
+                  "12 Monate Gewährleistung auf alle Arbeiten."
+                )
+              }</p>
+            </div>
+          </div>
+        `;
+      } else {
+        return `
+          <div class="summary-section">
+            <table style="width: 300px; margin-left: auto;">
+              <tr>
+                <td>Gesamtzeit:</td>
+                <td style="text-align: right;">${
+                  data.gesamt_zeit || 0
+                } Std.</td>
+              </tr>
+              <tr>
+                <td>Netto-Betrag:</td>
+                <td style="text-align: right;">${formatCurrency(
+                  data.gesamt_kosten || 0
+                )}</td>
+              </tr>
+              <tr>
+                <td>MwSt. (${getSetting("mwst_satz", "19")}%):</td>
+                <td style="text-align: right;">${formatCurrency(
+                  data.mwst_betrag || 0
+                )}</td>
+              </tr>
+              <tr style="border-top: 2px solid black; font-weight: bold;">
+                <td>Gesamtbetrag:</td>
+                <td style="text-align: right;" class="total-amount">${formatCurrency(
+                  (data.gesamt_kosten || 0) + (data.mwst_betrag || 0)
+                )}</td>
+              </tr>
+            </table>
+            
+            <div style="margin-top: 2rem;">
+              <p><strong>Bemerkungen:</strong><br>
+              ${data.bemerkungen || "Keine Bemerkungen"}</p>
+            </div>
+          </div>
+        `;
+      }
     }
 
-    const today = new Date().toLocaleDateString("de-DE");
+    // Footer generieren
+    generateFooter() {
+      return `
+        <div class="footer">
+          <p>
+            ${getSetting("firmenname", "FAF Lackiererei")} | 
+            ${getSetting("rechtsform", "")} ${getSetting(
+        "geschaeftsfuehrer",
+        ""
+      )}<br>
+            Steuernr.: ${getSetting("steuernummer", "")} | 
+            USt-IdNr.: ${getSetting("umsatzsteuer_id", "")}<br>
+            ${getSetting("bank_name", "")} | 
+            IBAN: ${getSetting("iban", "")} | 
+            BIC: ${getSetting("bic", "")}
+          </p>
+        </div>
+      `;
+    }
 
-    return `
-      <div class="signature-section page-break-inside-avoid">
-        <h3><i class="fas fa-pen"></i> Kundenabnahme</h3>
-        <p>Hiermit bestätige ich die ordnungsgemäße Ausführung der oben aufgeführten Arbeiten und erkenne die Rechnung in der angegebenen Höhe an.</p>
-        
-        <div class="signature-boxes">
-          <div class="signature-box">
-            <div class="signature-date">Datum: ${today}</div>
-            <div class="signature-label">Unterschrift Kunde</div>
-          </div>
-          <div class="signature-box">
-            <div class="signature-date">Datum: ${today}</div>
-            <div class="signature-label">Unterschrift FAF Lackiererei</div>
+    // Unterschriften-Bereich generieren
+    generateSignature(type) {
+      if (type !== "auftrag") return "";
+
+      return `
+        <div class="signature-section">
+          <h3>Unterschriften:</h3>
+          <div style="display: flex; gap: 2rem;">
+            <div style="flex: 1;">
+              <div class="signature-box">
+                <div class="signature-label">Auftraggeber</div>
+              </div>
+            </div>
+            <div style="flex: 1;">
+              <div class="signature-box">
+                <div class="signature-label">Auftragnehmer</div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    `;
-  }
+      `;
+    }
 
-  // Styling-Hilfsmethoden
-  getHeaderStyles() {
-    return `
-      display: flex;
-      justify-content: ${this.layoutSettings.layout_header_alignment};
-      align-items: start;
-      margin-bottom: ${this.layoutSettings.layout_section_spacing};
-      padding: ${this.layoutSettings.layout_header_padding};
-      border-bottom: ${this.layoutSettings.layout_header_border} ${this.layoutSettings.layout_color_primary};
-    `;
-  }
+    // Dokument-Titel generieren
+    getDocumentTitle(type, data) {
+      const documentType = type === "rechnung" ? "Rechnung" : "Auftrag";
+      const number = type === "rechnung" ? data.rechnung_nr : data.auftrag_nr;
+      return `${documentType} ${number}`;
+    }
 
-  getCompanyInfoStyles() {
-    return `
-      flex: 1;
-    `;
-  }
+    // Print-Fenster öffnen
+    openPrintWindow(html, title) {
+      // Print-Controls zu HTML hinzufügen
+      const printControls = `
+        <div id="print-controls" style="position: fixed; top: 10px; right: 10px; background: white; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000;">
+          <button onclick="window.print()" style="background: #007bff; color: white; border: none; padding: 8px 16px; margin-right: 5px; border-radius: 3px; cursor: pointer;">
+            🖨️ Drucken
+          </button>
+          <button onclick="window.close()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 3px; cursor: pointer;">
+            ❌ Schließen
+          </button>
+        </div>
+        
+        <style>
+          @media print {
+            #print-controls { display: none !important; }
+          }
+          
+          #print-controls button:hover {
+            opacity: 0.8;
+          }
+        </style>
+      `;
 
-  getDocumentTitleStyles() {
-    return `
-      text-align: right;
-      flex: 1;
-    `;
-  }
+      // HTML mit Print-Controls erweitern
+      const fullHtml = html.replace("</body>", printControls + "</body>");
 
-  getCustomerSectionStyles() {
-    return `
-      display: flex;
-      justify-content: space-between;
-      margin: ${this.layoutSettings.layout_section_spacing} 0;
-      gap: 2rem;
-    `;
-  }
+      const printWindow = window.open(
+        "",
+        "_blank",
+        "width=1024,height=768,scrollbars=yes,resizable=yes"
+      );
+      printWindow.document.write(fullHtml);
+      printWindow.document.close();
 
-  getPositionsTableStyles() {
-    return `
-      width: 100%;
-      border-collapse: ${this.layoutSettings.layout_table_border_collapse};
-      margin: ${this.layoutSettings.layout_paragraph_spacing} 0;
-    `;
-  }
+      // Warten bis Fenster vollständig geladen ist
+      printWindow.onload = () => {
+        printWindow.focus();
 
-  getSummarySectionStyles() {
-    return `
-      margin-top: ${this.layoutSettings.layout_section_spacing};
-    `;
-  }
+        // Kurze Verzögerung für vollständiges Rendering
+        setTimeout(() => {
+          // Auto-Print wenn aktiviert, sonst manuell über Button
+          if (this.layoutSettings.layout_auto_print === "true") {
+            printWindow.print();
+          } else {
+            // Nutzer über Druckmöglichkeit informieren
+            console.log(
+              'Print-Fenster bereit. Klicken Sie auf "Drucken" oder drücken Sie Strg+P'
+            );
+          }
 
-  // Dokumenttitel generieren
-  getDocumentTitle(type, data) {
-    const documentType = type === "rechnung" ? "Rechnung" : "Auftrag";
-    const number = type === "rechnung" ? data.rechnung_nr : data.auftrag_nr;
-    return `${documentType} ${number}`;
-  }
+          // Auto-Close nach dem Drucken
+          if (this.layoutSettings.layout_close_after_print === "true") {
+            printWindow.addEventListener("afterprint", () => {
+              setTimeout(() => printWindow.close(), 1000);
+            });
+          }
+        }, 500);
+      };
 
-  // Print-Fenster öffnen
-  openPrintWindow(html, title) {
-    const printWindow = window.open("", "_blank", "width=1024,height=768");
-    printWindow.document.write(html);
-    printWindow.document.close();
-    printWindow.focus();
-
-    // Event-Listener für Auto-Print
-    printWindow.addEventListener("load", () => {
+      // Fallback falls onload nicht funktioniert
       setTimeout(() => {
-        if (this.layoutSettings.layout_auto_print === "true") {
-          printWindow.print();
+        if (printWindow && !printWindow.closed) {
+          printWindow.focus();
+
+          // Keyboard-Shortcut für Drucken aktivieren
+          printWindow.addEventListener("keydown", (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+              e.preventDefault();
+              printWindow.print();
+            }
+          });
         }
       }, 1000);
-    });
+    }
   }
-}
 
-// Globale Instanz erstellen
-const enhancedPrint = new EnhancedPrintSystem();
+  // Globale Instanz erstellen
+  const enhancedPrint = new EnhancedPrintSystem();
 
-// Bestehende Print-Funktionen ersetzen
-window.printRechnung = function (id) {
-  enhancedPrint.printDocument("rechnung", id);
-};
-
-window.printAuftrag = function (id) {
-  enhancedPrint.printDocument("auftrag", id);
-};
-
-// Neue erweiterte Print-Funktionen
-window.printRechnungEnhanced = function (id, options = {}) {
-  enhancedPrint.layoutSettings = {
-    ...enhancedPrint.layoutSettings,
-    ...options,
+  // Bestehende Print-Funktionen ersetzen
+  window.printRechnung = function (id) {
+    console.log("printRechnung called with id:", id);
+    enhancedPrint.printDocument("rechnung", id);
   };
-  enhancedPrint.printDocument("rechnung", id);
-};
 
-window.printAuftragEnhanced = function (id, options = {}) {
-  enhancedPrint.layoutSettings = {
-    ...enhancedPrint.layoutSettings,
-    ...options,
+  window.printAuftrag = function (id) {
+    console.log("printAuftrag called with id:", id);
+    enhancedPrint.printDocument("auftrag", id);
   };
-  enhancedPrint.printDocument("auftrag", id);
-};
 
-// Bulk-Print-Funktionen
-window.printMultipleDocuments = async function (documents) {
-  for (const doc of documents) {
-    await enhancedPrint.printDocument(doc.type, doc.id);
-    // Kurze Verzögerung zwischen den Dokumenten
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Neue erweiterte Print-Funktionen
+  window.printRechnungEnhanced = function (id, options = {}) {
+    enhancedPrint.layoutSettings = {
+      ...enhancedPrint.layoutSettings,
+      ...options,
+    };
+    enhancedPrint.printDocument("rechnung", id);
+  };
+
+  window.printAuftragEnhanced = function (id, options = {}) {
+    enhancedPrint.layoutSettings = {
+      ...enhancedPrint.layoutSettings,
+      ...options,
+    };
+    enhancedPrint.printDocument("auftrag", id);
+  };
+
+  // Direkter Druck ohne Preview
+  window.printRechnungDirect = function (id) {
+    enhancedPrint.layoutSettings.layout_auto_print = "true";
+    enhancedPrint.printDocument("rechnung", id);
+  };
+
+  window.printAuftragDirect = function (id) {
+    enhancedPrint.layoutSettings.layout_auto_print = "true";
+    enhancedPrint.printDocument("auftrag", id);
+  };
+
+  // Bulk-Print-Funktionen
+  window.printMultipleDocuments = async function (documents) {
+    for (const doc of documents) {
+      await enhancedPrint.printDocument(doc.type, doc.id);
+      // Kurze Verzögerung zwischen den Dokumenten
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  };
+
+  // Layout-Einstellungen bei Änderungen aktualisieren
+  window.addEventListener("layoutSettingsUpdated", (event) => {
+    enhancedPrint.loadLayoutSettings();
+    console.log("Enhanced Print System: Layout-Einstellungen aktualisiert");
+  });
+
+  // Beim Laden der Einstellungen Layout aktualisieren
+  window.addEventListener("settingsLoaded", () => {
+    enhancedPrint.loadLayoutSettings();
+  });
+
+  // Einstellungen beim Start laden
+  if (window.einstellungen) {
+    enhancedPrint.loadLayoutSettings();
   }
-};
 
-// Layout-Einstellungen bei Änderungen aktualisieren
-window.addEventListener("layoutSettingsUpdated", (event) => {
-  enhancedPrint.loadLayoutSettings();
-  console.log("Enhanced Print System: Layout-Einstellungen aktualisiert");
-});
+  // Export für debugging
+  window.enhancedPrint = enhancedPrint;
 
-// Beim Laden der Einstellungen Layout aktualisieren
-window.addEventListener("settingsLoaded", () => {
-  enhancedPrint.loadLayoutSettings();
-});
-
-// Export für andere Module
-export { EnhancedPrintSystem, enhancedPrint };
-
-console.log("Enhanced Print System geladen - " + new Date().toISOString());
+  console.log(
+    "Enhanced Print System v2.0 geladen - " + new Date().toISOString()
+  );
+})();

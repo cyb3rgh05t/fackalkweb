@@ -49,10 +49,25 @@ function validateValue(key, value, rule) {
       break;
 
     case "url":
-      try {
-        new URL(value);
-      } catch {
-        return { isValid: false, error: `${key} muss eine gültige URL sein` };
+      // NEUE FLEXIBLE URL-VALIDIERUNG
+      const flexibleUrlRegex =
+        /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
+
+      // Automatisch http:// hinzufügen wenn kein Protokoll angegeben
+      let normalizedUrl = value.trim();
+      if (!normalizedUrl.match(/^https?:\/\//i)) {
+        normalizedUrl = "http://" + normalizedUrl;
+      }
+
+      // Prüfe ob URL gültig ist (sehr flexibel)
+      const simpleCheck =
+        /^(https?:\/\/)?([\w\-]+(\.[\w\-]+)+)([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?$/i;
+
+      if (!simpleCheck.test(normalizedUrl)) {
+        return {
+          isValid: false,
+          error: `${key} muss eine gültige Website-Adresse sein (z.B. www.beispiel.de oder https://beispiel.de)`,
+        };
       }
       break;
 
@@ -70,14 +85,14 @@ function validateValue(key, value, rule) {
       if (rule.max !== undefined && num > rule.max) {
         return {
           isValid: false,
-          error: `${key} darf maximal ${rule.max} sein`,
+          error: `${key} darf höchstens ${rule.max} sein`,
         };
       }
       break;
 
     case "integer":
       const int = parseInt(value);
-      if (isNaN(int) || int.toString() !== value.toString()) {
+      if (isNaN(int) || !Number.isInteger(int)) {
         return { isValid: false, error: `${key} muss eine ganze Zahl sein` };
       }
       if (rule.min !== undefined && int < rule.min) {
@@ -89,41 +104,49 @@ function validateValue(key, value, rule) {
       if (rule.max !== undefined && int > rule.max) {
         return {
           isValid: false,
-          error: `${key} darf maximal ${rule.max} sein`,
+          error: `${key} darf höchstens ${rule.max} sein`,
         };
       }
       break;
 
     case "boolean":
-      if (
-        !["0", "1", "true", "false"].includes(value.toString().toLowerCase())
-      ) {
-        return { isValid: false, error: `${key} muss ein Boolean-Wert sein` };
+      const validBooleans = ["0", "1", "true", "false"];
+      if (!validBooleans.includes(value.toString().toLowerCase())) {
+        return { isValid: false, error: `${key} muss true oder false sein` };
+      }
+      break;
+
+    case "iban":
+      // Einfache IBAN-Validierung
+      const ibanRegex = /^[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}([A-Z0-9]?){0,16}$/;
+      const cleanIban = value.replace(/\s/g, "").toUpperCase();
+      if (!ibanRegex.test(cleanIban)) {
+        return { isValid: false, error: `${key} muss eine gültige IBAN sein` };
+      }
+      break;
+
+    case "bic":
+      // BIC-Validierung
+      const bicRegex = /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/;
+      if (!bicRegex.test(value.toUpperCase())) {
+        return { isValid: false, error: `${key} muss ein gültiger BIC sein` };
       }
       break;
 
     case "base64":
-      if (!value.startsWith("data:")) {
-        return {
-          isValid: false,
-          error: `${key} muss ein gültiges Base64-Bild sein`,
-        };
-      }
+      // Base64-Validierung für Logos
       if (rule.maxSize) {
-        const sizeMatch = value.match(/data:[^;]+;base64,(.+)/);
-        if (sizeMatch) {
-          const base64Data = sizeMatch[1];
-          const size =
-            (base64Data.length * 3) / 4 -
-            (base64Data.endsWith("==") ? 2 : base64Data.endsWith("=") ? 1 : 0);
-          if (size > rule.maxSize) {
-            return {
-              isValid: false,
-              error: `${key} ist zu groß. Maximal ${
-                rule.maxSize / (1024 * 1024)
-              }MB erlaubt`,
-            };
-          }
+        const base64Data = value.replace(/^data:image\/[a-z]+;base64,/, "");
+        const size =
+          (base64Data.length * 3) / 4 -
+          (base64Data.endsWith("==") ? 2 : base64Data.endsWith("=") ? 1 : 0);
+        if (size > rule.maxSize) {
+          return {
+            isValid: false,
+            error: `${key} ist zu groß. Maximal ${
+              rule.maxSize / (1024 * 1024)
+            }MB erlaubt`,
+          };
         }
       }
       break;

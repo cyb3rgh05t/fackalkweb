@@ -1,0 +1,561 @@
+/* Layout-Editor CSS-Styles */
+/* Erweitert die bestehenden Styles um Layout-Editor Funktionalität */
+
+/* Layout-Tab-Navigation */
+.layout-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 2rem;
+  border-bottom: 2px solid var(--border-color);
+  padding-bottom: 1rem;
+}
+
+.layout-tab-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.375rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.layout-tab-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-color);
+  border-color: var(--primary-color);
+}
+
+.layout-tab-btn.active {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 4px rgba(0, 123, 255, 0.2);
+}
+
+.layout-tab-btn i {
+  font-size: 1rem;
+}
+
+/* Layout-Sektionen */
+.layout-section {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.layout-section.active {
+  display: block;
+}
+
+.layout-section h3 {
+  color: var(--primary-color);
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.layout-section h3 i {
+  font-size: 1.1rem;
+}
+
+.layout-section h4 {
+  color: var(--text-color);
+  margin: 1.5rem 0 1rem 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Form-Sektionen */
+.form-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.form-section h4 {
+  margin-top: 0;
+  color: var(--primary-color);
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Layout-Actions */
+.layout-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.layout-actions .btn {
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+}
+
+/* Color-Input Styling */
+.color-input {
+  width: 100%;
+  height: 2.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  padding: 0.25rem;
+  background: var(--bg-primary);
+}
+
+.color-input:hover {
+  border-color: var(--primary-color);
+}
+
+.color-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 0.125rem rgba(0, 123, 255, 0.25);
+}
+
+/* Form-Grid Verbesserungen für Layout-Editor */
+.layout-section .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+/* Spezielle Styling für Layout-Formular */
+#layout-form .form-group {
+  margin-bottom: 0;
+}
+
+#layout-form .form-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+}
+
+#layout-form .form-input {
+  font-size: 0.9rem;
+}
+
+/* Checkbox-Styling für Layout-Editor */
+.layout-section input[type="checkbox"] {
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: var(--primary-color);
+  cursor: pointer;
+}
+
+.layout-section label:has(input[type="checkbox"]) {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Layout-Vorschau Styles */
+.layout-preview {
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  background: var(--bg-primary);
+  padding: 1rem;
+  margin-top: 1rem;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.layout-preview-title {
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* Print-Controls Styling */
+.print-controls {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  z-index: 1000;
+  display: flex;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.print-controls .btn {
+  font-size: 0.85rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Erweiterte Dokumenten-Styles für Print */
+.document-container {
+  max-width: 210mm; /* A4 Breite */
+  margin: 0 auto;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  min-height: 297mm; /* A4 Höhe */
+}
+
+.document-header {
+  page-break-inside: avoid;
+}
+
+.customer-section {
+  page-break-inside: avoid;
+}
+
+.positions-section {
+  page-break-inside: avoid;
+}
+
+.summary-section {
+  page-break-inside: avoid;
+}
+
+.signature-section {
+  page-break-inside: avoid;
+  page-break-before: auto;
+}
+
+/* Signature-Boxes Layout */
+.signature-boxes {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.signature-box {
+  flex: 1;
+  position: relative;
+  background-color: #fafafa;
+}
+
+.signature-date {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.8rem;
+  color: #999;
+}
+
+.signature-label {
+  position: absolute;
+  bottom: -1.5rem;
+  left: 0;
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 500;
+}
+
+/* Summary-Calculations Styling */
+.summary-calculations {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.summary-row:last-child {
+  border-bottom: none;
+}
+
+.summary-row.total-row {
+  border-top: 2px solid var(--primary-color);
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+  font-size: 1.1rem;
+}
+
+.summary-row label {
+  margin: 0;
+  color: var(--text-color);
+}
+
+.summary-row span {
+  color: var(--text-color);
+  font-weight: 500;
+}
+
+/* Terms und Conditions Styling */
+.payment-terms,
+.work-conditions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: var(--bg-secondary);
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-color);
+}
+
+.terms-section h4,
+.warranty-section h4,
+.conditions-section h4 {
+  color: var(--primary-color);
+  margin-bottom: 0.75rem;
+  font-size: 1rem;
+}
+
+.terms-section p,
+.warranty-section p,
+.conditions-section p {
+  margin: 0;
+  line-height: 1.5;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Bank- und Tax-Info im Footer */
+.footer-section {
+  display: flex;
+  justify-content: space-between;
+  gap: 2rem;
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.bank-info,
+.tax-info {
+  flex: 1;
+}
+
+.bank-info h4 {
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+/* Responsive Design für Layout-Editor */
+@media (max-width: 768px) {
+  .layout-tabs {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
+
+  .layout-tab-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  .layout-section .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-actions {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .layout-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .signature-boxes {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .payment-terms,
+  .work-conditions {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .footer-section {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* Print-spezifische Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .document-container {
+    box-shadow: none;
+    max-width: none;
+    margin: 0;
+  }
+
+  .print-controls {
+    display: none !important;
+  }
+
+  /* Seitenumbruch-Kontrolle */
+  .page-break-before {
+    page-break-before: always;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+
+  /* Druckoptimierung */
+  body {
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+
+  h1 {
+    font-size: 18pt;
+  }
+
+  h2 {
+    font-size: 16pt;
+  }
+
+  h3 {
+    font-size: 14pt;
+  }
+
+  h4 {
+    font-size: 12pt;
+  }
+
+  .summary-calculations {
+    background: transparent !important;
+    border: 1px solid #000 !important;
+  }
+
+  .form-section {
+    background: transparent !important;
+    border: 1px solid #000 !important;
+  }
+}
+
+/* Dark-Mode Anpassungen für Layout-Editor */
+@media (prefers-color-scheme: dark) {
+  .layout-section .form-section {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .color-input {
+    background: var(--bg-secondary);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+
+  .document-container {
+    background: #1a1a1a;
+    color: #e0e0e0;
+  }
+
+  .summary-calculations {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.layout-section.active {
+  animation: fadeIn 0.3s ease;
+}
+
+/* Loading-States für Layout-Editor */
+.layout-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: var(--text-muted);
+}
+
+.layout-loading::before {
+  content: "";
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--primary-color);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 0.5rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Layout-Editor spezifische Form-Validierung */
+.layout-section .form-input:invalid {
+  border-color: #e74c3c;
+  box-shadow: 0 0 0 0.125rem rgba(231, 76, 60, 0.25);
+}
+
+.layout-section .form-input:valid {
+  border-color: #27ae60;
+}
+
+/* Tooltips für Layout-Editor */
+.layout-tooltip {
+  position: relative;
+  cursor: help;
+}
+
+.layout-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+  z-index: 1000;
+}
+
+.layout-tooltip:hover::after {
+  opacity: 1;
+}

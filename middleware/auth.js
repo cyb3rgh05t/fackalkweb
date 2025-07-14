@@ -123,9 +123,7 @@ async function createDefaultAdmin() {
 function getUserDatabase(dbName) {
   // Admin verwendet die Haupt-DB
   if (dbName === "main_db" || !dbName) {
-    return new sqlite3.Database(
-      path.join(__dirname, "..", "data", "lackiererei.db")
-    );
+    return new sqlite3.Database(path.join(__dirname, "..", "data", "kfz.db"));
   }
 
   const userDbPath = path.join(

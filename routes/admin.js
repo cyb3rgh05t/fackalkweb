@@ -473,7 +473,7 @@ router.post("/system/backup", (req, res) => {
     }
 
     // Haupt-DB Backup
-    const mainDbPath = path.join(__dirname, "..", "data", "lackiererei.db");
+    const mainDbPath = path.join(__dirname, "..", "data", "kfz.db");
     const mainBackupPath = path.join(backupDir, `main_backup.db`);
 
     if (fs.existsSync(mainDbPath)) {
@@ -531,7 +531,7 @@ router.get("/system/stats", (req, res) => {
       path.join(__dirname, "..", "data", "auth.db")
     );
     const mainDbSize = getFileSize(
-      path.join(__dirname, "..", "data", "lackiererei.db")
+      path.join(__dirname, "..", "data", "kfz.db")
     );
 
     // User-DBs Größe

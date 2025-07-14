@@ -100,7 +100,7 @@ function installDependencies() {
 function initializeDatabase() {
   header("Datenbank initialisieren");
   const dataDir = path.join(__dirname, "..", "data");
-  const dbPath = path.join(dataDir, "lackiererei.db");
+  const dbPath = path.join(dataDir, "kfz.db");
   createDirectory(dataDir);
   // Backup falls DB existiert
   if (checkFileExists(dbPath)) {
@@ -604,7 +604,7 @@ INSERT INTO einstellungen (key, value, beschreibung) VALUES
 // ======== LAYOUT-MIGRATION (kosten→gesamt) ========
 function migrateAuftragPositionenColumns() {
   header("Auftrag-Positionen Tabellenmigration (kosten → gesamt)");
-  const dbPath = path.join(__dirname, "..", "data", "lackiererei.db");
+  const dbPath = path.join(__dirname, "..", "data", "kfz.db");
   if (!fs.existsSync(dbPath)) {
     warning("Datenbank nicht gefunden! Migration übersprungen.");
     return;
@@ -709,10 +709,10 @@ function setupBackupSystem() {
   if (!checkFileExists(backupScriptPath)) {
     const backupScript = `#!/usr/bin/env node
 const fs = require('fs'); const path = require('path');
-const sourceDb = path.join(__dirname, '..', 'data', 'lackiererei.db');
+const sourceDb = path.join(__dirname, '..', 'data', 'kfz.db');
 const backupDir = path.join(__dirname, '..', 'backups');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-const backupPath = path.join(backupDir, \`lackiererei_\${timestamp}.db\`);
+const backupPath = path.join(backupDir, \`kfz_\${timestamp}.db\`);
 if (fs.existsSync(sourceDb)) {
   fs.copyFileSync(sourceDb, backupPath);
   console.log(\`✅ Backup erstellt: \${backupPath}\`);
@@ -726,10 +726,10 @@ function setupDevelopment() {
   header("Development-Umgebung einrichten");
   const envExamplePath = path.join(__dirname, "..", ".env.example");
   if (!checkFileExists(envExamplePath)) {
-    const envContent = `# FAF Lackiererei System Environment Variables
+    const envContent = `# KFZ System Environment Variables
 NODE_ENV=development
 PORT=3000
-DB_PATH=./data/lackiererei.db
+DB_PATH=./data/kfz.db
 SESSION_SECRET=your-secret-key-here
 RATE_LIMIT_MAX=1000
 BACKUP_INTERVAL=24
@@ -828,7 +828,7 @@ function testServer() {
 // ======== Zusammenfassung ========
 function showSummary() {
   header("Setup abgeschlossen");
-  success("🎉 FAF Lackiererei System erfolgreich eingerichtet!");
+  success("🎉 KFZ System erfolgreich eingerichtet!");
   log("\n🚀 Nächste Schritte:", "cyan");
   log("1. Server starten: npm start", "white");
   log("2. Browser öffnen: http://localhost:3000", "white");
@@ -839,7 +839,7 @@ function showSummary() {
   log("• npm run setup      - Setup erneut ausführen", "white");
   log("• npm run backup     - Backup erstellen", "white");
   log("• npm run reset-db   - Datenbank zurücksetzen", "white");
-  log("\n✨ Viel Erfolg mit Ihrem FAF Lackiererei System!", "green");
+  log("\n✨ Viel Erfolg mit Ihrem KFZ System!", "green");
 }
 
 // ======== Interaktives Setup ========
@@ -849,7 +849,7 @@ async function promptUserChoices() {
     output: process.stdout,
   });
   return new Promise((resolve) => {
-    const dbPath = path.join(__dirname, "..", "data", "lackiererei.db");
+    const dbPath = path.join(__dirname, "..", "data", "kfz.db");
     if (checkFileExists(dbPath)) {
       rl.question(
         "\n🔄 Datenbank existiert bereits. Was möchten Sie tun?\n" +
@@ -888,7 +888,7 @@ async function runSetup() {
     `
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
-║    🎨 FAF LACKIEREREI SYSTEM - KOMPLETTES SETUP                 ║
+║    🎨 KFZ Fac Pro SYSTEM - KOMPLETTES SETUP                 ║
 ║    Rechnungs- und Auftragssystem mit Datenbank-Integration      ║
 ║                                                                  ║
 ╚══════════════════════════════════════════════════════════════════╝

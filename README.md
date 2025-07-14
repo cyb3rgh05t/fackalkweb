@@ -96,7 +96,7 @@ faf-lackiererei-system/
 ├── 📁 scripts/ # Hilfsskripte
 │ └── 🔧 init-db.js # Datenbank-Initialisierung
 └── 📁 data/ # Datenbank (wird automatisch erstellt)
-└── 💾 lackiererei.db # SQLite-Datenbank
+└── 💾 kfz.db # SQLite-Datenbank
 \`\`\`
 
 ## 🎯 Verwendung

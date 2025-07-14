@@ -1,0 +1,246 @@
+<!-- public/login.html - Neue Login-Seite -->
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FAF Lackiererei - Login</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .login-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 16px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 400px;
+        margin: 1rem;
+      }
+
+      .logo {
+        text-align: center;
+        margin-bottom: 2rem;
+      }
+
+      .logo h1 {
+        color: #333;
+        margin: 0;
+        font-size: 1.8rem;
+        font-weight: 600;
+      }
+
+      .logo p {
+        color: #666;
+        margin: 0.5rem 0 0 0;
+        font-size: 0.9rem;
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #333;
+        font-weight: 500;
+      }
+
+      input[type="text"],
+      input[type="password"] {
+        width: 100%;
+        padding: 0.75rem;
+        border: 2px solid #e1e5e9;
+        border-radius: 8px;
+        font-size: 1rem;
+        transition: border-color 0.3s;
+        box-sizing: border-box;
+      }
+
+      input[type="text"]:focus,
+      input[type="password"]:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .btn-login {
+        width: 100%;
+        padding: 0.75rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.2s;
+      }
+
+      .btn-login:hover {
+        transform: translateY(-2px);
+      }
+
+      .btn-login:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .error {
+        background: #fee;
+        color: #c33;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        text-align: center;
+      }
+
+      .license-info {
+        margin-top: 2rem;
+        padding: 1rem;
+        background: #f8f9fa;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        color: #666;
+      }
+
+      .demo-credentials {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #e8f4fd;
+        border-radius: 8px;
+        font-size: 0.85rem;
+      }
+
+      .demo-credentials h4 {
+        margin: 0 0 0.5rem 0;
+        color: #0066cc;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-container">
+      <div class="logo">
+        <h1>🎨 FAF Lackiererei</h1>
+        <p>Rechnungs- & Auftragssystem</p>
+      </div>
+
+      <div id="error-message" class="error" style="display: none"></div>
+
+      <form id="login-form">
+        <div class="form-group">
+          <label for="username">Benutzername</label>
+          <input type="text" id="username" name="username" required />
+        </div>
+
+        <div class="form-group">
+          <label for="password">Passwort</label>
+          <input type="password" id="password" name="password" required />
+        </div>
+
+        <button type="submit" class="btn-login" id="login-btn">Anmelden</button>
+      </form>
+
+      <div class="demo-credentials">
+        <h4>Demo-Zugangsdaten:</h4>
+        <strong>Admin:</strong> admin / admin123<br />
+        <strong>User:</strong> demo / demo123
+      </div>
+
+      <div class="license-info">
+        <strong>🔐 Lizenziertes System</strong><br />
+        Jeder Benutzer erhält eine 1-Jahres-Lizenz mit separater Datenbank.
+        Lizenzen sind über das Admin-Panel erneuerbar.
+      </div>
+    </div>
+
+    <script>
+      const loginForm = document.getElementById("login-form");
+      const errorDiv = document.getElementById("error-message");
+      const loginBtn = document.getElementById("login-btn");
+
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const username = document.getElementById("username").value;
+        const password = document.getElementById("password").value;
+
+        // UI Feedback
+        loginBtn.disabled = true;
+        loginBtn.textContent = "Anmeldung...";
+        errorDiv.style.display = "none";
+
+        try {
+          const response = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ username, password }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            // Login erfolgreich
+            localStorage.setItem("user", JSON.stringify(data.user));
+
+            if (data.user.role === "admin") {
+              window.location.href = "/admin.html";
+            } else {
+              window.location.href = "/index.html";
+            }
+          } else {
+            throw new Error(data.error || "Login fehlgeschlagen");
+          }
+        } catch (error) {
+          errorDiv.textContent = error.message;
+          errorDiv.style.display = "block";
+        } finally {
+          loginBtn.disabled = false;
+          loginBtn.textContent = "Anmelden";
+        }
+      });
+
+      // Auto-Login für Demo
+      function fillDemo(type) {
+        if (type === "admin") {
+          document.getElementById("username").value = "admin";
+          document.getElementById("password").value = "admin123";
+        } else {
+          document.getElementById("username").value = "demo";
+          document.getElementById("password").value = "demo123";
+        }
+      }
+
+      // Session prüfen
+      async function checkSession() {
+        try {
+          const response = await fetch("/api/auth/session-check");
+          if (response.ok) {
+            const data = await response.json();
+            if (data.user.role === "admin") {
+              window.location.href = "/admin.html";
+            } else {
+              window.location.href = "/index.html";
+            }
+          }
+        } catch (error) {
+          // Nicht eingeloggt - bleibt auf Login-Seite
+        }
+      }
+
+      checkSession();
+    </script>
+  </body>
+</html>

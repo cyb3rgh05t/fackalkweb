@@ -3,6 +3,7 @@ const { generateNextNumber } = require("../utils/numbering");
 
 exports.list = async (req, res) => {
   try {
+    Kunde.setDb(req.userDb);
     const kunden = await Kunde.findAll();
     res.json(kunden);
   } catch (err) {
@@ -12,6 +13,7 @@ exports.list = async (req, res) => {
 
 exports.get = async (req, res) => {
   try {
+    Kunde.setDb(req.userDb);
     const kunde = await Kunde.findById(req.params.id);
     if (!kunde) return res.status(404).json({ error: "Kunde nicht gefunden" });
     res.json(kunde);

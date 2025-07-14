@@ -6,6 +6,8 @@ const compression = require("compression");
 const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const fs = require("fs");
+const cookieParser = require("cookie-parser");
+const { requireAuth } = require("./middleware/auth");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -57,6 +59,9 @@ app.use(compression());
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+// Nach app.use(express.json()):
+app.use(cookieParser());
 
 // OPTIMIERTE RATE LIMITS (LÖSUNG FÜR DAS PROBLEM)
 
@@ -311,12 +316,16 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// API Routes
-app.use("/api/kunden", require("./routes/kunden"));
-app.use("/api/fahrzeuge", require("./routes/fahrzeuge"));
-app.use("/api/auftraege", require("./routes/auftraege"));
-app.use("/api/rechnungen", require("./routes/rechnungen"));
-app.use("/api/einstellungen", require("./routes/einstellungen"));
+// Auth-Routes (vor den geschützten Routen):
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/admin", require("./routes/admin"));
+
+// Bestehende Routen mit requireAuth schützen:
+app.use("/api/kunden", requireAuth, require("./routes/kunden"));
+app.use("/api/fahrzeuge", requireAuth, require("./routes/fahrzeuge"));
+app.use("/api/auftraege", requireAuth, require("./routes/auftraege"));
+app.use("/api/rechnungen", requireAuth, require("./routes/rechnungen"));
+app.use("/api/einstellungen", requireAuth, require("./routes/einstellungen"));
 
 // Statische Dateien mit erweiterten Headers
 app.use(
@@ -471,17 +480,14 @@ async function cleanup() {
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
-// Unbehandelte Promise-Rejections
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("❌ Unbehandelte Promise-Rejection:", reason);
-  console.error("Promise:", promise);
-  // Server nicht automatisch beenden, aber Fehler loggen
+// Besseres Exception Handling
+process.on("uncaughtException", (err) => {
+  console.error("❌ Unbehandelte Exception:", err);
+  // Nicht mehr automatisch beenden, sondern nur loggen
 });
 
-// Unbehandelte Exceptions
-process.on("uncaughtException", (error) => {
-  console.error("❌ Unbehandelte Exception:", error);
-  gracefulShutdown("UNCAUGHT_EXCEPTION");
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ Unbehandelte Promise Rejection:", reason);
 });
 
 module.exports = {

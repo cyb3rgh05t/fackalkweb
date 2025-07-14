@@ -1,315 +1,352 @@
-// server.js - FAF Lackiererei Multi-Tenant System
 const express = require("express");
 const path = require("path");
+const helmet = require("helmet");
 const cors = require("cors");
-const cookieParser = require("cookie-parser");
+const compression = require("compression");
+const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const fs = require("fs");
-
-// Auth-System initialisieren
-const { requireAuth, initAuthDb } = require("./middleware/auth");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-console.log("🚀 Starting FAF Lackiererei Multi-Tenant System...");
+// Erweiterte Sicherheit für File-Uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 2 * 1024 * 1024, // 2MB
+    files: 1,
+  },
+  fileFilter: (req, file, cb) => {
+    // Nur Bilder erlauben
+    if (file.mimetype.startsWith("image/")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Nur Bilddateien sind erlaubt"), false);
+    }
+  },
+});
 
-// ===========================================
-// MIDDLEWARE SETUP
-// ===========================================
-
-// CORS konfigurieren
+// Middlewares
 app.use(
-  cors({
-    origin:
-      process.env.NODE_ENV === "production"
-        ? ["https://yourdomain.com"]
-        : ["http://localhost:3000", "http://127.0.0.1:3000"],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https://fonts.googleapis.com",
+          "https://cdnjs.cloudflare.com",
+        ],
+        fontSrc: [
+          "'self'",
+          "https://fonts.gstatic.com",
+          "https://cdnjs.cloudflare.com",
+        ],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        scriptSrcAttr: ["'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'"],
+      },
+    },
   })
 );
 
-// Body Parsing
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(compression());
+app.use(cors());
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Cookie Parser für Sessions
-app.use(cookieParser());
+// OPTIMIERTE RATE LIMITS (LÖSUNG FÜR DAS PROBLEM)
 
-// Sicherheits-Headers
-app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+// Allgemeines Rate Limit - erhöht für normale Nutzung
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 Minuten
+  max: 500, // Erhöht von 100 auf 500
+  message: { error: "Zu viele Anfragen, versuchen Sie es später erneut" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-  if (process.env.NODE_ENV === "production") {
-    res.setHeader(
-      "Strict-Transport-Security",
-      "max-age=31536000; includeSubDomains"
-    );
-  }
+// Spezielles Rate Limit für Einstellungen - sehr großzügig
+const settingsLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 Minuten
+  max: 100, // 100 Einstellungs-Updates pro 5 Minuten
+  message: {
+    error: "Zu viele Einstellungsänderungen, versuchen Sie es später erneut",
+  },
+  keyGenerator: (req) => {
+    // Separate Limits für Batch vs. Single Updates
+    return req.path.includes("/batch") ? `batch_${req.ip}` : `single_${req.ip}`;
+  },
+});
 
+// Sehr restriktives Limit nur für Upload-Endpunkte
+const uploadLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 Minuten
+  max: 10, // Maximal 10 Uploads pro 5 Minuten
+  message: { error: "Upload-Limit erreicht, versuchen Sie es später erneut" },
+});
+
+// Export/Import Limit
+const exportLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 Minute
+  max: 5, // Maximal 5 Exports pro Minute
+  message: { error: "Export-Limit erreicht, versuchen Sie es später erneut" },
+});
+
+// RATE LIMITER ANWENDEN - RICHTIGE REIHENFOLGE WICHTIG!
+
+// 1. Spezifische Limits zuerst (werden zuerst geprüft)
+app.use("/api/einstellungen", settingsLimiter);
+app.use("/api/upload", uploadLimiter);
+app.use("/api/*/export", exportLimiter);
+
+// 2. Allgemeines Limit für alle anderen API-Calls
+app.use("/api/", generalLimiter);
+
+// DEBUGGING: Rate Limit Status loggen
+app.use("/api/", (req, res, next) => {
+  // Rate Limit Headers für Debugging
+  res.on("finish", () => {
+    if (res.statusCode === 429) {
+      console.warn(
+        `⚠️  Rate Limit erreicht: ${req.method} ${req.url} - IP: ${req.ip}`
+      );
+    }
+  });
   next();
 });
 
-// Request Logging (vereinfacht)
+// ALTERNATIVE: Conditional Rate Limiting basierend auf Request-Typ
+const smartLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: (req) => {
+    // Verschiedene Limits je nach Endpunkt
+    if (req.path.includes("/einstellungen/batch")) {
+      return 50; // Großzügig für Batch-Updates
+    }
+    if (req.path.includes("/einstellungen/")) {
+      return 200; // Mittel für einzelne Einstellungen
+    }
+    if (req.path.includes("/upload")) {
+      return 10; // Restriktiv für Uploads
+    }
+    return 300; // Standard für alles andere
+  },
+  message: (req) => ({
+    error: "Rate limit exceeded",
+    endpoint: req.path,
+    tip: req.path.includes("/einstellungen/")
+      ? "Verwenden Sie den Batch-Update Endpunkt für mehrere Einstellungen"
+      : "Versuchen Sie es später erneut",
+  }),
+});
+
+// FEHLERBEHANDLUNG für Rate Limits
+app.use((err, req, res, next) => {
+  if (err.status === 429) {
+    console.error(`Rate Limit Fehler: ${req.method} ${req.url}`, {
+      ip: req.ip,
+      userAgent: req.get("User-Agent"),
+      timestamp: new Date().toISOString(),
+    });
+  }
+  next(err);
+});
+
+// Logging Middleware
 app.use((req, res, next) => {
   const timestamp = new Date().toISOString();
-  console.log(`${timestamp} - ${req.method} ${req.url} - ${req.ip}`);
+  console.log(`${timestamp} - ${req.method} ${req.url} - IP: ${req.ip}`);
   next();
 });
 
-// ===========================================
-// MULTER SETUP (File Uploads)
-// ===========================================
+// Logo-Upload-Endpunkt
+app.post(
+  "/api/upload/logo",
+  uploadLimiter,
+  upload.single("logo"),
+  async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "Keine Datei hochgeladen" });
+      }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "uploads");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+      // Datei zu Base64 konvertieren
+      const base64Data = `data:${
+        req.file.mimetype
+      };base64,${req.file.buffer.toString("base64")}`;
+
+      // In Einstellungen speichern
+      const Einstellung = require("./models/einstellung");
+      await Einstellung.update("firmen_logo", base64Data);
+
+      res.json({
+        success: true,
+        logo: base64Data,
+        size: req.file.size,
+        type: req.file.mimetype,
+      });
+    } catch (error) {
+      console.error("Logo-Upload Fehler:", error);
+      res.status(500).json({ error: "Fehler beim Speichern des Logos" });
     }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
-    );
-  },
-});
-
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif|pdf|doc|docx/;
-  const extname = allowedTypes.test(
-    path.extname(file.originalname).toLowerCase()
-  );
-  const mimetype = allowedTypes.test(file.mimetype);
-
-  if (mimetype && extname) {
-    return cb(null, true);
-  } else {
-    cb(new Error("Nur Bilder und Dokumente sind erlaubt"));
   }
-};
+);
 
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 2 * 1024 * 1024, // 2MB
-    files: 5,
-  },
-  fileFilter: fileFilter,
-});
+// Backup-Endpunkt
+app.post("/api/backup/create", async (req, res) => {
+  try {
+    const backupDir = path.join(__dirname, "backups");
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true });
+    }
 
-// ===========================================
-// DATABASE DIRECTORIES
-// ===========================================
+    const timestamp = new Date().toISOString().replace(/:/g, "-").split(".")[0];
+    const backupPath = path.join(backupDir, `backup_${timestamp}.db`);
+    const sourcePath = path.join(__dirname, "data", "lackiererei.db");
 
-// Datenbank-Verzeichnisse erstellen
-const dataDir = path.join(__dirname, "data");
-const userDbDir = path.join(dataDir, "users");
-const backupDir = path.join(__dirname, "backups");
+    // Datenbank kopieren
+    fs.copyFileSync(sourcePath, backupPath);
 
-[dataDir, userDbDir, backupDir].forEach((dir) => {
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-    console.log(`📁 Verzeichnis erstellt: ${dir}`);
+    // Einstellungen als JSON exportieren
+    const Einstellung = require("./models/einstellung");
+    const einstellungen = await Einstellung.findAll();
+    const settingsPath = path.join(backupDir, `settings_${timestamp}.json`);
+
+    const settingsData = {
+      created: new Date().toISOString(),
+      version: "1.0",
+      settings: einstellungen.reduce((acc, setting) => {
+        acc[setting.key] = setting.value;
+        return acc;
+      }, {}),
+    };
+
+    fs.writeFileSync(settingsPath, JSON.stringify(settingsData, null, 2));
+
+    res.json({
+      success: true,
+      backup: {
+        database: backupPath,
+        settings: settingsPath,
+        created: timestamp,
+      },
+    });
+  } catch (error) {
+    console.error("Backup-Fehler:", error);
+    res.status(500).json({ error: "Fehler beim Erstellen des Backups" });
   }
 });
 
-// ===========================================
-// ROUTES SETUP
-// ===========================================
+// Backup-Wiederherstellung
+app.post("/api/backup/restore", async (req, res) => {
+  try {
+    const { backupFile } = req.body;
 
-// Auth-Routen (öffentlich zugänglich)
-app.use("/api/auth", require("./routes/auth"));
+    if (!backupFile || !fs.existsSync(backupFile)) {
+      return res.status(400).json({ error: "Backup-Datei nicht gefunden" });
+    }
 
-// Admin-Routen (Admin-Berechtigung erforderlich)
-app.use("/api/admin", require("./routes/admin"));
+    const sourcePath = path.join(__dirname, "data", "lackiererei.db");
 
-// Geschützte API-Routen (User-Authentifizierung erforderlich)
-app.use("/api/kunden", requireAuth, require("./routes/kunden"));
-app.use("/api/fahrzeuge", requireAuth, require("./routes/fahrzeuge"));
-app.use("/api/auftraege", requireAuth, require("./routes/auftraege"));
-app.use("/api/rechnungen", requireAuth, require("./routes/rechnungen"));
-app.use("/api/einstellungen", requireAuth, require("./routes/einstellungen"));
+    // Aktuelles Backup erstellen vor Wiederherstellung
+    const emergencyBackup = `${sourcePath}.emergency_${Date.now()}`;
+    fs.copyFileSync(sourcePath, emergencyBackup);
 
-// System-Status Route (ungeschützt für Health Checks)
+    // Backup wiederherstellen
+    fs.copyFileSync(backupFile, sourcePath);
+
+    res.json({
+      success: true,
+      message: "Backup erfolgreich wiederhergestellt",
+      emergencyBackup: emergencyBackup,
+    });
+  } catch (error) {
+    console.error("Restore-Fehler:", error);
+    res.status(500).json({ error: "Fehler beim Wiederherstellen des Backups" });
+  }
+});
+
+// Systemstatus-Endpunkt
 app.get("/api/system/status", (req, res) => {
-  res.json({
-    status: "online",
-    timestamp: new Date().toISOString(),
-    version: "1.0.0",
-    environment: process.env.NODE_ENV || "development",
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    auth_system: "active",
-    multi_tenant: "enabled",
+  const db = require("./db");
+
+  db.get("SELECT COUNT(*) as count FROM einstellungen", (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: "Datenbankfehler" });
+    }
+
+    const diskUsage = fs.statSync(
+      path.join(__dirname, "data", "lackiererei.db")
+    ).size;
+
+    res.json({
+      status: "ok",
+      database: {
+        connected: true,
+        settings_count: result.count,
+        size_bytes: diskUsage,
+        size_mb: Math.round((diskUsage / 1024 / 1024) * 100) / 100,
+      },
+      server: {
+        uptime: process.uptime(),
+        memory: process.memoryUsage(),
+        node_version: process.version,
+        platform: process.platform,
+      },
+      timestamp: new Date().toISOString(),
+    });
   });
 });
 
-// Health Check Route
+// Health Check
 app.get("/api/health", (req, res) => {
   res.json({
     status: "healthy",
     timestamp: new Date().toISOString(),
-    services: {
-      database: "connected",
-      auth: "active",
-      file_system: "accessible",
-    },
+    version: "2.0",
   });
 });
 
-// File Upload Route (geschützt)
-app.post("/api/upload", requireAuth, upload.array("files", 5), (req, res) => {
-  try {
-    if (!req.files || req.files.length === 0) {
-      return res.status(400).json({ error: "Keine Dateien hochgeladen" });
-    }
-
-    const uploadedFiles = req.files.map((file) => ({
-      filename: file.filename,
-      originalName: file.originalname,
-      size: file.size,
-      mimetype: file.mimetype,
-      path: `/uploads/${file.filename}`,
-    }));
-
-    res.json({
-      success: true,
-      message: `${uploadedFiles.length} Datei(en) erfolgreich hochgeladen`,
-      files: uploadedFiles,
-    });
-  } catch (error) {
-    console.error("Upload-Fehler:", error);
-    res.status(500).json({ error: "Upload fehlgeschlagen" });
-  }
-});
-
-// Uploads statisch bereitstellen (geschützt)
-app.use(
-  "/uploads",
-  requireAuth,
-  express.static(path.join(__dirname, "uploads"))
-);
-
-// ===========================================
-// STATIC FILES
-// ===========================================
+// API Routes
+app.use("/api/kunden", require("./routes/kunden"));
+app.use("/api/fahrzeuge", require("./routes/fahrzeuge"));
+app.use("/api/auftraege", require("./routes/auftraege"));
+app.use("/api/rechnungen", require("./routes/rechnungen"));
+app.use("/api/einstellungen", require("./routes/einstellungen"));
 
 // Statische Dateien mit erweiterten Headers
 app.use(
   express.static(path.join(__dirname, "public"), {
-    maxAge: process.env.NODE_ENV === "production" ? "1d" : "0",
+    maxAge: "1d",
     etag: true,
     lastModified: true,
-    setHeaders: (res, filePath) => {
-      // Cache-Control für verschiedene Dateitypen
-      if (filePath.endsWith(".html")) {
-        res.setHeader("Cache-Control", "no-cache");
-      } else if (filePath.match(/\.(css|js)$/)) {
-        res.setHeader("Cache-Control", "public, max-age=86400"); // 1 Tag
-      } else if (filePath.match(/\.(png|jpg|jpeg|gif|ico|svg)$/)) {
-        res.setHeader("Cache-Control", "public, max-age=604800"); // 1 Woche
-      }
-    },
   })
 );
 
-// ===========================================
-// PAGE ROUTES
-// ===========================================
-
-// Root-Route
+// Haupt-Route
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
-
-// Login-Route
-app.get("/login", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "login.html"));
-});
-
-// Admin-Route
-app.get("/admin", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "admin.html"));
-});
-
-// ===========================================
-// ERROR HANDLERS
-// ===========================================
 
 // 404 Handler für API-Routen
 app.use("/api/*", (req, res) => {
   res.status(404).json({
     error: "API-Endpunkt nicht gefunden",
     requested: req.originalUrl,
-    method: req.method,
     available_endpoints: [
-      "/api/auth/login",
-      "/api/auth/logout",
-      "/api/auth/session-check",
       "/api/kunden",
       "/api/fahrzeuge",
       "/api/auftraege",
       "/api/rechnungen",
       "/api/einstellungen",
-      "/api/admin/users",
       "/api/system/status",
       "/api/health",
     ],
-    documentation: "Siehe API-Dokumentation für verfügbare Endpunkte",
   });
-});
-
-// 404 Handler für normale Routen (SPA Fallback)
-app.get("*", (req, res) => {
-  // Prüfen ob die Route zu einer gültigen HTML-Seite gehört
-  const validRoutes = [
-    "/",
-    "/login",
-    "/admin",
-    "/index.html",
-    "/login.html",
-    "/admin.html",
-  ];
-  const requestedPath = req.path;
-
-  if (
-    validRoutes.includes(requestedPath) ||
-    requestedPath.startsWith("/css/") ||
-    requestedPath.startsWith("/js/")
-  ) {
-    res.sendFile(path.join(__dirname, "public", "index.html"));
-  } else {
-    res.status(404).send(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>404 - Seite nicht gefunden</title>
-          <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 2rem; background: #f5f5f5; }
-            .container { max-width: 600px; margin: 0 auto; background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-            h1 { color: #e74c3c; }
-            .back-link { color: #3498db; text-decoration: none; margin-top: 1rem; display: inline-block; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <h1>404 - Seite nicht gefunden</h1>
-            <p>Die angeforderte Seite <strong>${requestedPath}</strong> existiert nicht.</p>
-            <a href="/" class="back-link">← Zurück zur Startseite</a>
-          </div>
-        </body>
-      </html>
-    `);
-  }
 });
 
 // Globaler Error Handler
@@ -322,85 +359,36 @@ app.use((err, req, res, next) => {
       return res.status(400).json({ error: "Datei zu groß (max. 2MB)" });
     }
     if (err.code === "LIMIT_FILE_COUNT") {
-      return res.status(400).json({ error: "Zu viele Dateien (max. 5)" });
+      return res.status(400).json({ error: "Zu viele Dateien" });
     }
-    return res.status(400).json({ error: "Upload-Fehler: " + err.message });
   }
 
-  // Andere bekannte Fehler
-  if (err.message === "Nur Bilder und Dokumente sind erlaubt") {
+  // Andere Fehler
+  if (err.message === "Nur Bilddateien sind erlaubt") {
     return res.status(400).json({ error: err.message });
   }
 
-  // Unbekannte Fehler
   res.status(500).json({
-    error:
-      process.env.NODE_ENV === "production"
-        ? "Interner Serverfehler"
-        : err.message,
+    error: "Interner Serverfehler",
     timestamp: new Date().toISOString(),
-    requestId: req.id || Date.now(),
   });
 });
 
-// ===========================================
-// SESSION CLEANUP JOB
-// ===========================================
-
-// Automatische Session-Bereinigung alle 6 Stunden
-setInterval(() => {
-  const { authDb } = require("./middleware/auth");
-  authDb().run(
-    "DELETE FROM sessions WHERE expires_at <= datetime('now')",
-    (err) => {
-      if (err) {
-        console.error("Auto-Session-Cleanup Fehler:", err);
-      } else {
-        console.log("🧹 Automatische Session-Bereinigung durchgeführt");
-      }
-    }
-  );
-}, 6 * 60 * 60 * 1000); // 6 Stunden
-
-// ===========================================
-// SERVER START
-// ===========================================
-
+// Server starten
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server läuft auf Port ${PORT}`);
-  console.log(`📱 Haupt-App: http://localhost:${PORT}`);
-  console.log(`🔐 Login: http://localhost:${PORT}/login`);
-  console.log(`⚙️  Admin: http://localhost:${PORT}/admin`);
-  console.log(`💾 Datenbank: ${path.join(__dirname, "data")}`);
-  console.log(`📁 Statische Dateien: ${path.join(__dirname, "public")}`);
+  console.log(`📱 Öffnen Sie http://localhost:${PORT} in Ihrem Browser`);
   console.log(
-    `🛡️  Sicherheitsfeatures: ${
-      process.env.NODE_ENV === "production" ? "Aktiviert" : "Development-Modus"
-    }`
+    `💾 Datenbank: ${path.join(__dirname, "data", "lackiererei.db")}`
   );
+  console.log(`📁 Statische Dateien: ${path.join(__dirname, "public")}`);
+  console.log(`🛡️  Sicherheitsfeatures aktiviert`);
   console.log(`📊 System-Status: http://localhost:${PORT}/api/system/status`);
-  console.log(`🔍 Health-Check: http://localhost:${PORT}/api/health`);
-  console.log(`\n🎨 FAF Lackiererei Multi-Tenant System bereit!`);
-
-  // Demo-User erstellen falls nicht vorhanden (nur in Development)
-  if (process.env.NODE_ENV !== "production") {
-    setTimeout(() => {
-      fetch(`http://localhost:${PORT}/api/auth/create-demo-user`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      }).catch(() => {
-        // Demo-User bereits vorhanden oder Fehler - ignorieren
-      });
-    }, 2000);
-  }
 });
 
-// ===========================================
-// GRACEFUL SHUTDOWN
-// ===========================================
-
+// Graceful Shutdown mit erweiterten Aufräumarbeiten
 const gracefulShutdown = (signal) => {
-  console.log(`\n🛑 ${signal} erhalten. Graceful Shutdown...`);
+  console.log(`\n🛑 ${signal} erhalten. Server wird heruntergefahren...`);
 
   server.close((err) => {
     if (err) {
@@ -408,48 +396,99 @@ const gracefulShutdown = (signal) => {
       process.exit(1);
     }
 
-    console.log("✅ Server erfolgreich heruntergefahren");
-    console.log("🧹 Aufräumarbeiten...");
+    console.log("✅ HTTP-Server geschlossen");
 
-    // Datenbankverbindungen schließen
-    try {
-      const { authDb } = require("./middleware/auth");
-      authDb().close((err) => {
-        if (err) {
-          console.error("❌ Fehler beim Schließen der Auth-DB:", err);
-        } else {
-          console.log("✅ Auth-Datenbank geschlossen");
-        }
+    // Datenbank schließen
+    const db = require("./db");
+    db.close((dbErr) => {
+      if (dbErr) {
+        console.error("❌ Fehler beim Schließen der Datenbank:", dbErr.message);
+        process.exit(1);
+      } else {
+        console.log("✅ Datenbankverbindung geschlossen");
+      }
 
-        console.log("👋 Auf Wiedersehen!");
-        process.exit(0);
-      });
-    } catch (error) {
-      console.log("✅ Cleanup abgeschlossen");
-      process.exit(0);
-    }
+      // Cleanup-Operationen
+      cleanup()
+        .then(() => {
+          console.log("✅ Cleanup abgeschlossen");
+          console.log("👋 Server erfolgreich heruntergefahren");
+          process.exit(0);
+        })
+        .catch((cleanupErr) => {
+          console.error("❌ Fehler beim Cleanup:", cleanupErr);
+          process.exit(1);
+        });
+    });
   });
 
-  // Force-Exit nach 10 Sekunden
+  // Fallback: Nach 10 Sekunden erzwungen beenden
   setTimeout(() => {
-    console.error("❌ Force-Exit nach Timeout");
+    console.error("⚠️  Erzwungenes Herunterfahren nach Timeout");
     process.exit(1);
   }, 10000);
 };
 
-// Event Listeners für Graceful Shutdown
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+async function cleanup() {
+  // Temporäre Dateien aufräumen
+  const tempDir = path.join(__dirname, "temp");
+  if (fs.existsSync(tempDir)) {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+    console.log("🧹 Temporäre Dateien gelöscht");
+  }
 
-// Unhandled Promise Rejections
+  // Alte Backups aufräumen (älter als 30 Tage)
+  const backupDir = path.join(__dirname, "backups");
+  if (fs.existsSync(backupDir)) {
+    const files = fs.readdirSync(backupDir);
+    const thirtyDaysAgo = Date.now() - 30 * 24 * 60 * 60 * 1000;
+
+    files.forEach((file) => {
+      const filePath = path.join(backupDir, file);
+      const stats = fs.statSync(filePath);
+
+      if (stats.mtime.getTime() < thirtyDaysAgo) {
+        fs.unlinkSync(filePath);
+        console.log(`🗑️  Altes Backup gelöscht: ${file}`);
+      }
+    });
+  }
+
+  // Letzte System-Informationen loggen
+  const uptime = process.uptime();
+  const memory = process.memoryUsage();
+  console.log(
+    `📊 Server-Laufzeit: ${Math.floor(uptime / 3600)}h ${Math.floor(
+      (uptime % 3600) / 60
+    )}m`
+  );
+  console.log(
+    `💾 Speicherverbrauch: ${Math.round(memory.heapUsed / 1024 / 1024)}MB`
+  );
+}
+
+// Signal-Handler
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
+// Unbehandelte Promise-Rejections
 process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unhandled Rejection at:", promise, "reason:", reason);
+  console.error("❌ Unbehandelte Promise-Rejection:", reason);
+  console.error("Promise:", promise);
+  // Server nicht automatisch beenden, aber Fehler loggen
 });
 
-// Uncaught Exceptions
+// Unbehandelte Exceptions
 process.on("uncaughtException", (error) => {
-  console.error("Uncaught Exception:", error);
+  console.error("❌ Unbehandelte Exception:", error);
   gracefulShutdown("UNCAUGHT_EXCEPTION");
 });
 
-module.exports = app;
+module.exports = {
+  generalLimiter,
+  settingsLimiter,
+  uploadLimiter,
+  exportLimiter,
+  smartLimiter,
+  app,
+};

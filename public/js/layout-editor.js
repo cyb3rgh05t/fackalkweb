@@ -730,12 +730,12 @@ function getSampleRechnung() {
   return `
     <div class="header-section">
       <div>
-        <h1>FAF Lackiererei</h1>
+        <h1>Meine Firma</h1>
         <div class="text-muted">
           Musterstraße 123<br>
           12345 Musterstadt<br>
           Tel: 0123-456789<br>
-          E-Mail: info@faf-lackiererei.de
+          E-Mail: info@meine-firma.de
         </div>
       </div>
       <div style="text-align: right;">
@@ -821,12 +821,12 @@ function getSampleAuftrag() {
   return `
     <div class="header-section">
       <div>
-        <h1>FAF Lackiererei</h1>
+        <h1>Meine Firma</h1>
         <div class="text-muted">
           Musterstraße 123<br>
           12345 Musterstadt<br>
           Tel: 0123-456789<br>
-          E-Mail: info@faf-lackiererei.de
+          E-Mail: info@meine-firma.de
         </div>
       </div>
       <div style="text-align: right;">

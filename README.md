@@ -1,4 +1,4 @@
-# FAF Lackiererei - Rechnungs- und Auftragssystem
+# Meine Firma - Rechnungs- und Auftragssystem
 
 Ein modernes, webbasiertes System zur Verwaltung von Aufträgen und Rechnungen für Lackierereien, basierend auf der ursprünglichen Excel-Vorlage.
 
@@ -49,7 +49,7 @@ Ein modernes, webbasiertes System zur Verwaltung von Aufträgen und Rechnungen f
 # Falls Git verfügbar:
 
 git clone <repository-url>
-cd faf-lackiererei-system
+cd meine-firma-system
 
 # Oder: Dateien in einen neuen Ordner entpacken
 
@@ -86,7 +86,7 @@ npm start
 ## 📁 Projektstruktur
 
 \`\`\`
-faf-lackiererei-system/
+meine-firma-system/
 ├── 📄 package.json # Projektabhängigkeiten
 ├── 🖥️ server.js # Express.js Server
 ├── 📋 README.md # Diese Datei
@@ -96,7 +96,7 @@ faf-lackiererei-system/
 ├── 📁 scripts/ # Hilfsskripte
 │ └── 🔧 init-db.js # Datenbank-Initialisierung
 └── 📁 data/ # Datenbank (wird automatisch erstellt)
-└── 💾 lackiererei.db # SQLite-Datenbank
+└── 💾 kfz.db # SQLite-Datenbank
 \`\`\`
 
 ## 🎯 Verwendung
@@ -223,7 +223,7 @@ Bei Fragen oder Problemen:
 
 ## 📝 Lizenz
 
-Dieses Projekt wurde für FAF Lackiererei entwickelt.
+Dieses Projekt wurde für Meine Firma entwickelt.
 Alle Rechte vorbehalten.
 
 ---

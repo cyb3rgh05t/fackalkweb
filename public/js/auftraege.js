@@ -166,7 +166,7 @@ async function printAuftragDirect(id) {
     }
 
     // Firmendaten aus Einstellungen laden
-    const firmenname = getSetting("firmenname", "FAF Lackiererei");
+    const firmenname = getSetting("firmenname", "Meine Firma");
     const firmenStrasse = getSetting("firmen_strasse", "");
     const firmenPlz = getSetting("firmen_plz", "");
     const firmenOrt = getSetting("firmen_ort", "");
@@ -427,7 +427,7 @@ function generateSignatureSection() {
             Datum: ${today}
           </div>
           <div class="signature-label" style="position: absolute; bottom: -1.5em; left: 0; font-size: 12px; color: #666; font-weight: bold;">
-            Unterschrift FAF Lackiererei
+            Unterschrift Meine Firma
           </div>
         </div>
       </div>

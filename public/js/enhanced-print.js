@@ -549,7 +549,7 @@
 
     // Header generieren
     generateHeader(type, data) {
-      const firmenname = getSetting("firmenname", "FAF Lackiererei");
+      const firmenname = getSetting("firmenname", "Meine Firma");
       const logoData = getSetting("firmen_logo", "");
 
       // Debug-Ausgabe für Logo
@@ -614,7 +614,7 @@
         "Musterstadt"
       )}<br>
               Tel: ${getSetting("firmen_telefon", "+49 123 456789")}<br>
-              E-Mail: ${getSetting("firmen_email", "info@faf-lackiererei.de")}
+              E-Mail: ${getSetting("firmen_email", "info@meine-firma.de")}
             </div>
           </div>
           <div class="document-title" style="text-align: right;">
@@ -891,7 +891,7 @@
       return `
         <div class="footer">
           <p>
-            ${getSetting("firmenname", "FAF Lackiererei")} | 
+            ${getSetting("firmenname", "Meine Firma")} | 
             ${getSetting("rechtsform", "")} ${getSetting(
         "geschaeftsfuehrer",
         ""

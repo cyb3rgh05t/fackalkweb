@@ -82,7 +82,7 @@ function showKundenModal(kundeId = null) {
 
   const content = `
     <form id="kunde-form">
-      <div class="form-grid">
+      <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
         <div class="form-group">
           <label class="form-label">Name *</label>
           <input type="text" class="form-input" name="name" value="${
@@ -120,7 +120,6 @@ function showKundenModal(kundeId = null) {
           }">
         </div>
       </div>
-      
       ${
         !isEdit
           ? `
@@ -130,10 +129,9 @@ function showKundenModal(kundeId = null) {
           <span>Gleichzeitig Fahrzeug anlegen</span>
         </label>
       </div>
-      
       <div id="vehicle-form-section" style="display: none; margin-top: 1rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
         <h4 style="margin-bottom: 1rem;">Fahrzeugdaten</h4>
-        <div class="form-grid">
+        <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
           <div class="form-group">
             <label class="form-label">Kennzeichen *</label>
             <input type="text" class="form-input" name="vehicle_kennzeichen">

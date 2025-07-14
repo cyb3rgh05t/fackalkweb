@@ -121,7 +121,7 @@ function initializeDatabase() {
   header("Datenbank initialisieren");
 
   const dataDir = path.join(__dirname, "..", "data");
-  const dbPath = path.join(dataDir, "lackiererei.db");
+  const dbPath = path.join(dataDir, "kfz.db");
 
   createDirectory(dataDir);
 
@@ -339,13 +339,13 @@ function insertDefaultData(db, resolve, reject) {
   // Erweiterte Standard-Einstellungen
   const defaultSettings = [
     // Firmendaten
-    ["firmenname", "FAF Lackiererei", "Name der Firma"],
+    ["firmenname", "KFZ Fac Pro", "Name der Firma"],
     ["firmen_strasse", "Musterstraße 123", "Firmen-Straße und Hausnummer"],
     ["firmen_plz", "12345", "Firmen-PLZ"],
     ["firmen_ort", "Musterstadt", "Firmen-Ort"],
     ["firmen_telefon", "+49 123 456789", "Firmen-Telefonnummer"],
-    ["firmen_email", "info@faf-lackiererei.de", "Firmen-E-Mail"],
-    ["firmen_website", "www.faf-lackiererei.de", "Firmen-Website"],
+    ["firmen_email", "info@meine-firma.de", "Firmen-E-Mail"],
+    ["firmen_website", "www.meine-firma.de", "Firmen-Website"],
     ["firmen_logo", "", "Base64-kodiertes Firmenlogo"],
 
     // Geschäftsdaten
@@ -848,7 +848,7 @@ function setupBackupSystem() {
 const fs = require('fs');
 const path = require('path');
 
-const sourceDb = path.join(__dirname, '..', 'data', 'lackiererei.db');
+const sourceDb = path.join(__dirname, '..', 'data', 'kfz.db');
 const backupDir = path.join(__dirname, '..', 'backups');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const backupPath = path.join(backupDir, \`lackiererei_\${timestamp}.db\`);
@@ -897,10 +897,10 @@ function setupDevelopment() {
   // .env.example erstellen
   const envExamplePath = path.join(__dirname, "..", ".env.example");
   if (!checkFileExists(envExamplePath)) {
-    const envContent = `# FAF Lackiererei System Environment Variables
+    const envContent = `# KFZ Fac Pro System Environment Variables
 NODE_ENV=development
 PORT=3000
-DB_PATH=./data/lackiererei.db
+DB_PATH=./data/kfz.db
 
 # Optional: Security Settings
 SESSION_SECRET=your-secret-key-here
@@ -998,7 +998,7 @@ function testServer() {
 function showSummary() {
   header("Setup abgeschlossen");
 
-  success("🎉 FAF Lackiererei System erfolgreich eingerichtet!");
+  success("🎉 KFZ Fac Pro System erfolgreich eingerichtet!");
 
   log("\n📋 Übersicht:", "cyan");
   log("✅ Abhängigkeiten installiert", "green");
@@ -1039,7 +1039,7 @@ function showSummary() {
   log("• Logs im Browser-Console für Debugging", "white");
   log("• Einstellungen über Web-Interface anpassbar", "white");
 
-  log("\n✨ Viel Erfolg mit Ihrem FAF Lackiererei System!", "green");
+  log("\n✨ Viel Erfolg mit Ihrem KFZ Fac Pro System!", "green");
 }
 
 // Interaktiver Setup-Modus
@@ -1050,7 +1050,7 @@ async function promptUserChoices() {
   });
 
   return new Promise((resolve) => {
-    const dbPath = path.join(__dirname, "..", "data", "lackiererei.db");
+    const dbPath = path.join(__dirname, "..", "data", "kfz.db");
 
     if (checkFileExists(dbPath)) {
       rl.question(
@@ -1091,7 +1091,7 @@ async function runSetup() {
     `
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
-║    🎨 FAF LACKIEREREI SYSTEM - KOMPLETTES SETUP V2.0           ║
+║    🎨 KFZ Fac Pro SYSTEM - KOMPLETTES SETUP V2.0           ║
 ║    Rechnungs- und Auftragssystem mit Datenbank-Integration      ║
 ║                                                                  ║
 ╚══════════════════════════════════════════════════════════════════╝

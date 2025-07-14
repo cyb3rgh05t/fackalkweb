@@ -130,9 +130,6 @@ window.showFahrzeugModal = async function (fahrzeugId = null) {
     : {};
   const isEdit = !!fahrzeugId;
 
-  // Standard-Werte aus Einstellungen
-  const firmenOrt = getSetting("firmen_ort", "");
-
   const kundenOptions = window.kunden
     .map(
       (k) =>
@@ -142,7 +139,7 @@ window.showFahrzeugModal = async function (fahrzeugId = null) {
     )
     .join("");
 
-  // Vorschläge für Marken (könnte später aus einer API kommen)
+  // Vorschläge für Marken
   const markenSuggestions = [
     "Audi",
     "BMW",
@@ -164,14 +161,13 @@ window.showFahrzeugModal = async function (fahrzeugId = null) {
     "Mazda",
     "Volvo",
   ];
-
   const markenDatalist = markenSuggestions
     .map((marke) => `<option value="${marke}">`)
     .join("");
 
   const content = `
     <form id="fahrzeug-form">
-      <div class="form-grid">
+      <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 1.5rem;">
         <div class="form-group">
           <label class="form-label">Kunde *</label>
           <select class="form-select" name="kunden_id" required>
@@ -224,7 +220,6 @@ window.showFahrzeugModal = async function (fahrzeugId = null) {
           }" placeholder="z.B. A96, LY9C">
         </div>
       </div>
-      
       ${
         !isEdit
           ? `

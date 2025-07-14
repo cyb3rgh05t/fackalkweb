@@ -1,19 +1,31 @@
 :root {
-  --bg-primary: #0f0f23;
-  --bg-secondary: #15152a;
-  --bg-tertiary: #1a1a3a;
-  --bg-card: #1e1e3f;
-  --text-primary: #ffffff;
-  --text-secondary: #b8bcc8;
-  --text-muted: #6b7280;
-  --accent-primary: #3b82f6;
-  --accent-secondary: #1e40af;
-  --accent-success: #10b981;
+  --bg-primary: #1f1f1f;
+  --bg-secondary: #232323;
+  --bg-tertiary: #1b1b1b;
+  --bg-card: #232323;
+
+  --text-primary: #fff;
+  --text-secondary: #96a2b4;
+  --text-muted: #999;
+
+  --accent-primary: #2cabe3;
+  --accent-secondary: #298fbc;
+  --accent-success: #1ecb4f;
   --accent-warning: #f59e0b;
   --accent-danger: #ef4444;
-  --border-color: #2d2d52;
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+
+  --border-color: #333;
+  --shadow: 0 4px 16px 0 rgba(44, 171, 227, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(44, 171, 227, 0.15);
+
+  --button-bg: #2cabe3;
+  --button-bg-hover: #298fbc;
+  --button-text: #eee;
+  --button-text-hover: #fff;
+
+  --modal-bg-color: #333;
+  --modal-header-color: #232323;
+  --modal-footer-color: #232323;
 }
 
 * {
@@ -40,7 +52,6 @@ body {
   padding: 0 20px;
 }
 
-/* Header */
 .header {
   background: var(--bg-card);
   box-shadow: var(--shadow);
@@ -86,11 +97,10 @@ body {
 .nav-item:hover,
 .nav-item.active {
   background: var(--accent-primary);
-  color: var(--text-primary);
+  color: var(--button-text-hover);
   transform: translateY(-2px);
 }
 
-/* Main Content */
 .main {
   padding: 2rem 0;
   min-height: calc(100vh - 80px);
@@ -99,12 +109,10 @@ body {
 .section {
   display: none;
 }
-
 .section.active {
   display: block;
 }
 
-/* Cards */
 .card {
   background: var(--bg-card);
   border-radius: 12px;
@@ -129,7 +137,6 @@ body {
   color: var(--text-primary);
 }
 
-/* Search Box */
 .search-box {
   position: relative;
   margin-bottom: 1rem;
@@ -150,7 +157,7 @@ body {
 .search-input:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(44, 171, 227, 0.18);
 }
 
 .search-icon {
@@ -161,7 +168,6 @@ body {
   color: var(--text-muted);
 }
 
-/* Buttons */
 .btn {
   padding: 0.75rem 1.5rem;
   border: none;
@@ -177,12 +183,13 @@ body {
 }
 
 .btn-primary {
-  background: var(--accent-primary);
-  color: var(--text-primary);
+  background: var(--button-bg);
+  color: var(--button-text);
 }
 
 .btn-primary:hover {
-  background: var(--accent-secondary);
+  background: var(--button-bg-hover);
+  color: var(--button-text-hover);
   transform: translateY(-2px);
   box-shadow: var(--shadow-lg);
 }
@@ -191,9 +198,8 @@ body {
   background: var(--accent-success);
   color: var(--text-primary);
 }
-
 .btn-success:hover {
-  background: #059669;
+  background: #16b347;
   transform: translateY(-2px);
 }
 
@@ -255,7 +261,7 @@ body {
 .form-textarea:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(44, 171, 227, 0.18);
 }
 
 .form-textarea {
@@ -302,28 +308,19 @@ body {
 }
 
 .status-offen {
-  background: rgba(59, 130, 246, 0.2);
+  background: rgba(44, 171, 227, 0.18);
   color: var(--accent-primary);
 }
 
-.status-bearbeitung {
-  background: rgba(245, 158, 11, 0.2);
-  color: var(--accent-warning);
-}
-
-/* NEUE CSS-Klasse für in_bearbeitung Status */
+.status-bearbeitung,
 .status-in-bearbeitung {
   background: rgba(245, 158, 11, 0.2);
   color: var(--accent-warning);
 }
 
-.status-abgeschlossen {
-  background: rgba(16, 185, 129, 0.2);
-  color: var(--accent-success);
-}
-
+.status-abgeschlossen,
 .status-bezahlt {
-  background: rgba(16, 185, 129, 0.2);
+  background: rgba(30, 203, 79, 0.18);
   color: var(--accent-success);
 }
 
@@ -356,7 +353,7 @@ body {
 }
 
 .modal-content {
-  background: var(--bg-card);
+  background: var(--modal-bg-color, var(--bg-card));
   border-radius: 12px;
   padding: 2rem;
   max-width: 90vw;

@@ -616,7 +616,7 @@ window.resetSection = async function (section) {
     // Standard-Werte für verschiedene Sektionen
     const defaults = {
       firma: {
-        firmenname: "FAF Lackiererei",
+        firmenname: "Meine Firma",
         firmen_strasse: "",
         firmen_plz: "",
         firmen_ort: "",

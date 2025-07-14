@@ -17,4 +17,4 @@ export function closeModal() {
   const modal = document.querySelector(".modal.active");
   if (modal) modal.remove();
 }
-window.closeModal = closeModal; // Damit onclick in HTML/Modal funktioniert
+window.closeModal = closeModal;

@@ -532,7 +532,7 @@ async function viewRechnung(id) {
     const settings = getSettings();
 
     // Firmendaten aus Einstellungen
-    const firmenname = getSetting("firmenname", "FAF Lackiererei");
+    const firmenname = getSetting("firmenname", "Meine Firma");
     const firmenStrasse = getSetting("firmen_strasse", "");
     const firmenPlz = getSetting("firmen_plz", "");
     const firmenOrt = getSetting("firmen_ort", "");
@@ -791,7 +791,7 @@ async function printRechnungDirect(id) {
     }
 
     // Firmendaten aus Einstellungen laden
-    const firmenname = getSetting("firmenname", "FAF Lackiererei");
+    const firmenname = getSetting("firmenname", "Meine Firma");
     const firmenStrasse = getSetting("firmen_strasse", "");
     const firmenPlz = getSetting("firmen_plz", "");
     const firmenOrt = getSetting("firmen_ort", "");

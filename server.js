@@ -206,7 +206,7 @@ app.post("/api/backup/create", async (req, res) => {
 
     const timestamp = new Date().toISOString().replace(/:/g, "-").split(".")[0];
     const backupPath = path.join(backupDir, `backup_${timestamp}.db`);
-    const sourcePath = path.join(__dirname, "data", "lackiererei.db");
+    const sourcePath = path.join(__dirname, "data", "kfz.db");
 
     // Datenbank kopieren
     fs.copyFileSync(sourcePath, backupPath);
@@ -250,7 +250,7 @@ app.post("/api/backup/restore", async (req, res) => {
       return res.status(400).json({ error: "Backup-Datei nicht gefunden" });
     }
 
-    const sourcePath = path.join(__dirname, "data", "lackiererei.db");
+    const sourcePath = path.join(__dirname, "data", "kfz.db");
 
     // Aktuelles Backup erstellen vor Wiederherstellung
     const emergencyBackup = `${sourcePath}.emergency_${Date.now()}`;
@@ -279,9 +279,7 @@ app.get("/api/system/status", (req, res) => {
       return res.status(500).json({ error: "Datenbankfehler" });
     }
 
-    const diskUsage = fs.statSync(
-      path.join(__dirname, "data", "lackiererei.db")
-    ).size;
+    const diskUsage = fs.statSync(path.join(__dirname, "data", "kfz.db")).size;
 
     res.json({
       status: "ok",
@@ -378,9 +376,7 @@ app.use((err, req, res, next) => {
 const server = app.listen(PORT, () => {
   console.log(`🚀 Server läuft auf Port ${PORT}`);
   console.log(`📱 Öffnen Sie http://localhost:${PORT} in Ihrem Browser`);
-  console.log(
-    `💾 Datenbank: ${path.join(__dirname, "data", "lackiererei.db")}`
-  );
+  console.log(`💾 Datenbank: ${path.join(__dirname, "data", "kfz.db")}`);
   console.log(`📁 Statische Dateien: ${path.join(__dirname, "public")}`);
   console.log(`🛡️  Sicherheitsfeatures aktiviert`);
   console.log(`📊 System-Status: http://localhost:${PORT}/api/system/status`);

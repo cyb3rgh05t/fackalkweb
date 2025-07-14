@@ -40,7 +40,7 @@ export async function loadDashboard() {
 
 function updateFirmenLogo() {
   const logo = getSetting("firmen_logo", "");
-  const firmenname = getSetting("firmenname", "FAF Lackiererei");
+  const firmenname = getSetting("firmenname", "Meine Firma");
 
   // Logo im Header-Bereich aktualisieren
   const logoElement = document.querySelector(".logo");
@@ -245,7 +245,7 @@ function updateFirmenInfo() {
     }
   }
 
-  const firmenname = getSetting("firmenname", "FAF Lackiererei");
+  const firmenname = getSetting("firmenname", "Meine Firma");
   const firmenStrasse = getSetting("firmen_strasse", "");
   const firmenOrt = getSetting("firmen_ort", "");
   const firmenTelefon = getSetting("firmen_telefon", "");

@@ -1,10 +1,37 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FAF Admin Dashboard</title>
+    <title>FAF Lackiererei - Admin Panel</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
     <style>
+      :root,
+      [data-theme="dark"] {
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-tertiary: #334155;
+        --bg-card: #1e293b;
+        --text-primary: #f1f5f9;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --border-color: #475569;
+        --accent-primary: #60a5fa;
+        --accent-success: #34d399;
+        --accent-warning: #fbbf24;
+        --accent-danger: #f87171;
+        --shadow-light: rgba(0, 0, 0, 0.3);
+        --shadow-medium: rgba(0, 0, 0, 0.4);
+        --shadow-heavy: rgba(0, 0, 0, 0.6);
+      }
+
       * {
         margin: 0;
         padding: 0;
@@ -12,103 +39,103 @@
       }
 
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #f8fafc;
-        color: #334155;
-        line-height: 1.6;
+        font-family: "Inter", sans-serif;
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        transition: all 0.3s ease;
       }
 
       .header {
-        background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
-        color: white;
-        padding: 1rem 2rem;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        background: var(--bg-card);
+        border-bottom: 1px solid var(--border-color);
+        padding: 1rem 0;
+        box-shadow: 0 2px 10px var(--shadow-light);
         position: sticky;
         top: 0;
         z-index: 100;
       }
 
       .header-content {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 2rem;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        max-width: 1200px;
-        margin: 0 auto;
       }
 
       .logo {
         font-size: 1.5rem;
         font-weight: 700;
+        color: var(--accent-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
       }
 
-      .user-info {
+      .admin-info {
         display: flex;
         align-items: center;
         gap: 1rem;
       }
 
-      .btn {
-        padding: 0.5rem 1rem;
-        border: none;
-        border-radius: 6px;
+      .admin-details {
+        text-align: right;
+      }
+
+      .admin-name {
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .admin-role {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+      }
+
+      .header-controls {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .theme-toggle {
+        background: var(--bg-secondary);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0.5rem;
         cursor: pointer;
-        font-size: 0.9rem;
+        color: var(--text-secondary);
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+      }
+
+      .theme-toggle:hover {
+        background: var(--bg-tertiary);
+        color: var(--accent-primary);
+      }
+
+      .logout-btn {
+        background: var(--accent-danger);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
         font-weight: 500;
-        transition: all 0.2s;
-        text-decoration: none;
-        display: inline-flex;
+        transition: all 0.3s ease;
+        display: flex;
         align-items: center;
         gap: 0.5rem;
       }
 
-      .btn-primary {
-        background: #3b82f6;
-        color: white;
-      }
-
-      .btn-primary:hover {
-        background: #2563eb;
-      }
-
-      .btn-success {
-        background: #10b981;
-        color: white;
-      }
-
-      .btn-success:hover {
-        background: #059669;
-      }
-
-      .btn-warning {
-        background: #f59e0b;
-        color: white;
-      }
-
-      .btn-warning:hover {
-        background: #d97706;
-      }
-
-      .btn-danger {
-        background: #ef4444;
-        color: white;
-      }
-
-      .btn-danger:hover {
+      .logout-btn:hover {
         background: #dc2626;
-      }
-
-      .btn-secondary {
-        background: #6b7280;
-        color: white;
-      }
-
-      .btn-secondary:hover {
-        background: #4b5563;
-      }
-
-      .btn-sm {
-        padding: 0.25rem 0.75rem;
-        font-size: 0.8rem;
+        transform: translateY(-1px);
       }
 
       .container {
@@ -117,50 +144,74 @@
         padding: 2rem;
       }
 
+      .page-title {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        color: var(--text-primary);
+      }
+
+      .page-subtitle {
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+      }
+
       .dashboard-grid {
         display: grid;
-        grid-template-columns: 1fr 2fr;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
         gap: 2rem;
-        margin-bottom: 2rem;
+        margin-bottom: 3rem;
       }
 
       .stats-cards {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
+        margin-bottom: 2rem;
       }
 
       .card {
-        background: white;
-        border-radius: 8px;
+        background: var(--bg-card);
+        border-radius: 12px;
         padding: 1.5rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 20px var(--shadow-light);
+        border: 1px solid var(--border-color);
+        transition: all 0.3s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 30px var(--shadow-medium);
       }
 
       .stat-card {
         text-align: center;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
         color: white;
-        padding: 1.5rem;
+        border: none;
       }
 
       .stat-number {
-        font-size: 2rem;
+        font-size: 2.5rem;
         font-weight: 700;
         margin-bottom: 0.5rem;
       }
 
       .stat-label {
         opacity: 0.9;
-        font-size: 0.9rem;
+        font-size: 0.95rem;
+        font-weight: 500;
       }
 
       .section-title {
-        font-size: 1.25rem;
+        font-size: 1.4rem;
         font-weight: 600;
-        margin-bottom: 1rem;
-        color: #1e293b;
+        margin-bottom: 1.5rem;
+        color: var(--text-primary);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
       }
 
       .users-section {
@@ -172,98 +223,163 @@
         justify-content: space-between;
         align-items: center;
         margin-bottom: 1.5rem;
+        flex-wrap: wrap;
+        gap: 1rem;
       }
 
       .search-box {
         display: flex;
         gap: 1rem;
         align-items: center;
+        flex-wrap: wrap;
       }
 
       .search-input {
-        padding: 0.5rem 1rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 0.9rem;
+        padding: 0.75rem 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
         width: 300px;
+        transition: all 0.3s ease;
+      }
+
+      .search-input:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+      }
+
+      .btn {
+        padding: 0.75rem 1.5rem;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        text-decoration: none;
+        font-size: 0.95rem;
+      }
+
+      .btn-primary {
+        background: var(--accent-primary);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: #2563eb;
+        transform: translateY(-1px);
+      }
+
+      .btn-success {
+        background: var(--accent-success);
+        color: white;
+      }
+
+      .btn-success:hover {
+        background: #059669;
+      }
+
+      .btn-warning {
+        background: var(--accent-warning);
+        color: white;
+      }
+
+      .btn-warning:hover {
+        background: #d97706;
+      }
+
+      .btn-danger {
+        background: var(--accent-danger);
+        color: white;
+      }
+
+      .btn-danger:hover {
+        background: #dc2626;
+      }
+
+      .btn-sm {
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
       }
 
       .users-table {
         width: 100%;
         border-collapse: collapse;
-        background: white;
-        border-radius: 8px;
+        background: var(--bg-card);
+        border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 4px 20px var(--shadow-light);
+        border: 1px solid var(--border-color);
       }
 
       .users-table th {
-        background: #f8fafc;
+        background: var(--bg-secondary);
         padding: 1rem;
         text-align: left;
         font-weight: 600;
-        color: #374151;
-        border-bottom: 1px solid #e5e7eb;
+        color: var(--text-primary);
+        border-bottom: 1px solid var(--border-color);
+        font-size: 0.95rem;
       }
 
       .users-table td {
         padding: 1rem;
-        border-bottom: 1px solid #f3f4f6;
+        border-bottom: 1px solid var(--border-color);
+        color: var(--text-primary);
       }
 
-      .users-table tr:hover {
-        background: #f9fafb;
+      .users-table tbody tr:hover {
+        background: var(--bg-secondary);
+      }
+
+      .users-table tbody tr:last-child td {
+        border-bottom: none;
       }
 
       .status-badge {
-        padding: 0.25rem 0.75rem;
-        border-radius: 12px;
+        padding: 0.3rem 0.8rem;
+        border-radius: 20px;
         font-size: 0.8rem;
         font-weight: 500;
+        display: inline-block;
       }
 
       .status-active {
-        background: #d1fae5;
-        color: #065f46;
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--accent-success);
+        border: 1px solid rgba(16, 185, 129, 0.2);
       }
 
       .status-inactive {
-        background: #fee2e2;
-        color: #991b1b;
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--accent-danger);
+        border: 1px solid rgba(239, 68, 68, 0.2);
       }
 
       .status-expired {
-        background: #fef3c7;
-        color: #92400e;
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--accent-warning);
+        border: 1px solid rgba(245, 158, 11, 0.2);
       }
 
       .status-valid {
-        background: #dbeafe;
-        color: #1e40af;
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--accent-primary);
+        border: 1px solid rgba(59, 130, 246, 0.2);
       }
 
-      .role-badge {
-        padding: 0.25rem 0.75rem;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        font-weight: 500;
-      }
-
-      .role-admin {
-        background: #fce7f3;
-        color: #be185d;
-      }
-
-      .role-user {
-        background: #e0e7ff;
-        color: #3730a3;
-      }
-
-      .actions {
+      .actions-cell {
         display: flex;
         gap: 0.5rem;
+        align-items: center;
       }
 
+      /* Modal Styles */
       .modal {
         display: none;
         position: fixed;
@@ -271,7 +387,7 @@
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.5);
+        background: rgba(0, 0, 0, 0.7);
         z-index: 1000;
         align-items: center;
         justify-content: center;
@@ -282,13 +398,15 @@
       }
 
       .modal-content {
-        background: white;
-        border-radius: 8px;
+        background: var(--bg-card);
+        border-radius: 12px;
         padding: 2rem;
-        width: 90%;
         max-width: 500px;
+        width: 90%;
         max-height: 90vh;
         overflow-y: auto;
+        border: 1px solid var(--border-color);
+        box-shadow: 0 20px 60px var(--shadow-heavy);
       }
 
       .modal-header {
@@ -297,12 +415,13 @@
         align-items: center;
         margin-bottom: 1.5rem;
         padding-bottom: 1rem;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--border-color);
       }
 
       .modal-title {
-        font-size: 1.25rem;
+        font-size: 1.4rem;
         font-weight: 600;
+        color: var(--text-primary);
       }
 
       .close-btn {
@@ -310,157 +429,249 @@
         border: none;
         font-size: 1.5rem;
         cursor: pointer;
-        color: #6b7280;
+        color: var(--text-secondary);
+        padding: 0.5rem;
+        border-radius: 4px;
+        transition: all 0.3s ease;
+      }
+
+      .close-btn:hover {
+        background: var(--bg-secondary);
+        color: var(--text-primary);
       }
 
       .form-group {
-        margin-bottom: 1rem;
+        margin-bottom: 1.5rem;
       }
 
       .form-label {
         display: block;
         margin-bottom: 0.5rem;
         font-weight: 500;
-        color: #374151;
+        color: var(--text-primary);
+        font-size: 0.95rem;
       }
 
-      .form-input {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 1rem;
-      }
-
-      .form-input:focus {
-        outline: none;
-        border-color: #3b82f6;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-      }
-
+      .form-input,
       .form-select {
         width: 100%;
         padding: 0.75rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        font-size: 1rem;
-        background: white;
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        font-size: 0.95rem;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        transition: all 0.3s ease;
       }
 
-      .form-actions {
-        display: flex;
-        gap: 1rem;
-        justify-content: flex-end;
-        margin-top: 2rem;
-        padding-top: 1rem;
-        border-top: 1px solid #e5e7eb;
+      .form-input:focus,
+      .form-select:focus {
+        outline: none;
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
       }
 
+      /* Alert Styles */
       .alert {
         padding: 1rem;
-        border-radius: 6px;
+        border-radius: 8px;
         margin-bottom: 1rem;
+        font-weight: 500;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
       }
 
       .alert-success {
-        background: #d1fae5;
-        color: #065f46;
-        border: 1px solid #a7f3d0;
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--accent-success);
+        border: 1px solid rgba(16, 185, 129, 0.2);
       }
 
       .alert-error {
-        background: #fee2e2;
-        color: #991b1b;
-        border: 1px solid #fca5a5;
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--accent-danger);
+        border: 1px solid rgba(239, 68, 68, 0.2);
       }
 
       .alert-warning {
-        background: #fef3c7;
-        color: #92400e;
-        border: 1px solid #fcd34d;
+        background: rgba(245, 158, 11, 0.1);
+        color: var(--accent-warning);
+        border: 1px solid rgba(245, 158, 11, 0.2);
       }
 
-      .loading {
-        opacity: 0.5;
-        pointer-events: none;
+      .alert-info {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--accent-primary);
+        border: 1px solid rgba(59, 130, 246, 0.2);
       }
 
-      .expiry-warning {
-        color: #f59e0b;
-        font-weight: 500;
+      /* System Info Styles */
+      .system-info {
+        font-size: 0.9rem;
+        line-height: 1.6;
       }
 
-      .expiry-expired {
-        color: #ef4444;
-        font-weight: 500;
+      .system-info p {
+        margin-bottom: 0.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
 
+      .system-info strong {
+        color: var(--text-primary);
+      }
+
+      /* Responsive */
       @media (max-width: 768px) {
-        .dashboard-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .stats-cards {
-          grid-template-columns: 1fr;
-        }
-
         .container {
           padding: 1rem;
         }
 
-        .users-table {
-          font-size: 0.9rem;
+        .header-content {
+          padding: 0 1rem;
+          flex-wrap: wrap;
+          gap: 1rem;
+        }
+
+        .users-header {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        .search-box {
+          justify-content: space-between;
         }
 
         .search-input {
-          width: 200px;
+          width: 100%;
+          min-width: 200px;
         }
 
-        .actions {
-          flex-direction: column;
+        .users-table {
+          font-size: 0.85rem;
         }
+
+        .users-table th,
+        .users-table td {
+          padding: 0.75rem;
+        }
+
+        .actions-cell {
+          flex-direction: column;
+          gap: 0.25rem;
+        }
+
+        .btn-sm {
+          padding: 0.4rem 0.8rem;
+          font-size: 0.8rem;
+        }
+
+        .modal-content {
+          padding: 1.5rem;
+          margin: 1rem;
+        }
+
+        .page-title {
+          font-size: 2rem;
+        }
+      }
+
+      /* Loading States */
+      .loading {
+        opacity: 0.7;
+        pointer-events: none;
+      }
+
+      .spinner {
+        border: 2px solid var(--border-color);
+        border-top: 2px solid var(--accent-primary);
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        animation: spin 1s linear infinite;
+        display: inline-block;
+        margin-right: 0.5rem;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* Transitions */
+      .card,
+      .modal-content,
+      .users-table,
+      .btn,
+      .form-input,
+      .form-select,
+      .search-input,
+      .theme-toggle,
+      .logout-btn {
+        transition: all 0.3s ease;
       }
     </style>
   </head>
   <body>
-    <div class="header">
+    <header class="header">
       <div class="header-content">
-        <div class="logo">🎨 FAF Admin Dashboard</div>
-        <div class="user-info">
-          <span id="admin-name">Admin</span>
-          <button class="btn btn-secondary" onclick="logout()">Logout</button>
+        <div class="logo">
+          <i class="fas fa-tools"></i>
+          FAF Lackiererei - Admin
+        </div>
+        <div class="admin-info">
+          <div class="admin-details">
+            <div class="admin-name" id="admin-name">Administrator</div>
+            <div class="admin-role">System Administrator</div>
+          </div>
+          <button class="logout-btn" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i> Abmelden
+          </button>
         </div>
       </div>
-    </div>
-
+    </header>
     <div class="container">
-      <!-- Dashboard Stats -->
+      <h1 class="page-title">Admin Dashboard</h1>
+      <p class="page-subtitle">
+        Benutzer- und System-Verwaltung für FAF Lackiererei
+      </p>
       <div class="dashboard-grid">
         <div class="stats-cards">
-          <div class="stat-card">
-            <div class="stat-number" id="total-users">-</div>
-            <div class="stat-label">Benutzer gesamt</div>
+          <div class="card stat-card">
+            <div class="stat-number" id="total-users">0</div>
+            <div class="stat-label">Gesamt Benutzer</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-number" id="active-users">-</div>
+          <div class="card stat-card">
+            <div class="stat-number" id="active-users">0</div>
             <div class="stat-label">Aktive Benutzer</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-number" id="valid-licenses">-</div>
+          <div class="card stat-card">
+            <div class="stat-number" id="valid-licenses">0</div>
             <div class="stat-label">Gültige Lizenzen</div>
           </div>
-          <div class="stat-card">
-            <div class="stat-number" id="expired-licenses">-</div>
+          <div class="card stat-card">
+            <div class="stat-number" id="expired-licenses">0</div>
             <div class="stat-label">Abgelaufene Lizenzen</div>
           </div>
         </div>
-
         <div class="card">
-          <div class="section-title">System-Übersicht</div>
-          <div id="system-info">
+          <div class="section-title">
+            <i class="fas fa-server"></i> System-Information
+          </div>
+          <div class="system-info">
             <p>
               <strong>Server-Status:</strong>
-              <span id="server-status">Läuft</span>
+              <span style="color: var(--accent-success)">Online</span>
+            </p>
+            <p>
+              <strong>Datenbank:</strong>
+              <span style="color: var(--accent-success)">Verbunden</span>
             </p>
             <p>
               <strong>Letzte Aktualisierung:</strong>
@@ -468,20 +679,20 @@
             </p>
             <p>
               <strong>Auth-System:</strong>
-              <span style="color: #10b981">Aktiv</span>
+              <span style="color: var(--accent-success)">Aktiv</span>
             </p>
             <p>
               <strong>Multi-Tenant:</strong>
-              <span style="color: #10b981">Aktiviert</span>
+              <span style="color: var(--accent-success)">Aktiviert</span>
             </p>
           </div>
         </div>
       </div>
-
-      <!-- Users Management -->
       <div class="card users-section">
         <div class="users-header">
-          <div class="section-title">Benutzer-Verwaltung</div>
+          <div class="section-title">
+            <i class="fas fa-users"></i> Benutzer-Verwaltung
+          </div>
           <div class="search-box">
             <input
               type="text"
@@ -490,13 +701,11 @@
               id="search-input"
             />
             <button class="btn btn-primary" onclick="openCreateUserModal()">
-              ➕ Neuer Benutzer
+              <i class="fas fa-plus"></i> Neuer Benutzer
             </button>
           </div>
         </div>
-
         <div id="alert-container"></div>
-
         <table class="users-table" id="users-table">
           <thead>
             <tr>
@@ -512,6 +721,7 @@
           <tbody id="users-tbody">
             <tr>
               <td colspan="7" style="text-align: center; padding: 2rem">
+                <div class="spinner"></div>
                 Lade Benutzer...
               </td>
             </tr>
@@ -553,26 +763,21 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Lizenz-Typ</label>
-            <select class="form-select" id="license-type">
-              <option value="basic">Basic (50 Kunden, 200 Fahrzeuge)</option>
-              <option value="professional">
-                Professional (200 Kunden, 1000 Fahrzeuge)
-              </option>
-              <option value="enterprise">Enterprise (Unbegrenzt)</option>
-            </select>
-          </div>
-
-          <div class="form-actions">
+            <button type="submit" class="btn btn-primary" id="save-btn">
+              <i class="fas fa-save"></i> Speichern
+            </button>
             <button
               type="button"
               class="btn btn-secondary"
               onclick="closeModal()"
+              style="
+                margin-left: 1rem;
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                border: 1px solid var(--border-color);
+              "
             >
               Abbrechen
-            </button>
-            <button type="submit" class="btn btn-primary" id="save-btn">
-              Speichern
             </button>
           </div>
         </form>
@@ -583,46 +788,35 @@
     <div class="modal" id="license-modal">
       <div class="modal-content">
         <div class="modal-header">
-          <h3 class="modal-title">Lizenz verwalten</h3>
+          <h3 class="modal-title">Lizenz-Verwaltung</h3>
           <button class="close-btn" onclick="closeLicenseModal()">
             &times;
           </button>
         </div>
 
-        <div id="license-user-info"></div>
-
-        <div class="form-group">
-          <label class="form-label">Verlängern um</label>
-          <select class="form-select" id="extend-months">
-            <option value="1">1 Monat</option>
-            <option value="3">3 Monate</option>
-            <option value="6">6 Monate</option>
-            <option value="12" selected>12 Monate</option>
-            <option value="24">24 Monate</option>
-          </select>
+        <div id="license-details">
+          <p><strong>Benutzer:</strong> <span id="license-username">-</span></p>
+          <p>
+            <strong>Aktueller Status:</strong>
+            <span id="license-current-status">-</span>
+          </p>
+          <p><strong>Läuft ab:</strong> <span id="license-expires">-</span></p>
         </div>
 
-        <div class="form-actions">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            onclick="closeLicenseModal()"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="button"
-            class="btn btn-warning"
-            onclick="upgradeLicense()"
-          >
-            Upgrade
-          </button>
+        <div style="margin-top: 1.5rem; display: flex; gap: 1rem">
           <button
             type="button"
             class="btn btn-success"
             onclick="extendLicense()"
           >
-            Verlängern
+            <i class="fas fa-calendar-plus"></i> Um 1 Jahr verlängern
+          </button>
+          <button
+            type="button"
+            class="btn btn-warning"
+            onclick="deactivateLicense()"
+          >
+            <i class="fas fa-ban"></i> Deaktivieren
           </button>
         </div>
       </div>
@@ -633,19 +827,53 @@
       let currentUser = null;
       let editingUserId = null;
 
-      // Beim Laden der Seite
+      // Theme Management
+      function initTheme() {
+        const savedTheme = localStorage.getItem("theme") || "light";
+        document.documentElement.setAttribute("data-theme", savedTheme);
+        updateThemeIcon(savedTheme);
+      }
+
+      function toggleTheme() {
+        const currentTheme =
+          document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "light" ? "dark" : "light";
+
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+        updateThemeIcon(newTheme);
+      }
+
+      function updateThemeIcon(theme) {
+        const icon = document.getElementById("theme-icon");
+        icon.className = theme === "light" ? "fas fa-moon" : "fas fa-sun";
+      }
+
+      // App Initialization
       document.addEventListener("DOMContentLoaded", async () => {
+        initTheme();
         await checkAdminAuth();
         await loadDashboardData();
         setupEventListeners();
       });
 
-      // Admin-Auth prüfen
+      // Admin Auth Check
       async function checkAdminAuth() {
         try {
           const user = JSON.parse(localStorage.getItem("user") || "{}");
 
           if (!user.id || user.role !== "admin") {
+            window.location.href = "/login.html";
+            return;
+          }
+
+          // Session check
+          const response = await fetch("/api/auth/session-check", {
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            localStorage.removeItem("user");
             window.location.href = "/login.html";
             return;
           }
@@ -657,7 +885,7 @@
         }
       }
 
-      // Dashboard-Daten laden
+      // Dashboard Data Loading
       async function loadDashboardData() {
         try {
           await Promise.all([loadUserStats(), loadUsers(), loadSystemInfo()]);
@@ -667,10 +895,12 @@
         }
       }
 
-      // User-Statistiken laden
+      // Load User Statistics
       async function loadUserStats() {
         try {
-          const response = await fetch("/api/admin/users/stats");
+          const response = await fetch("/api/admin/users/stats", {
+            credentials: "include",
+          });
           if (!response.ok)
             throw new Error("Fehler beim Laden der Statistiken");
 
@@ -689,128 +919,127 @@
         }
       }
 
-      // Alle Users laden
+      // Load All Users
       async function loadUsers() {
         try {
-          const response = await fetch("/api/admin/users");
+          const response = await fetch("/api/admin/users", {
+            credentials: "include",
+          });
           if (!response.ok) throw new Error("Fehler beim Laden der Benutzer");
 
           users = await response.json();
-          renderUsersTable();
+          renderUsers(users);
         } catch (error) {
           console.error("Users-Fehler:", error);
-          document.getElementById("users-tbody").innerHTML = `
-                    <tr><td colspan="7" style="text-align: center; color: #ef4444;">
-                        Fehler beim Laden der Benutzer
-                    </td></tr>
-                `;
+          showAlert("Fehler beim Laden der Benutzer", "error");
         }
       }
 
-      // System-Info laden
+      // Load System Info
       async function loadSystemInfo() {
-        try {
-          const response = await fetch("/api/system/status");
-          if (response.ok) {
-            const info = await response.json();
-            document.getElementById("server-status").textContent = "Online";
-            document.getElementById("last-update").textContent =
-              new Date().toLocaleString("de-DE");
-          }
-        } catch (error) {
-          document.getElementById("server-status").textContent = "Offline";
-        }
+        document.getElementById("last-update").textContent =
+          new Date().toLocaleString("de-DE");
       }
 
-      // Users-Tabelle rendern
-      function renderUsersTable() {
+      // Render Users Table
+      function renderUsers(userList) {
         const tbody = document.getElementById("users-tbody");
 
-        if (users.length === 0) {
+        if (userList.length === 0) {
           tbody.innerHTML = `
-                    <tr><td colspan="7" style="text-align: center;">
-                        Keine Benutzer gefunden
-                    </td></tr>
-                `;
+            <tr>
+              <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                <i class="fas fa-users" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+                Keine Benutzer gefunden
+              </td>
+            </tr>
+          `;
           return;
         }
 
-        tbody.innerHTML = users
+        tbody.innerHTML = userList
           .map((user) => {
-            const isExpired = new Date(user.expires_at) < new Date();
-            const daysUntilExpiry = Math.ceil(
-              (new Date(user.expires_at) - new Date()) / (1000 * 60 * 60 * 24)
-            );
-
-            let expiryClass = "";
-            let expiryText = new Date(user.expires_at).toLocaleDateString(
-              "de-DE"
-            );
-
-            if (isExpired) {
-              expiryClass = "expiry-expired";
-              expiryText += " (Abgelaufen)";
-            } else if (daysUntilExpiry <= 30) {
-              expiryClass = "expiry-warning";
-              expiryText += ` (${daysUntilExpiry} Tage)`;
-            }
+            const licenseStatus = user.license_expires
+              ? new Date(user.license_expires) > new Date()
+                ? "valid"
+                : "expired"
+              : "none";
 
             return `
-                    <tr>
-                        <td><strong>${user.username}</strong></td>
-                        <td>${user.email}</td>
-                        <td>
-                            <span class="role-badge role-${user.role}">
-                                ${user.role === "admin" ? "Admin" : "Benutzer"}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="status-badge status-${
-                              user.is_active ? "active" : "inactive"
-                            }">
-                                ${user.is_active ? "Aktiv" : "Inaktiv"}
-                            </span>
-                        </td>
-                        <td>
-                            <span class="status-badge status-${
-                              isExpired ? "expired" : "valid"
-                            }">
-                                ${user.max_customers}/${user.max_vehicles}
-                            </span>
-                        </td>
-                        <td class="${expiryClass}">${expiryText}</td>
-                        <td>
-                            <div class="actions">
-                                <button class="btn btn-sm btn-primary" onclick="editUser(${
-                                  user.id
-                                })">
-                                    ✏️
-                                </button>
-                                <button class="btn btn-sm btn-warning" onclick="manageLicense(${
-                                  user.id
-                                })">
-                                    🔑
-                                </button>
-                                ${
-                                  user.id !== 1
-                                    ? `
-                                    <button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">
-                                        🗑️
-                                    </button>
-                                `
-                                    : ""
-                                }
-                            </div>
-                        </td>
-                    </tr>
-                `;
+              <tr>
+                <td>
+                  <div>
+                    <strong>${user.username}</strong>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                      ID: ${user.id}
+                    </div>
+                  </div>
+                </td>
+                <td>${user.email}</td>
+                <td>
+                  <span class="status-badge ${
+                    user.role === "admin" ? "status-valid" : "status-active"
+                  }">
+                    ${user.role === "admin" ? "Administrator" : "Benutzer"}
+                  </span>
+                </td>
+                <td>
+                  <span class="status-badge ${
+                    user.is_active ? "status-active" : "status-inactive"
+                  }">
+                    ${user.is_active ? "Aktiv" : "Inaktiv"}
+                  </span>
+                </td>
+                <td>
+                  <span class="status-badge status-${licenseStatus}">
+                    ${
+                      licenseStatus === "valid"
+                        ? "Gültig"
+                        : licenseStatus === "expired"
+                        ? "Abgelaufen"
+                        : "Keine"
+                    }
+                  </span>
+                </td>
+                <td>
+                  ${
+                    user.license_expires
+                      ? new Date(user.license_expires).toLocaleDateString(
+                          "de-DE"
+                        )
+                      : "-"
+                  }
+                </td>
+                <td>
+                  <div class="actions-cell">
+                    <button class="btn btn-sm btn-primary" onclick="editUser(${
+                      user.id
+                    })">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-warning" onclick="manageLicense(${
+                      user.id
+                    })">
+                      <i class="fas fa-key"></i>
+                    </button>
+                    ${
+                      user.role !== "admin"
+                        ? `<button class="btn btn-sm btn-danger" onclick="deleteUser(${user.id})">
+                        <i class="fas fa-trash"></i>
+                      </button>`
+                        : ""
+                    }
+                  </div>
+                </td>
+              </tr>
+            `;
           })
           .join("");
       }
 
       // Event Listeners
       function setupEventListeners() {
-        // Suche
+        // Search
         document
           .getElementById("search-input")
           .addEventListener("input", (e) => {
@@ -820,18 +1049,16 @@
                 user.username.toLowerCase().includes(searchTerm) ||
                 user.email.toLowerCase().includes(searchTerm)
             );
-
-            const tbody = document.getElementById("users-tbody");
-            // Hier würde die gefilterte Liste gerendert...
+            renderUsers(filteredUsers);
           });
 
-        // User-Form
+        // User Form
         document
           .getElementById("user-form")
           .addEventListener("submit", saveUser);
       }
 
-      // Neuen User erstellen
+      // User Management Functions
       function openCreateUserModal() {
         editingUserId = null;
         document.getElementById("modal-title").textContent = "Neuer Benutzer";
@@ -840,7 +1067,6 @@
         document.getElementById("user-modal").classList.add("active");
       }
 
-      // User bearbeiten
       function editUser(userId) {
         const user = users.find((u) => u.id === userId);
         if (!user) return;
@@ -857,7 +1083,6 @@
         document.getElementById("user-modal").classList.add("active");
       }
 
-      // User speichern
       async function saveUser(e) {
         e.preventDefault();
 
@@ -865,7 +1090,6 @@
           username: document.getElementById("username").value,
           email: document.getElementById("email").value,
           role: document.getElementById("role").value,
-          license_type: document.getElementById("license-type").value,
         };
 
         if (!editingUserId) {
@@ -874,7 +1098,8 @@
 
         try {
           document.getElementById("save-btn").disabled = true;
-          document.getElementById("save-btn").textContent = "Speichert...";
+          document.getElementById("save-btn").innerHTML =
+            '<div class="spinner"></div>Speichert...';
 
           const url = editingUserId
             ? `/api/admin/users/${editingUserId}`
@@ -885,6 +1110,7 @@
             method,
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(formData),
+            credentials: "include",
           });
 
           if (!response.ok) {
@@ -904,31 +1130,21 @@
           showAlert(error.message, "error");
         } finally {
           document.getElementById("save-btn").disabled = false;
-          document.getElementById("save-btn").textContent = "Speichern";
+          document.getElementById("save-btn").innerHTML =
+            '<i class="fas fa-save"></i> Speichern';
         }
       }
 
-      // User löschen
       async function deleteUser(userId) {
-        const user = users.find((u) => u.id === userId);
-        if (!user) return;
-
-        if (
-          !confirm(
-            `Benutzer "${user.username}" wirklich löschen?\n\nAlle Daten gehen verloren!`
-          )
-        ) {
-          return;
-        }
+        if (!confirm("Benutzer wirklich löschen?")) return;
 
         try {
           const response = await fetch(`/api/admin/users/${userId}`, {
             method: "DELETE",
+            credentials: "include",
           });
 
-          if (!response.ok) {
-            throw new Error("Fehler beim Löschen");
-          }
+          if (!response.ok) throw new Error("Fehler beim Löschen");
 
           showAlert("Benutzer gelöscht", "success");
           await loadUsers();
@@ -939,34 +1155,31 @@
         }
       }
 
-      // Lizenz verwalten
+      // License Management
       function manageLicense(userId) {
         const user = users.find((u) => u.id === userId);
         if (!user) return;
 
         currentUser = user;
+        document.getElementById("license-username").textContent = user.username;
 
-        const userInfo = document.getElementById("license-user-info");
-        userInfo.innerHTML = `
-                <div style="margin-bottom: 1rem; padding: 1rem; background: #f8fafc; border-radius: 6px;">
-                    <strong>${user.username}</strong> (${user.email})<br>
-                    <small>Aktuelle Limits: ${user.max_customers} Kunden, ${
-          user.max_vehicles
-        } Fahrzeuge</small><br>
-                    <small>Läuft ab: ${new Date(
-                      user.expires_at
-                    ).toLocaleDateString("de-DE")}</small>
-                </div>
-            `;
+        const status = user.license_expires
+          ? new Date(user.license_expires) > new Date()
+            ? "Gültig"
+            : "Abgelaufen"
+          : "Keine Lizenz";
+        document.getElementById("license-current-status").textContent = status;
+
+        document.getElementById("license-expires").textContent =
+          user.license_expires
+            ? new Date(user.license_expires).toLocaleDateString("de-DE")
+            : "-";
 
         document.getElementById("license-modal").classList.add("active");
       }
 
-      // Lizenz verlängern
       async function extendLicense() {
         if (!currentUser) return;
-
-        const months = parseInt(document.getElementById("extend-months").value);
 
         try {
           const response = await fetch(
@@ -974,62 +1187,49 @@
             {
               method: "PUT",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ months }),
+              credentials: "include",
             }
           );
 
-          if (!response.ok) {
+          if (!response.ok)
             throw new Error("Fehler beim Verlängern der Lizenz");
-          }
 
-          showAlert(`Lizenz um ${months} Monate verlängert`, "success");
+          showAlert("Lizenz um 1 Jahr verlängert", "success");
           closeLicenseModal();
           await loadUsers();
           await loadUserStats();
         } catch (error) {
-          console.error("Extend-Fehler:", error);
+          console.error("License-Extend Fehler:", error);
           showAlert("Fehler beim Verlängern", "error");
         }
       }
 
-      // Lizenz upgraden
-      async function upgradeLicense() {
-        if (!currentUser) return;
-
-        const newType = prompt(
-          "Neuer Lizenz-Typ (basic/professional/enterprise):"
-        );
-        if (
-          !newType ||
-          !["basic", "professional", "enterprise"].includes(newType)
-        ) {
-          return;
-        }
+      async function deactivateLicense() {
+        if (!currentUser || !confirm("Lizenz wirklich deaktivieren?")) return;
 
         try {
           const response = await fetch(
-            `/api/admin/users/${currentUser.id}/upgrade-license`,
+            `/api/admin/users/${currentUser.id}/deactivate-license`,
             {
               method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ license_type: newType }),
+              credentials: "include",
             }
           );
 
-          if (!response.ok) {
-            throw new Error("Fehler beim Upgraden der Lizenz");
-          }
+          if (!response.ok)
+            throw new Error("Fehler beim Deaktivieren der Lizenz");
 
-          showAlert(`Lizenz auf ${newType} geupgradet`, "success");
+          showAlert("Lizenz deaktiviert", "warning");
           closeLicenseModal();
           await loadUsers();
+          await loadUserStats();
         } catch (error) {
-          console.error("Upgrade-Fehler:", error);
-          showAlert("Fehler beim Upgraden", "error");
+          console.error("License-Deactivate Fehler:", error);
+          showAlert("Fehler beim Deaktivieren", "error");
         }
       }
 
-      // Modals schließen
+      // Modal Functions
       function closeModal() {
         document.getElementById("user-modal").classList.remove("active");
       }
@@ -1039,12 +1239,22 @@
         currentUser = null;
       }
 
-      // Alert anzeigen
+      // Alert System
       function showAlert(message, type = "info") {
         const alertContainer = document.getElementById("alert-container");
         const alert = document.createElement("div");
         alert.className = `alert alert-${type}`;
-        alert.textContent = message;
+
+        const icon =
+          type === "success"
+            ? "check-circle"
+            : type === "error"
+            ? "exclamation-triangle"
+            : type === "warning"
+            ? "exclamation-circle"
+            : "info-circle";
+
+        alert.innerHTML = `<i class="fas fa-${icon}"></i> ${message}`;
 
         alertContainer.innerHTML = "";
         alertContainer.appendChild(alert);
@@ -1054,10 +1264,13 @@
         }, 5000);
       }
 
-      // Logout
+      // Logout Function
       async function logout() {
         try {
-          await fetch("/api/auth/logout", { method: "POST" });
+          await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+          });
         } catch (error) {
           console.error("Logout-Fehler:", error);
         }
@@ -1066,11 +1279,23 @@
         window.location.href = "/login.html";
       }
 
-      // Auto-Refresh alle 30 Sekunden
+      // Auto-Refresh
       setInterval(async () => {
         await loadUserStats();
         await loadSystemInfo();
       }, 30000);
+
+      // Keyboard Shortcuts
+      document.addEventListener("keydown", (e) => {
+        if (e.ctrlKey && e.key === "t") {
+          e.preventDefault();
+          toggleTheme();
+        }
+        if (e.key === "Escape") {
+          closeModal();
+          closeLicenseModal();
+        }
+      });
     </script>
   </body>
 </html>

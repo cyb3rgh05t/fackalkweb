@@ -1,130 +1,193 @@
-<!-- public/login.html - Neue Login-Seite -->
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FAF Lackiererei - Login</title>
+    <title>FAF Lackiererei - Anmeldung</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+      rel="stylesheet"
+    />
     <style>
-      body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      :root,
+      [data-theme="dark"] {
+        --bg-primary: #0f172a;
+        --bg-secondary: #1e293b;
+        --bg-tertiary: #334155;
+        --text-primary: #f1f5f9;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --border-color: #475569;
+        --accent-primary: #60a5fa;
+        --accent-success: #34d399;
+        --accent-warning: #fbbf24;
+        --accent-danger: #f87171;
+        --shadow-light: rgba(0, 0, 0, 0.3);
+        --shadow-medium: rgba(0, 0, 0, 0.4);
+      }
+      * {
+        box-sizing: border-box;
         margin: 0;
         padding: 0;
+      }
+      body {
+        font-family: "Inter", sans-serif;
+        background: linear-gradient(
+          135deg,
+          var(--bg-secondary) 0%,
+          var(--bg-tertiary) 100%
+        );
         min-height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
+        color: var(--text-primary);
       }
-
       .login-container {
-        background: white;
-        padding: 2rem;
-        border-radius: 16px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        background: var(--bg-primary);
+        border-radius: 20px;
+        padding: 3rem;
+        box-shadow: 0 20px 60px var(--shadow-medium);
+        border: 1px solid var(--border-color);
         width: 100%;
-        max-width: 400px;
-        margin: 1rem;
+        max-width: 480px;
+        position: relative;
       }
-
       .logo {
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 2.5rem;
       }
-
       .logo h1 {
-        color: #333;
-        margin: 0;
-        font-size: 1.8rem;
-        font-weight: 600;
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--accent-primary);
+        margin-bottom: 0.5rem;
+        background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
       }
-
       .logo p {
-        color: #666;
-        margin: 0.5rem 0 0 0;
-        font-size: 0.9rem;
+        color: var(--text-secondary);
+        font-size: 1.1rem;
+        font-weight: 500;
       }
-
+      .error {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--accent-danger);
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        border: 1px solid rgba(239, 68, 68, 0.2);
+        font-size: 0.95rem;
+        display: none;
+      }
       .form-group {
         margin-bottom: 1.5rem;
       }
-
-      label {
+      .form-group label {
         display: block;
         margin-bottom: 0.5rem;
-        color: #333;
         font-weight: 500;
+        color: var(--text-primary);
+        font-size: 0.95rem;
       }
-
-      input[type="text"],
-      input[type="password"] {
+      .form-input {
         width: 100%;
-        padding: 0.75rem;
-        border: 2px solid #e1e5e9;
-        border-radius: 8px;
+        padding: 1rem 1.25rem;
+        border: 2px solid var(--border-color);
+        border-radius: 10px;
         font-size: 1rem;
-        transition: border-color 0.3s;
-        box-sizing: border-box;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
       }
-
-      input[type="text"]:focus,
-      input[type="password"]:focus {
+      .form-input:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: var(--accent-primary);
+        background: var(--bg-primary);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        transform: translateY(-1px);
       }
-
       .btn-login {
         width: 100%;
-        padding: 0.75rem;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 1.25rem;
+        background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
         color: white;
         border: none;
-        border-radius: 8px;
-        font-size: 1rem;
+        border-radius: 10px;
+        font-size: 1.1rem;
         font-weight: 600;
         cursor: pointer;
-        transition: transform 0.2s;
+        margin-bottom: 1.5rem;
       }
-
-      .btn-login:hover {
+      .btn-login:hover:not(:disabled) {
         transform: translateY(-2px);
+        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
       }
-
       .btn-login:disabled {
         opacity: 0.7;
         cursor: not-allowed;
-        transform: none;
       }
-
-      .error {
-        background: #fee;
-        color: #c33;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
+      .demo-credentials {
+        margin-top: 1.5rem;
+        padding: 1.5rem;
+        background: var(--bg-secondary);
+        border-radius: 12px;
+        font-size: 0.9rem;
+        border: 1px solid var(--border-color);
+      }
+      .demo-credentials h4 {
+        margin: 0 0 1rem 0;
+        color: var(--accent-primary);
+        font-weight: 600;
+      }
+      .demo-btn {
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        cursor: pointer;
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        margin-right: 0.5rem;
+        margin-top: 0.5rem;
+        display: inline-block;
+      }
+      .demo-btn:hover {
+        background: var(--accent-primary);
+        color: #fff;
+      }
+      .license-info {
+        margin-top: 1.5rem;
+        padding: 1.5rem;
+        background: linear-gradient(
+          135deg,
+          rgba(59, 130, 246, 0.1),
+          rgba(139, 92, 246, 0.1)
+        );
+        border-radius: 12px;
+        font-size: 0.9rem;
+        border: 1px solid rgba(59, 130, 246, 0.2);
         text-align: center;
       }
-
-      .license-info {
-        margin-top: 2rem;
-        padding: 1rem;
-        background: #f8f9fa;
-        border-radius: 8px;
-        font-size: 0.85rem;
-        color: #666;
+      .license-info strong {
+        color: var(--accent-primary);
+        font-size: 1.1rem;
+        display: block;
+        margin-bottom: 0.5rem;
       }
-
-      .demo-credentials {
-        margin-top: 1rem;
-        padding: 1rem;
-        background: #e8f4fd;
-        border-radius: 8px;
-        font-size: 0.85rem;
-      }
-
-      .demo-credentials h4 {
-        margin: 0 0 0.5rem 0;
-        color: #0066cc;
+      @media (max-width: 480px) {
+        .login-container {
+          margin: 1rem;
+          padding: 2rem;
+        }
+        .logo h1 {
+          font-size: 2rem;
+        }
       }
     </style>
   </head>
@@ -134,85 +197,101 @@
         <h1>🎨 FAF Lackiererei</h1>
         <p>Rechnungs- & Auftragssystem</p>
       </div>
-
       <div id="error-message" class="error" style="display: none"></div>
-
       <form id="login-form">
         <div class="form-group">
           <label for="username">Benutzername</label>
-          <input type="text" id="username" name="username" required />
+          <input
+            type="text"
+            id="username"
+            name="username"
+            class="form-input"
+            required
+            autocomplete="username"
+          />
         </div>
-
         <div class="form-group">
           <label for="password">Passwort</label>
-          <input type="password" id="password" name="password" required />
+          <input
+            type="password"
+            id="password"
+            name="password"
+            class="form-input"
+            required
+            autocomplete="current-password"
+          />
         </div>
-
         <button type="submit" class="btn-login" id="login-btn">Anmelden</button>
       </form>
-
       <div class="demo-credentials">
         <h4>Demo-Zugangsdaten:</h4>
-        <strong>Admin:</strong> admin / admin123<br />
-        <strong>User:</strong> demo / demo123
+        <div>
+          <strong>Admin:</strong>
+          <span class="demo-btn" onclick="fillDemo('admin')"
+            >admin / admin123</span
+          >
+        </div>
+        <div style="margin-top: 0.5rem">
+          <strong>User:</strong>
+          <span class="demo-btn" onclick="fillDemo('user')"
+            >demo / demo123</span
+          >
+        </div>
       </div>
-
       <div class="license-info">
         <strong>🔐 Lizenziertes System</strong><br />
-        Jeder Benutzer erhält eine 1-Jahres-Lizenz mit separater Datenbank.
+        Jeder Benutzer erhält eine 1-Jahres-Lizenz mit separater Datenbank.<br />
         Lizenzen sind über das Admin-Panel erneuerbar.
       </div>
     </div>
-
     <script>
+      // Login Logic & Demo-Fill
       const loginForm = document.getElementById("login-form");
       const errorDiv = document.getElementById("error-message");
       const loginBtn = document.getElementById("login-btn");
-
       loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-
         const username = document.getElementById("username").value;
         const password = document.getElementById("password").value;
-
-        // UI Feedback
         loginBtn.disabled = true;
         loginBtn.textContent = "Anmeldung...";
         errorDiv.style.display = "none";
-
         try {
           const response = await fetch("/api/auth/login", {
             method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ username, password }),
+            credentials: "include",
           });
-
           const data = await response.json();
-
           if (response.ok) {
-            // Login erfolgreich
             localStorage.setItem("user", JSON.stringify(data.user));
-
-            if (data.user.role === "admin") {
-              window.location.href = "/admin.html";
-            } else {
-              window.location.href = "/index.html";
-            }
+            loginBtn.innerHTML = '<i class="fas fa-check"></i> Erfolgreich!';
+            loginBtn.style.background =
+              "linear-gradient(135deg, #10b981, #059669)";
+            setTimeout(() => {
+              if (data.user.role === "admin") {
+                window.location.href = "/admin.html";
+              } else {
+                window.location.href = "/index.html";
+              }
+            }, 500);
           } else {
             throw new Error(data.error || "Login fehlgeschlagen");
           }
         } catch (error) {
-          errorDiv.textContent = error.message;
+          errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${error.message}`;
           errorDiv.style.display = "block";
+          loginForm.style.animation = "shake 0.5s ease-in-out";
+          setTimeout(() => {
+            loginForm.style.animation = "";
+          }, 500);
         } finally {
           loginBtn.disabled = false;
-          loginBtn.textContent = "Anmelden";
+          loginBtn.innerHTML = "Anmelden";
+          loginBtn.style.background = "";
         }
       });
-
-      // Auto-Login für Demo
       function fillDemo(type) {
         if (type === "admin") {
           document.getElementById("username").value = "admin";
@@ -221,26 +300,14 @@
           document.getElementById("username").value = "demo";
           document.getElementById("password").value = "demo123";
         }
+        const inputs = document.querySelectorAll(".form-input");
+        inputs.forEach((input) => {
+          input.style.transform = "scale(1.02)";
+          setTimeout(() => {
+            input.style.transform = "";
+          }, 200);
+        });
       }
-
-      // Session prüfen
-      async function checkSession() {
-        try {
-          const response = await fetch("/api/auth/session-check");
-          if (response.ok) {
-            const data = await response.json();
-            if (data.user.role === "admin") {
-              window.location.href = "/admin.html";
-            } else {
-              window.location.href = "/index.html";
-            }
-          }
-        } catch (error) {
-          // Nicht eingeloggt - bleibt auf Login-Seite
-        }
-      }
-
-      checkSession();
     </script>
   </body>
 </html>

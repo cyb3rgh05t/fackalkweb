@@ -9,14 +9,14 @@ const fs = require("fs");
 const authDbPath = path.join(__dirname, "..", "data", "auth.db");
 
 // Auth-DB Connection
-let authDb;
+let authDatabase;
 
 function initAuthDb() {
   if (!fs.existsSync(path.dirname(authDbPath))) {
     fs.mkdirSync(path.dirname(authDbPath), { recursive: true });
   }
 
-  authDb = new sqlite3.Database(authDbPath, (err) => {
+  authDatabase = new sqlite3.Database(authDbPath, (err) => {
     if (err) {
       console.error("❌ Auth-DB Fehler:", err.message);
     } else {
@@ -47,8 +47,6 @@ function createAuthTables() {
       license_key TEXT UNIQUE NOT NULL,
       expires_at DATETIME NOT NULL,
       is_active BOOLEAN DEFAULT 1,
-      max_customers INTEGER DEFAULT 100,
-      max_vehicles INTEGER DEFAULT 500,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     );
@@ -67,7 +65,7 @@ function createAuthTables() {
     CREATE INDEX IF NOT EXISTS idx_licenses_expires ON licenses(expires_at);
   `;
 
-  authDb.exec(schema, (err) => {
+  authDatabase.exec(schema, (err) => {
     if (err) {
       console.error("❌ Fehler beim Erstellen der Auth-Tabellen:", err.message);
     } else {
@@ -83,13 +81,13 @@ async function createDefaultAdmin() {
     const adminPassword = "admin123"; // ÄNDERN IN PRODUKTION!
     const passwordHash = await bcrypt.hash(adminPassword, 10);
 
-    authDb.get(
+    authDatabase.get(
       "SELECT COUNT(*) as count FROM users WHERE role = ?",
       ["admin"],
       (err, row) => {
         if (err || row.count > 0) return; // Admin existiert bereits
 
-        authDb.run(
+        authDatabase.run(
           "INSERT INTO users (username, email, password_hash, role, database_name) VALUES (?, ?, ?, ?, ?)",
           [
             "admin",
@@ -101,12 +99,12 @@ async function createDefaultAdmin() {
           function (err) {
             if (err) return;
 
-            // Admin-Lizenz erstellen
+            // Admin-Lizenz erstellen (läuft nicht ab)
             const licenseKey = `ADMIN-LIFETIME-${Date.now()}`;
             const expiresAt = new Date("2099-12-31").toISOString();
 
-            authDb.run(
-              "INSERT INTO licenses (user_id, license_key, expires_at, max_customers, max_vehicles) VALUES (?, ?, ?, 9999, 9999)",
+            authDatabase.run(
+              "INSERT INTO licenses (user_id, license_key, expires_at) VALUES (?, ?, ?)",
               [this.lastID, licenseKey, expiresAt],
               () => {
                 console.log("✅ Standard-Admin erstellt (admin/admin123)");
@@ -124,7 +122,7 @@ async function createDefaultAdmin() {
 // Dynamische DB-Verbindung pro User
 function getUserDatabase(dbName) {
   // Admin verwendet die Haupt-DB
-  if (dbName === "main_db") {
+  if (dbName === "main_db" || !dbName) {
     return new sqlite3.Database(
       path.join(__dirname, "..", "data", "lackiererei.db")
     );
@@ -138,15 +136,147 @@ function getUserDatabase(dbName) {
     `${dbName}.db`
   );
 
-  // Fallback zur Haupt-DB wenn User-DB nicht existiert
+  // User-DB erstellen falls nicht existiert
   if (!fs.existsSync(userDbPath)) {
-    console.log(`⚠️  User-DB nicht gefunden: ${dbName}, verwende Haupt-DB`);
-    return new sqlite3.Database(
-      path.join(__dirname, "..", "data", "lackiererei.db")
-    );
+    console.log(`🔧 Erstelle User-DB: ${dbName}`);
+    createUserDatabase(dbName);
   }
 
   return new sqlite3.Database(userDbPath);
+}
+
+// User-DB erstellen mit Schema
+function createUserDatabase(dbName) {
+  const userDbDir = path.join(__dirname, "..", "data", "users");
+
+  if (!fs.existsSync(userDbDir)) {
+    fs.mkdirSync(userDbDir, { recursive: true });
+  }
+
+  const userDbPath = path.join(userDbDir, `${dbName}.db`);
+  const userDb = new sqlite3.Database(userDbPath);
+
+  const schema = `
+    CREATE TABLE kunden (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kunden_nr TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      strasse TEXT,
+      plz TEXT,
+      ort TEXT,
+      telefon TEXT,
+      email TEXT,
+      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE fahrzeuge (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kunden_id INTEGER,
+      kennzeichen TEXT NOT NULL,
+      marke TEXT,
+      modell TEXT,
+      vin TEXT,
+      baujahr INTEGER,
+      farbe TEXT,
+      farbcode TEXT,
+      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE auftraege (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      auftrag_nr TEXT UNIQUE NOT NULL,
+      kunden_id INTEGER,
+      fahrzeug_id INTEGER,
+      datum DATE NOT NULL,
+      status TEXT DEFAULT 'offen',
+      basis_stundenpreis DECIMAL(10,2) DEFAULT 110.00,
+      gesamt_zeit DECIMAL(10,2) DEFAULT 0,
+      gesamt_kosten DECIMAL(10,2) DEFAULT 0,
+      mwst_betrag DECIMAL(10,2) DEFAULT 0,
+      bemerkungen TEXT,
+      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL,
+      FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE auftrag_positionen (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      auftrag_id INTEGER,
+      beschreibung TEXT NOT NULL,
+      stundenpreis DECIMAL(10,2),
+      zeit DECIMAL(10,2),
+      einheit TEXT DEFAULT 'Std.',
+      gesamt DECIMAL(10,2),
+      reihenfolge INTEGER,
+      FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE rechnungen (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      rechnung_nr TEXT UNIQUE NOT NULL,
+      auftrag_id INTEGER,
+      kunden_id INTEGER,
+      fahrzeug_id INTEGER,
+      rechnungsdatum DATE NOT NULL,
+      auftragsdatum DATE,
+      status TEXT DEFAULT 'offen',
+      zwischensumme DECIMAL(10,2) DEFAULT 0,
+      rabatt_prozent DECIMAL(5,2) DEFAULT 0,
+      rabatt_betrag DECIMAL(10,2) DEFAULT 0,
+      netto_nach_rabatt DECIMAL(10,2) DEFAULT 0,
+      mwst_19 DECIMAL(10,2) DEFAULT 0,
+      mwst_7 DECIMAL(10,2) DEFAULT 0,
+      gesamtbetrag DECIMAL(10,2) DEFAULT 0,
+      zahlungsbedingungen TEXT,
+      gewaehrleistung TEXT,
+      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE SET NULL,
+      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL,
+      FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
+    );
+
+    CREATE TABLE rechnung_positionen (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      rechnung_id INTEGER,
+      kategorie TEXT NOT NULL,
+      beschreibung TEXT NOT NULL,
+      menge DECIMAL(10,2),
+      einheit TEXT,
+      einzelpreis DECIMAL(10,2),
+      mwst_prozent DECIMAL(5,2),
+      gesamt DECIMAL(10,2),
+      reihenfolge INTEGER,
+      FOREIGN KEY (rechnung_id) REFERENCES rechnungen (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE einstellungen (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      beschreibung TEXT,
+      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    INSERT INTO einstellungen (key, value, beschreibung) VALUES 
+    ('firmen_name', 'Meine Lackiererei', 'Name der Firma'),
+    ('mwst_satz', '19', 'Mehrwertsteuersatz in Prozent'),
+    ('basis_stundenpreis', '110.00', 'Standard-Stundenpreis');
+  `;
+
+  userDb.exec(schema, (err) => {
+    if (err) {
+      console.error(
+        `❌ Fehler beim Erstellen der User-DB ${dbName}:`,
+        err.message
+      );
+    } else {
+      console.log(`✅ User-DB ${dbName} erstellt`);
+    }
+    userDb.close();
+  });
 }
 
 // Session-basierte Authentifizierung
@@ -181,53 +311,113 @@ async function requireAuth(req, res, next) {
       });
     }
 
-    // Lizenz prüfen
-    const license = await getLicense(user.id);
-    if (!license || !license.is_active) {
-      return res.status(403).json({
-        error: "Keine gültige Lizenz gefunden",
-        action: "contact_admin",
-      });
-    }
-
-    if (new Date() > new Date(license.expires_at)) {
-      return res.status(403).json({
-        error: "Lizenz abgelaufen",
-        expired_at: license.expires_at,
-        action: "renew_license",
-      });
+    // Lizenz-Check (nur für normale User)
+    if (user.role !== "admin") {
+      const license = await getLicense(user.id);
+      if (!license || new Date() > new Date(license.expires_at)) {
+        return res.status(403).json({
+          error: "Lizenz abgelaufen",
+          action: "renew_license",
+          expires_at: license?.expires_at,
+        });
+      }
     }
 
     // User-spezifische DB-Verbindung setzen
     req.user = user;
-    req.license = license;
     req.userDb = getUserDatabase(user.database_name);
 
     next();
   } catch (error) {
-    console.error("Auth-Fehler:", error);
+    console.error("Auth-Middleware Fehler:", error);
     res.status(500).json({
-      error: "Authentifizierung fehlgeschlagen",
-      action: "retry",
+      error: "Server-Fehler bei Authentifizierung",
     });
   }
 }
 
-// Admin-only Middleware
-function requireAdmin(req, res, next) {
-  if (req.user?.role !== "admin") {
-    return res.status(403).json({
-      error: "Admin-Berechtigung erforderlich",
-      action: "contact_admin",
-    });
-  }
-  next();
+// Admin-Auth Middleware
+async function requireAdmin(req, res, next) {
+  await requireAuth(req, res, () => {
+    if (req.user?.role !== "admin") {
+      return res.status(403).json({
+        error: "Admin-Berechtigung erforderlich",
+      });
+    }
+    next();
+  });
+}
+
+// Login-Funktion
+async function login(username, password) {
+  return new Promise((resolve, reject) => {
+    authDatabase.get(
+      "SELECT * FROM users WHERE username = ? AND is_active = 1",
+      [username],
+      async (err, user) => {
+        if (err) {
+          reject(new Error("Datenbankfehler"));
+          return;
+        }
+
+        if (!user) {
+          reject(new Error("Ungültige Anmeldedaten"));
+          return;
+        }
+
+        // Passwort prüfen
+        const passwordValid = await bcrypt.compare(
+          password,
+          user.password_hash
+        );
+        if (!passwordValid) {
+          reject(new Error("Ungültige Anmeldedaten"));
+          return;
+        }
+
+        // Lizenz-Check für normale User
+        if (user.role !== "admin") {
+          const license = await getLicense(user.id);
+          if (!license || new Date() > new Date(license.expires_at)) {
+            reject(new Error("Lizenz abgelaufen - bitte Admin kontaktieren"));
+            return;
+          }
+        }
+
+        // Session erstellen
+        const sessionId = crypto.randomUUID();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+
+        authDatabase.run(
+          "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
+          [sessionId, user.id, expiresAt.toISOString()],
+          (err) => {
+            if (err) {
+              reject(new Error("Session-Fehler"));
+              return;
+            }
+
+            resolve({
+              user: {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                role: user.role,
+                database_name: user.database_name,
+              },
+              sessionId,
+            });
+          }
+        );
+      }
+    );
+  });
 }
 
 // Helper-Funktionen
 function getSession(sessionId) {
   return new Promise((resolve, reject) => {
-    authDb.get(
+    authDatabase.get(
       "SELECT * FROM sessions WHERE id = ?",
       [sessionId],
       (err, row) => {
@@ -240,17 +430,8 @@ function getSession(sessionId) {
 
 function getUser(userId) {
   return new Promise((resolve, reject) => {
-    authDb.get("SELECT * FROM users WHERE id = ?", [userId], (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
-}
-
-function getLicense(userId) {
-  return new Promise((resolve, reject) => {
-    authDb.get(
-      "SELECT * FROM licenses WHERE user_id = ?",
+    authDatabase.get(
+      "SELECT * FROM users WHERE id = ?",
       [userId],
       (err, row) => {
         if (err) reject(err);
@@ -260,222 +441,32 @@ function getLicense(userId) {
   });
 }
 
-// Login-Funktion
-async function login(username, password) {
-  return new Promise(async (resolve, reject) => {
-    try {
-      // User finden
-      authDb.get(
-        "SELECT * FROM users WHERE username = ? OR email = ?",
-        [username, username],
-        async (err, user) => {
-          if (err || !user) {
-            return reject(new Error("User nicht gefunden"));
-          }
-
-          // Passwort prüfen
-          const isValid = await bcrypt.compare(password, user.password_hash);
-          if (!isValid) {
-            return reject(new Error("Ungültiges Passwort"));
-          }
-
-          // Session erstellen
-          const sessionId = crypto.randomUUID();
-          const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
-
-          authDb.run(
-            "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
-            [sessionId, user.id, expiresAt.toISOString()],
-            (err) => {
-              if (err) {
-                return reject(err);
-              }
-
-              resolve({
-                sessionId,
-                user: {
-                  id: user.id,
-                  username: user.username,
-                  email: user.email,
-                  role: user.role,
-                },
-                expiresAt,
-              });
-            }
-          );
-        }
-      );
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
-// User-DB automatisch erstellen
-async function createUserDatabase(dbName) {
-  const userDbDir = path.join(__dirname, "..", "data", "users");
-
-  // Verzeichnis erstellen
-  if (!fs.existsSync(userDbDir)) {
-    fs.mkdirSync(userDbDir, { recursive: true });
-  }
-
-  const userDbPath = path.join(userDbDir, `${dbName}.db`);
-  const userDb = new sqlite3.Database(userDbPath);
-
-  // Minimales Schema direkt erstellen (statt aus Haupt-DB zu kopieren)
-  const userSchema = `
-    CREATE TABLE IF NOT EXISTS kunden (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      kunden_nr TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      strasse TEXT,
-      plz TEXT,
-      ort TEXT,
-      telefon TEXT,
-      email TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS fahrzeuge (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      kunden_id INTEGER,
-      kennzeichen TEXT NOT NULL,
-      marke TEXT,
-      modell TEXT,
-      vin TEXT,
-      baujahr INTEGER,
-      farbe TEXT,
-      farbcode TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS auftraege (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      auftrag_nr TEXT UNIQUE NOT NULL,
-      kunden_id INTEGER,
-      fahrzeug_id INTEGER,
-      datum DATE NOT NULL,
-      status TEXT DEFAULT 'offen',
-      basis_stundenpreis DECIMAL(10,2) DEFAULT 110.00,
-      gesamt_zeit DECIMAL(10,2) DEFAULT 0,
-      gesamt_kosten DECIMAL(10,2) DEFAULT 0,
-      mwst_betrag DECIMAL(10,2) DEFAULT 0,
-      bemerkungen TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL,
-      FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS auftrag_positionen (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      auftrag_id INTEGER,
-      beschreibung TEXT NOT NULL,
-      stundenpreis DECIMAL(10,2),
-      zeit DECIMAL(10,2),
-      einheit TEXT DEFAULT 'Std.',
-      gesamt DECIMAL(10,2),
-      reihenfolge INTEGER,
-      FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS rechnungen (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      rechnung_nr TEXT UNIQUE NOT NULL,
-      auftrag_id INTEGER,
-      kunden_id INTEGER,
-      fahrzeug_id INTEGER,
-      rechnungsdatum DATE NOT NULL,
-      auftragsdatum DATE,
-      status TEXT DEFAULT 'offen',
-      zwischensumme DECIMAL(10,2) DEFAULT 0,
-      rabatt_prozent DECIMAL(5,2) DEFAULT 0,
-      rabatt_betrag DECIMAL(10,2) DEFAULT 0,
-      netto_nach_rabatt DECIMAL(10,2) DEFAULT 0,
-      mwst_19 DECIMAL(10,2) DEFAULT 0,
-      mwst_7 DECIMAL(10,2) DEFAULT 0,
-      gesamtbetrag DECIMAL(10,2) DEFAULT 0,
-      zahlungsbedingungen TEXT,
-      gewaehrleistung TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE SET NULL,
-      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL,
-      FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS rechnung_positionen (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      rechnung_id INTEGER,
-      kategorie TEXT NOT NULL,
-      beschreibung TEXT NOT NULL,
-      menge DECIMAL(10,2),
-      einheit TEXT,
-      einzelpreis DECIMAL(10,2),
-      mwst_prozent DECIMAL(5,2),
-      gesamt DECIMAL(10,2),
-      reihenfolge INTEGER,
-      FOREIGN KEY (rechnung_id) REFERENCES rechnungen (id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE IF NOT EXISTS einstellungen (
-      key TEXT PRIMARY KEY,
-      value TEXT,
-      beschreibung TEXT,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE IF NOT EXISTS templates (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      typ TEXT NOT NULL,
-      kategorie TEXT DEFAULT 'arbeitszeit',
-      beschreibung TEXT,
-      positions TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    -- Standard-Einstellungen
-    INSERT OR IGNORE INTO einstellungen (key, value, beschreibung) VALUES 
-    ('firmen_name', 'Meine Lackiererei', 'Name der Firma'),
-    ('mwst_satz', '19', 'Mehrwertsteuersatz in Prozent'),
-    ('basis_stundenpreis', '110.00', 'Standard-Stundenpreis');
-
-    -- Indizes
-    CREATE INDEX IF NOT EXISTS idx_kunden_name ON kunden(name);
-    CREATE INDEX IF NOT EXISTS idx_fahrzeuge_kennzeichen ON fahrzeuge(kennzeichen);
-    CREATE INDEX IF NOT EXISTS idx_auftraege_datum ON auftraege(datum);
-    CREATE INDEX IF NOT EXISTS idx_auftraege_status ON auftraege(status);
-    CREATE INDEX IF NOT EXISTS idx_rechnungen_datum ON rechnungen(rechnungsdatum);
-    CREATE INDEX IF NOT EXISTS idx_rechnungen_status ON rechnungen(status);
-  `;
-
+function getLicense(userId) {
   return new Promise((resolve, reject) => {
-    userDb.exec(userSchema, (err) => {
-      userDb.close();
-      if (err) {
-        console.error("Fehler beim Erstellen der User-DB:", err);
-        reject(err);
-      } else {
-        console.log(`✅ User-DB erstellt: ${dbName}`);
-        resolve(userDbPath);
+    authDatabase.get(
+      "SELECT * FROM licenses WHERE user_id = ? AND is_active = 1",
+      [userId],
+      (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
       }
-    });
+    );
   });
 }
 
-// Auth-DB beim Import initialisieren
+// Auth-DB für Admin-Routen exportieren
+function authDb() {
+  return authDatabase;
+}
+
+// DB-Initialisierung beim Import
 initAuthDb();
 
 module.exports = {
   requireAuth,
   requireAdmin,
   login,
-  createUserDatabase,
   getUserDatabase,
   authDb: () => authDb,
+  initAuthDb,
 };

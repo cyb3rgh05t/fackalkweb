@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
 const sqlite3 = require("sqlite3").verbose();
+const bcrypt = require("bcrypt");
 const path = require("path");
 const fs = require("fs");
 const { execSync, spawn } = require("child_process");
 const readline = require("readline");
 
-// Farbige Konsolen-Ausgaben
+// ======== Helpers ========
 const colors = {
   reset: "\x1b[0m",
   bright: "\x1b[1m",
@@ -18,45 +19,35 @@ const colors = {
   cyan: "\x1b[36m",
   white: "\x1b[37m",
 };
-
 function log(message, color = "white") {
   console.log(`${colors[color]}${message}${colors.reset}`);
 }
-
 function header(title) {
   log(`\n${"=".repeat(60)}`, "cyan");
   log(`  ${title}`, "cyan");
   log(`${"=".repeat(60)}`, "cyan");
 }
-
 function success(message) {
   log(`✅ ${message}`, "green");
 }
-
 function error(message) {
   log(`❌ ${message}`, "red");
 }
-
 function warning(message) {
   log(`⚠️  ${message}`, "yellow");
 }
-
 function info(message) {
   log(`ℹ️  ${message}`, "blue");
 }
-
-// Hilfsfunktionen
 function checkFileExists(filePath) {
   return fs.existsSync(filePath);
 }
-
 function createDirectory(dirPath) {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
     success(`Verzeichnis erstellt: ${dirPath}`);
   }
 }
-
 function execCommand(command, description) {
   try {
     info(`${description}...`);
@@ -69,14 +60,11 @@ function execCommand(command, description) {
   }
 }
 
-// System-Anforderungen prüfen
+// ======== System Requirements & Dependencies ========
 function checkSystemRequirements() {
   header("System-Anforderungen prüfen");
-
-  // Node.js Version prüfen
   const nodeVersion = process.version;
   const requiredNodeVersion = "16.0.0";
-
   if (parseInt(nodeVersion.slice(1)) >= parseInt(requiredNodeVersion)) {
     success(`Node.js Version: ${nodeVersion} ✓`);
   } else {
@@ -85,8 +73,6 @@ function checkSystemRequirements() {
     );
     process.exit(1);
   }
-
-  // NPM verfügbar prüfen
   try {
     execSync("npm --version", { stdio: "pipe" });
     success("NPM verfügbar ✓");
@@ -94,8 +80,6 @@ function checkSystemRequirements() {
     error("NPM nicht verfügbar");
     process.exit(1);
   }
-
-  // SQLite3 verfügbar prüfen
   try {
     require("sqlite3");
     success("SQLite3 Modul verfügbar ✓");
@@ -103,29 +87,22 @@ function checkSystemRequirements() {
     warning("SQLite3 Modul nicht gefunden - wird installiert");
   }
 }
-
-// Dependencies installieren
 function installDependencies() {
   header("Abhängigkeiten installieren");
-
   if (!checkFileExists(path.join(__dirname, "..", "package.json"))) {
     error("package.json nicht gefunden!");
     process.exit(1);
   }
-
   return execCommand("npm install", "NPM Dependencies Installation");
 }
 
-// Datenbank komplett initialisieren
+// ======== MAIN DB-SETUP ========
 function initializeDatabase() {
   header("Datenbank initialisieren");
-
   const dataDir = path.join(__dirname, "..", "data");
   const dbPath = path.join(dataDir, "lackiererei.db");
-
   createDirectory(dataDir);
-
-  // Backup erstellen falls DB existiert
+  // Backup falls DB existiert
   if (checkFileExists(dbPath)) {
     const backupPath = path.join(
       dataDir,
@@ -136,7 +113,6 @@ function initializeDatabase() {
     fs.unlinkSync(dbPath);
     info("Alte Datenbank entfernt");
   }
-
   return new Promise((resolve, reject) => {
     const db = new sqlite3.Database(dbPath, (err) => {
       if (err) {
@@ -144,165 +120,81 @@ function initializeDatabase() {
         reject(err);
         return;
       }
-
       success("Datenbank-Datei erstellt");
       createTables(db, resolve, reject);
     });
   });
 }
-
 function createTables(db, resolve, reject) {
   info("Erstelle Tabellen...");
-
   const tables = [
-    // Kunden-Tabelle
     `CREATE TABLE kunden (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      kunden_nr TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      strasse TEXT,
-      plz TEXT,
-      ort TEXT,
-      telefon TEXT,
-      email TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    // Fahrzeuge-Tabelle
+      kunden_nr TEXT UNIQUE NOT NULL, name TEXT NOT NULL, strasse TEXT, plz TEXT,
+      ort TEXT, telefon TEXT, email TEXT, erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP )`,
     `CREATE TABLE fahrzeuge (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      kunden_id INTEGER,
-      kennzeichen TEXT NOT NULL,
-      marke TEXT,
-      modell TEXT,
-      vin TEXT,
-      baujahr INTEGER,
-      farbe TEXT,
-      farbcode TEXT,
+      id INTEGER PRIMARY KEY AUTOINCREMENT, kunden_id INTEGER, kennzeichen TEXT NOT NULL,
+      marke TEXT, modell TEXT, vin TEXT, baujahr INTEGER, farbe TEXT, farbcode TEXT,
       erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE CASCADE
-    )`,
-
-    // Aufträge-Tabelle
+      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE CASCADE )`,
     `CREATE TABLE auftraege (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      auftrag_nr TEXT UNIQUE NOT NULL,
-      kunden_id INTEGER,
-      fahrzeug_id INTEGER,
-      datum DATE NOT NULL,
-      status TEXT DEFAULT 'offen',
-      basis_stundenpreis DECIMAL(10,2) DEFAULT 110.00,
-      gesamt_zeit DECIMAL(10,2) DEFAULT 0,
-      gesamt_kosten DECIMAL(10,2) DEFAULT 0,
-      mwst_betrag DECIMAL(10,2) DEFAULT 0,
-      bemerkungen TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+      id INTEGER PRIMARY KEY AUTOINCREMENT, auftrag_nr TEXT UNIQUE NOT NULL,
+      kunden_id INTEGER, fahrzeug_id INTEGER, datum DATE NOT NULL, status TEXT DEFAULT 'offen',
+      basis_stundenpreis DECIMAL(10,2) DEFAULT 110.00, gesamt_zeit DECIMAL(10,2) DEFAULT 0,
+      gesamt_kosten DECIMAL(10,2) DEFAULT 0, mwst_betrag DECIMAL(10,2) DEFAULT 0,
+      bemerkungen TEXT, erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
       aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL,
-      FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
-    )`,
-
-    // Auftrags-Positionen
+      FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL )`,
     `CREATE TABLE auftrag_positionen (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      auftrag_id INTEGER,
-      beschreibung TEXT NOT NULL,
-      stundenpreis DECIMAL(10,2),
-      zeit DECIMAL(10,2),
-      einheit TEXT DEFAULT 'Std.',
-      gesamt DECIMAL(10,2),
-      reihenfolge INTEGER,
-      FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE CASCADE
-    )`,
-
-    // Rechnungen-Tabelle
+      id INTEGER PRIMARY KEY AUTOINCREMENT, auftrag_id INTEGER, beschreibung TEXT NOT NULL,
+      stundenpreis DECIMAL(10,2), zeit DECIMAL(10,2), einheit TEXT DEFAULT 'Std.',
+      gesamt DECIMAL(10,2), reihenfolge INTEGER,
+      FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE CASCADE )`,
     `CREATE TABLE rechnungen (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      rechnung_nr TEXT UNIQUE NOT NULL,
-      auftrag_id INTEGER,
-      kunden_id INTEGER,
-      fahrzeug_id INTEGER,
-      rechnungsdatum DATE NOT NULL,
-      auftragsdatum DATE,
-      status TEXT DEFAULT 'offen',
-      zwischensumme DECIMAL(10,2) DEFAULT 0,
-      rabatt_prozent DECIMAL(5,2) DEFAULT 0,
-      rabatt_betrag DECIMAL(10,2) DEFAULT 0,
-      netto_nach_rabatt DECIMAL(10,2) DEFAULT 0,
-      mwst_19 DECIMAL(10,2) DEFAULT 0,
-      mwst_7 DECIMAL(10,2) DEFAULT 0,
-      gesamtbetrag DECIMAL(10,2) DEFAULT 0,
-      zahlungsbedingungen TEXT,
-      gewaehrleistung TEXT,
+      id INTEGER PRIMARY KEY AUTOINCREMENT, rechnung_nr TEXT UNIQUE NOT NULL,
+      auftrag_id INTEGER, kunden_id INTEGER, fahrzeug_id INTEGER,
+      rechnungsdatum DATE NOT NULL, auftragsdatum DATE, status TEXT DEFAULT 'offen',
+      zwischensumme DECIMAL(10,2) DEFAULT 0, rabatt_prozent DECIMAL(5,2) DEFAULT 0,
+      rabatt_betrag DECIMAL(10,2) DEFAULT 0, netto_nach_rabatt DECIMAL(10,2) DEFAULT 0,
+      mwst_19 DECIMAL(10,2) DEFAULT 0, mwst_7 DECIMAL(10,2) DEFAULT 0,
+      gesamtbetrag DECIMAL(10,2) DEFAULT 0, zahlungsbedingungen TEXT, gewaehrleistung TEXT,
       erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
       aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE SET NULL,
       FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL,
-      FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
-    )`,
-
-    // Rechnungs-Positionen
+      FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL )`,
     `CREATE TABLE rechnung_positionen (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      rechnung_id INTEGER,
-      kategorie TEXT NOT NULL,
-      beschreibung TEXT NOT NULL,
-      menge DECIMAL(10,2),
-      einheit TEXT,
-      einzelpreis DECIMAL(10,2),
-      mwst_prozent DECIMAL(5,2),
-      gesamt DECIMAL(10,2),
-      reihenfolge INTEGER,
-      FOREIGN KEY (rechnung_id) REFERENCES rechnungen (id) ON DELETE CASCADE
-    )`,
-
-    // Templates-Tabelle
+      id INTEGER PRIMARY KEY AUTOINCREMENT, rechnung_id INTEGER,
+      kategorie TEXT NOT NULL, beschreibung TEXT NOT NULL, menge DECIMAL(10,2),
+      einheit TEXT, einzelpreis DECIMAL(10,2), mwst_prozent DECIMAL(5,2),
+      gesamt DECIMAL(10,2), reihenfolge INTEGER,
+      FOREIGN KEY (rechnung_id) REFERENCES rechnungen (id) ON DELETE CASCADE )`,
     `CREATE TABLE templates (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL,
-      typ TEXT NOT NULL,
-      kategorie TEXT DEFAULT 'arbeitszeit',
-      beschreibung TEXT,
-      positions TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`,
-
-    // Einstellungen-Tabelle
+      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, typ TEXT NOT NULL,
+      kategorie TEXT DEFAULT 'arbeitszeit', beschreibung TEXT, positions TEXT,
+      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP, aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP )`,
     `CREATE TABLE einstellungen (
-      key TEXT PRIMARY KEY,
-      value TEXT,
-      beschreibung TEXT,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`,
+      key TEXT PRIMARY KEY, value TEXT, beschreibung TEXT,
+      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP )`,
   ];
-
   let completed = 0;
-
-  // Erst alle Tabellen erstellen
-  tables.forEach((sql, index) => {
+  tables.forEach((sql, idx) => {
     db.run(sql, (err) => {
       completed++;
       if (err) {
-        error(`Fehler bei Tabelle ${index + 1}: ${err.message}`);
+        error(`Fehler bei Tabelle ${idx + 1}: ${err.message}`);
         reject(err);
         return;
       }
-
       success(`Tabelle ${completed}/${tables.length} erstellt`);
-
-      if (completed === tables.length) {
-        // Dann Indizes erstellen
-        createIndexes(db, resolve, reject);
-      }
+      if (completed === tables.length) createIndexes(db, resolve, reject);
     });
   });
 }
-
 function createIndexes(db, resolve, reject) {
-  info("Erstelle Indizes für bessere Performance...");
-
+  info("Erstelle Indizes...");
   const indexes = [
     `CREATE INDEX idx_kunden_name ON kunden(name)`,
     `CREATE INDEX idx_fahrzeuge_kennzeichen ON fahrzeuge(kennzeichen)`,
@@ -312,9 +204,7 @@ function createIndexes(db, resolve, reject) {
     `CREATE INDEX idx_rechnungen_status ON rechnungen(status)`,
     `CREATE INDEX idx_templates_typ ON templates(typ)`,
   ];
-
   let indexCompleted = 0;
-
   indexes.forEach((sql, index) => {
     db.run(sql, (err) => {
       indexCompleted++;
@@ -323,205 +213,24 @@ function createIndexes(db, resolve, reject) {
         reject(err);
         return;
       }
-
       success(`Index ${indexCompleted}/${indexes.length} erstellt`);
-
-      if (indexCompleted === indexes.length) {
+      if (indexCompleted === indexes.length)
         insertDefaultData(db, resolve, reject);
-      }
     });
   });
 }
-
 function insertDefaultData(db, resolve, reject) {
   info("Füge Standard-Daten ein...");
-
-  // Erweiterte Standard-Einstellungen
+  // --- Einstellungen, Demo-Kunden, Demo-Fahrzeuge, Templates ---
   const defaultSettings = [
-    // Firmendaten
     ["firmenname", "FAF Lackiererei", "Name der Firma"],
-    ["firmen_strasse", "Musterstraße 123", "Firmen-Straße und Hausnummer"],
-    ["firmen_plz", "12345", "Firmen-PLZ"],
-    ["firmen_ort", "Musterstadt", "Firmen-Ort"],
-    ["firmen_telefon", "+49 123 456789", "Firmen-Telefonnummer"],
-    ["firmen_email", "info@faf-lackiererei.de", "Firmen-E-Mail"],
-    ["firmen_website", "www.faf-lackiererei.de", "Firmen-Website"],
-    ["firmen_logo", "", "Base64-kodiertes Firmenlogo"],
-
-    // Geschäftsdaten
-    ["geschaeftsfuehrer", "", "Name des Geschäftsführers"],
-    ["rechtsform", "GmbH", "Rechtsform der Firma"],
-    ["steuernummer", "", "Steuernummer der Firma"],
-    ["umsatzsteuer_id", "", "Umsatzsteuer-Identifikationsnummer"],
-
-    // Bankverbindung
-    ["bank_name", "", "Name der Bank"],
-    ["iban", "", "IBAN"],
-    ["bic", "", "BIC/SWIFT-Code"],
-
-    // Preise und Steuern
     ["basis_stundenpreis", "110.00", "Basis-Stundenpreis in Euro"],
     ["mwst_satz", "19.00", "Mehrwertsteuersatz in Prozent"],
-    ["mwst_ermaessigt", "7.00", "Ermäßigter Mehrwertsteuersatz"],
-
-    // Dokumenten-Nummern
-    ["next_auftrag_nr", "1", "Nächste Auftragsnummer"],
-    ["next_rechnung_nr", "1", "Nächste Rechnungsnummer"],
-    ["next_kunden_nr", "1", "Nächste Kundennummer"],
-    ["auftrag_prefix", "A", "Präfix für Auftragsnummern"],
-    ["rechnung_prefix", "R", "Präfix für Rechnungsnummern"],
-
-    // Zahlungsbedingungen
-    ["zahlungsziel", "14", "Zahlungsziel in Tagen"],
-    [
-      "zahlungstext",
-      "Zahlbar innerhalb von 14 Tagen ohne Abzug.",
-      "Zahlungstext für Rechnungen",
-    ],
-    [
-      "gewaehrleistung",
-      "12 Monate Gewährleistung auf alle Arbeiten.",
-      "Gewährleistungstext",
-    ],
-
-    // System-Einstellungen
     ["system_version", "2.0", "System-Version"],
-    ["backup_auto", "true", "Automatische Backups aktiviert"],
-    ["currency", "EUR", "Währung"],
-    ["date_format", "DD.MM.YYYY", "Datumsformat"],
-
-    // Layout-Editor Einstellungen - Schrift und Typographie
-    [
-      "layout_font_family",
-      "Arial, sans-serif",
-      "Schriftart für Rechnungen und Aufträge",
-    ],
-    ["layout_font_size_normal", "14px", "Normale Schriftgröße"],
-    ["layout_font_size_small", "12px", "Kleine Schriftgröße für Details"],
-    ["layout_font_size_large", "16px", "Große Schriftgröße für Beträge"],
-    ["layout_font_size_h1", "24px", "Schriftgröße für Hauptüberschriften"],
-    ["layout_font_size_h2", "20px", "Schriftgröße für Unterüberschriften"],
-    ["layout_font_size_h3", "18px", "Schriftgröße für kleinere Überschriften"],
-    ["layout_line_height", "1.5", "Zeilenhöhe für bessere Lesbarkeit"],
-    ["layout_letter_spacing", "0px", "Zeichenabstand"],
-
-    // Layout-Editor Einstellungen - Farben
-    [
-      "layout_color_primary",
-      "#007bff",
-      "Primärfarbe für Überschriften und Akzente",
-    ],
-    ["layout_color_text", "#333333", "Haupttextfarbe"],
-    ["layout_color_muted", "#666666", "Farbe für sekundären Text"],
-    ["layout_color_border", "#dddddd", "Rahmenfarbe für Tabellen und Linien"],
-    ["layout_color_background", "#ffffff", "Hintergrundfarbe"],
-    [
-      "layout_table_header_bg",
-      "#f5f5f5",
-      "Hintergrundfarbe für Tabellen-Header",
-    ],
-
-    // Layout-Editor Einstellungen - Abstände und Margins
-    ["layout_page_margin", "2cm", "Seitenabstand für normale Ansicht"],
-    ["layout_print_margin", "1cm", "Seitenabstand beim Drucken"],
-    ["layout_section_spacing", "2rem", "Abstand zwischen Hauptbereichen"],
-    ["layout_paragraph_spacing", "1rem", "Abstand zwischen Absätzen"],
-    ["layout_table_padding", "8px", "Innenabstand in Tabellenzellen"],
-    ["layout_header_padding", "1rem", "Innenabstand im Header-Bereich"],
-
-    // Layout-Editor Einstellungen - Logo-Einstellungen
-    [
-      "layout_logo_position",
-      "top-left",
-      "Position des Firmenlogos (top-left, top-center, top-right, center)",
-    ],
-    ["layout_logo_max_width", "200px", "Maximale Logo-Breite"],
-    ["layout_logo_max_height", "100px", "Maximale Logo-Höhe"],
-    ["layout_logo_margin", "0 2rem 1rem 0", "Logo-Außenabstände"],
-
-    // Layout-Editor Einstellungen - Header-Layout
-    [
-      "layout_header_alignment",
-      "space-between",
-      "Header-Ausrichtung (space-between, center, flex-start, flex-end)",
-    ],
-    ["layout_header_border", "2px solid", "Header-Unterkante Rahmen"],
-
-    // Layout-Editor Einstellungen - Tabellen-Layout
-    ["layout_table_border", "1px solid #ddd", "Tabellen-Rahmen"],
-    [
-      "layout_table_stripe",
-      "disabled",
-      "Tabellen-Zeilen abwechselnd färben (enabled/disabled)",
-    ],
-    ["layout_table_border_collapse", "collapse", "Tabellen-Rahmen-Verhalten"],
-
-    // Layout-Editor Einstellungen - Footer-Layout
-    [
-      "layout_footer_enabled",
-      "true",
-      "Footer mit Bankdaten und Steuernummern anzeigen",
-    ],
-    ["layout_footer_position", "bottom", "Footer-Position"],
-    ["layout_footer_border_top", "true", "Obere Trennlinie im Footer anzeigen"],
-    ["layout_footer_font_size", "12px", "Footer-Schriftgröße"],
-    [
-      "layout_footer_alignment",
-      "center",
-      "Footer-Textausrichtung (left, center, right)",
-    ],
-    ["layout_footer_margin_top", "2rem", "Footer-Abstand von oben"],
-
-    // Layout-Editor Einstellungen - Unterschriften-Bereich
-    [
-      "layout_signature_enabled",
-      "true",
-      "Unterschriften-Bereich in Aufträgen anzeigen",
-    ],
-    ["layout_signature_height", "4cm", "Höhe der Unterschriften-Boxen"],
-    [
-      "layout_signature_border",
-      "1px solid #333",
-      "Rahmen der Unterschriften-Boxen",
-    ],
-    [
-      "layout_signature_margin_top",
-      "3cm",
-      "Abstand der Unterschriften-Sektion von oben",
-    ],
-
-    // Layout-Editor Einstellungen - Druckoptionen
-    [
-      "layout_print_page_size",
-      "A4",
-      "Papierformat für Druck (A4, A3, Letter, Legal)",
-    ],
-    [
-      "layout_print_orientation",
-      "portrait",
-      "Druckausrichtung (portrait, landscape)",
-    ],
-    ["layout_print_scale", "100%", "Druckskalierung"],
-    [
-      "layout_auto_print",
-      "false",
-      "Automatisch drucken beim Öffnen des Druckfensters",
-    ],
-    [
-      "layout_close_after_print",
-      "false",
-      "Druckfenster nach dem Drucken automatisch schließen",
-    ],
-
-    // Erweiterte Texte
-    [
-      "arbeitsbedingungen",
-      "Alle Arbeiten werden nach bestem Wissen und Gewissen ausgeführt.",
-      "Standard-Arbeitsbedingungen für Aufträge",
-    ],
+    ["layout_font_family", "Arial, sans-serif", "Schriftart für Rechnungen"],
+    ["layout_color_primary", "#007bff", "Primärfarbe"],
+    // ... weitere Standard-Settings nach Belieben ergänzen ...
   ];
-
-  // Demo-Daten
   const demoKunden = [
     [
       "K001",
@@ -551,7 +260,6 @@ function insertDefaultData(db, resolve, reject) {
       "kontakt@abc-gmbh.de",
     ],
   ];
-
   const demoFahrzeuge = [
     [
       1,
@@ -585,7 +293,6 @@ function insertDefaultData(db, resolve, reject) {
       "LD5Q",
     ],
   ];
-
   const defaultTemplates = [
     [
       "Standardlackierung",
@@ -625,7 +332,6 @@ function insertDefaultData(db, resolve, reject) {
         },
       ]),
     ],
-
     [
       "Smart Repair",
       "auftrag",
@@ -659,13 +365,11 @@ function insertDefaultData(db, resolve, reject) {
       ]),
     ],
   ];
-
-  // Einstellungen einfügen
+  // Einstellungen
   const settingsStmt = db.prepare(
     "INSERT INTO einstellungen (key, value, beschreibung) VALUES (?, ?, ?)"
   );
   let settingsCompleted = 0;
-
   defaultSettings.forEach((setting, index) => {
     settingsStmt.run(setting, (err) => {
       settingsCompleted++;
@@ -676,7 +380,6 @@ function insertDefaultData(db, resolve, reject) {
           `Einstellung ${settingsCompleted}/${defaultSettings.length}: ${setting[0]}`
         );
       }
-
       if (settingsCompleted === defaultSettings.length) {
         settingsStmt.finalize();
         insertDemoData(
@@ -691,7 +394,6 @@ function insertDefaultData(db, resolve, reject) {
     });
   });
 }
-
 function insertDemoData(
   db,
   demoKunden,
@@ -701,13 +403,10 @@ function insertDemoData(
   reject
 ) {
   info("Füge Demo-Daten ein...");
-
-  // Kunden einfügen
   const kundenStmt = db.prepare(
     "INSERT INTO kunden (kunden_nr, name, strasse, plz, ort, telefon, email) VALUES (?, ?, ?, ?, ?, ?, ?)"
   );
   let kundenCompleted = 0;
-
   demoKunden.forEach((kunde, index) => {
     kundenStmt.run(kunde, function (err) {
       kundenCompleted++;
@@ -717,16 +416,13 @@ function insertDemoData(
         success(
           `Demo-Kunde ${kundenCompleted}/${demoKunden.length}: ${kunde[1]}`
         );
-
-        // Fahrzeuge für diesen Kunden einfügen
         const kundenFahrzeuge = demoFahrzeuge.filter((f) => f[0] === index + 1);
         if (kundenFahrzeuge.length > 0) {
           const fahrzeugStmt = db.prepare(
             "INSERT INTO fahrzeuge (kunden_id, kennzeichen, marke, modell, vin, baujahr, farbe, farbcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
           );
-
           kundenFahrzeuge.forEach((fahrzeug) => {
-            fahrzeug[0] = this.lastID; // Kunden-ID setzen
+            fahrzeug[0] = this.lastID;
             fahrzeugStmt.run(fahrzeug, (err) => {
               if (err) {
                 error(`Fehler bei Fahrzeug ${fahrzeug[1]}: ${err.message}`);
@@ -740,7 +436,6 @@ function insertDemoData(
           fahrzeugStmt.finalize();
         }
       }
-
       if (kundenCompleted === demoKunden.length) {
         kundenStmt.finalize();
         insertTemplates(db, defaultTemplates, resolve, reject);
@@ -748,15 +443,12 @@ function insertDemoData(
     });
   });
 }
-
 function insertTemplates(db, defaultTemplates, resolve, reject) {
   info("Füge Standard-Templates ein...");
-
   const templateStmt = db.prepare(
     "INSERT INTO templates (name, typ, kategorie, beschreibung, positions) VALUES (?, ?, ?, ?, ?)"
   );
   let templateCompleted = 0;
-
   defaultTemplates.forEach((template, index) => {
     templateStmt.run(template, (err) => {
       templateCompleted++;
@@ -767,7 +459,6 @@ function insertTemplates(db, defaultTemplates, resolve, reject) {
           `Template ${templateCompleted}/${defaultTemplates.length}: ${template[0]}`
         );
       }
-
       if (templateCompleted === defaultTemplates.length) {
         templateStmt.finalize();
         finishDatabaseSetup(db, resolve, reject);
@@ -775,13 +466,8 @@ function insertTemplates(db, defaultTemplates, resolve, reject) {
     });
   });
 }
-
 function finishDatabaseSetup(db, resolve, reject) {
   success("Datenbank erfolgreich initialisiert!");
-
-  // Layout-Statistiken anzeigen
-  printLayoutStatistics(db);
-
   db.close((err) => {
     if (err) {
       error(`Fehler beim Schließen der Datenbank: ${err.message}`);
@@ -793,86 +479,292 @@ function finishDatabaseSetup(db, resolve, reject) {
   });
 }
 
-// Layout-Statistiken ausgeben
-function printLayoutStatistics(db) {
-  db.get(
-    `
-    SELECT 
-      COUNT(*) as total_settings,
-      COUNT(CASE WHEN key LIKE 'layout_%' THEN 1 END) as layout_settings,
-      COUNT(CASE WHEN key LIKE 'firmen_%' THEN 1 END) as company_settings,
-      COUNT(CASE WHEN key LIKE 'mwst_%' THEN 1 END) as tax_settings
-    FROM einstellungen
-  `,
-    (err, stats) => {
-      if (err) {
-        warning("Konnte Statistiken nicht abrufen");
-        return;
-      }
-
-      log("\n📊 Datenbank-Statistiken:", "cyan");
-      log(`   📝 Gesamt-Einstellungen: ${stats.total_settings}`, "white");
-      log(`   🎨 Layout-Einstellungen: ${stats.layout_settings}`, "white");
-      log(`   🏢 Firmen-Einstellungen: ${stats.company_settings}`, "white");
-      log(`   💰 Steuer-Einstellungen: ${stats.tax_settings}`, "white");
-
-      if (stats.layout_settings > 0) {
-        log("\n🎨 Layout-Editor verfügbar!", "green");
-        log("   → Öffnen Sie die Einstellungen im System", "white");
-        log('   → Wechseln Sie zum "Layout-Design" Tab', "white");
-        log("   → Passen Sie das Layout nach Ihren Wünschen an", "white");
-      }
+// ======== AUTH-DB & USER-DB-SCHEMA ========
+function setupAuthDatabase() {
+  header("Authentifizierungs-System einrichten");
+  const authDbPath = path.join(__dirname, "..", "data", "auth.db");
+  const authDb = new sqlite3.Database(authDbPath, async (err) => {
+    if (err) {
+      error("Fehler beim Erstellen der Auth-DB: " + err.message);
+      process.exit(1);
     }
-  );
+    success("Auth-Datenbank erstellt");
+    await setupAuthTables(authDb, authDbPath);
+  });
+}
+async function setupAuthTables(authDb, authDbPath) {
+  const schema = `
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      email TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT DEFAULT 'user' CHECK(role IN ('admin', 'user')),
+      is_active BOOLEAN DEFAULT 1,
+      database_name TEXT UNIQUE,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS licenses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER UNIQUE,
+      license_key TEXT UNIQUE NOT NULL,
+      expires_at DATETIME NOT NULL,
+      is_active BOOLEAN DEFAULT 1,
+      max_customers INTEGER DEFAULT 100,
+      max_vehicles INTEGER DEFAULT 500,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id INTEGER,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_expires ON sessions(expires_at);
+    CREATE INDEX IF NOT EXISTS idx_licenses_user_id ON licenses(user_id);
+    CREATE INDEX IF NOT EXISTS idx_licenses_expires ON licenses(expires_at);
+  `;
+  authDb.exec(schema, async (err) => {
+    if (err) {
+      error("Fehler beim Erstellen der Auth-Tabellen: " + err.message);
+      process.exit(1);
+    }
+    success("Auth-Tabellen erstellt");
+    await createDefaultAdmin(authDb, authDbPath);
+  });
+}
+async function createDefaultAdmin(authDb, authDbPath) {
+  try {
+    const adminPassword = "admin123"; // In Produktion ändern!
+    const passwordHash = await bcrypt.hash(adminPassword, 10);
+    authDb.run(
+      `INSERT OR IGNORE INTO users (username, email, password_hash, role, database_name) VALUES (?, ?, ?, ?, ?)`,
+      ["admin", "admin@faf-lackiererei.de", passwordHash, "admin", "main_db"],
+      function (err) {
+        if (err && !err.message.includes("UNIQUE constraint")) {
+          error("Fehler beim Erstellen des Admin-Users: " + err.message);
+          return;
+        }
+        if (this.lastID || this.changes === 0) {
+          success("Admin-User erstellt (admin/admin123)");
+          const licenseKey = `ADMIN-LIFETIME-${Date.now()}`;
+          const expiresAt = new Date("2099-12-31").toISOString();
+          authDb.run(
+            `INSERT OR IGNORE INTO licenses (user_id, license_key, expires_at, max_customers, max_vehicles) VALUES (1, ?, ?, 9999, 9999)`,
+            [licenseKey, expiresAt],
+            () => {
+              success("Admin-Lizenz erstellt");
+              createUserDbSchemaFile();
+              authDb.close();
+            }
+          );
+        }
+      }
+    );
+  } catch (error) {
+    error("Setup Auth fehlgeschlagen: " + error);
+  }
+}
+function createUserDbSchemaFile() {
+  const userDbSchema = `
+CREATE TABLE kunden (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, kunden_nr TEXT UNIQUE NOT NULL, name TEXT NOT NULL, strasse TEXT, plz TEXT, ort TEXT, telefon TEXT, email TEXT, erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP, aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE fahrzeuge (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, kunden_id INTEGER, kennzeichen TEXT NOT NULL, marke TEXT, modell TEXT, vin TEXT, baujahr INTEGER, farbe TEXT, farbcode TEXT, erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE CASCADE
+);
+CREATE TABLE auftraege (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, auftrag_nr TEXT UNIQUE NOT NULL, kunden_id INTEGER, fahrzeug_id INTEGER, datum DATE NOT NULL, status TEXT DEFAULT 'offen', basis_stundenpreis DECIMAL(10,2) DEFAULT 110.00, gesamt_zeit DECIMAL(10,2) DEFAULT 0, gesamt_kosten DECIMAL(10,2) DEFAULT 0, mwst_betrag DECIMAL(10,2) DEFAULT 0, bemerkungen TEXT, erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP, aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL, FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
+);
+CREATE TABLE auftrag_positionen (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, auftrag_id INTEGER, beschreibung TEXT NOT NULL, stundenpreis DECIMAL(10,2), zeit DECIMAL(10,2), einheit TEXT DEFAULT 'Std.', gesamt DECIMAL(10,2), reihenfolge INTEGER, FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE CASCADE
+);
+CREATE TABLE rechnungen (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, rechnung_nr TEXT UNIQUE NOT NULL, auftrag_id INTEGER, kunden_id INTEGER, fahrzeug_id INTEGER, rechnungsdatum DATE NOT NULL, auftragsdatum DATE, status TEXT DEFAULT 'offen', zwischensumme DECIMAL(10,2) DEFAULT 0, rabatt_prozent DECIMAL(5,2) DEFAULT 0, rabatt_betrag DECIMAL(10,2) DEFAULT 0, netto_nach_rabatt DECIMAL(10,2) DEFAULT 0, mwst_19 DECIMAL(10,2) DEFAULT 0, mwst_7 DECIMAL(10,2) DEFAULT 0, gesamtbetrag DECIMAL(10,2) DEFAULT 0, zahlungsbedingungen TEXT, gewaehrleistung TEXT, erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP, aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE SET NULL, FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL, FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
+);
+CREATE TABLE rechnung_positionen (
+  id INTEGER PRIMARY KEY AUTOINCREMENT, rechnung_id INTEGER, kategorie TEXT NOT NULL, beschreibung TEXT NOT NULL, menge DECIMAL(10,2), einheit TEXT, einzelpreis DECIMAL(10,2), mwst_prozent DECIMAL(5,2), gesamt DECIMAL(10,2), reihenfolge INTEGER, FOREIGN KEY (rechnung_id) REFERENCES rechnungen (id) ON DELETE CASCADE
+);
+CREATE TABLE einstellungen (
+  key TEXT PRIMARY KEY, value TEXT, beschreibung TEXT, aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+INSERT INTO einstellungen (key, value, beschreibung) VALUES 
+('firmen_name', 'Meine Lackiererei', 'Name der Firma'),
+('mwst_satz', '19', 'Mehrwertsteuersatz in Prozent'),
+('basis_stundenpreis', '110.00', 'Standard-Stundenpreis');
+`;
+  fs.writeFileSync(path.join(__dirname, "user_db_schema.sql"), userDbSchema);
+  success("User-DB-Schema als Datei gespeichert");
 }
 
-// Backup-System einrichten
+// ======== LAYOUT-MIGRATION (kosten→gesamt) ========
+function migrateAuftragPositionenColumns() {
+  header("Auftrag-Positionen Tabellenmigration (kosten → gesamt)");
+  const dbPath = path.join(__dirname, "..", "data", "lackiererei.db");
+  if (!fs.existsSync(dbPath)) {
+    warning("Datenbank nicht gefunden! Migration übersprungen.");
+    return;
+  }
+  const db = new sqlite3.Database(dbPath, (err) => {
+    if (err) {
+      error("Fehler beim Öffnen der Datenbank: " + err.message);
+      return;
+    }
+    db.all("PRAGMA table_info(auftrag_positionen)", (err, rows) => {
+      if (err) {
+        error("Fehler beim Abrufen des Tabellen-Schemas: " + err.message);
+        db.close();
+        return;
+      }
+      const hasKosten = rows.some((col) => col.name === "kosten");
+      const hasGesamt = rows.some((col) => col.name === "gesamt");
+      if (hasGesamt && !hasKosten) {
+        success("Spalte 'gesamt' bereits vorhanden.");
+        db.close();
+        return;
+      }
+      if (hasKosten && !hasGesamt) {
+        info("Migration 'kosten' → 'gesamt' erforderlich.");
+        const backupPath = path.join(
+          path.dirname(dbPath),
+          `backup_before_column_fix_${Date.now()}.db`
+        );
+        fs.copyFileSync(dbPath, backupPath);
+        success(`Backup erstellt: ${backupPath}`);
+        db.serialize(() => {
+          db.run(
+            `CREATE TABLE auftrag_positionen_new (
+              id INTEGER PRIMARY KEY AUTOINCREMENT, auftrag_id INTEGER, beschreibung TEXT NOT NULL,
+              stundenpreis DECIMAL(10,2), zeit DECIMAL(10,2), einheit TEXT DEFAULT 'Std.',
+              gesamt DECIMAL(10,2), reihenfolge INTEGER,
+              FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE CASCADE )`,
+            (err) => {
+              if (err) {
+                error("Fehler neue Tabelle: " + err.message);
+                db.close();
+                return;
+              }
+              db.run(
+                `INSERT INTO auftrag_positionen_new (id, auftrag_id, beschreibung, stundenpreis, zeit, einheit, gesamt, reihenfolge)
+                 SELECT id, auftrag_id, beschreibung, stundenpreis, zeit, einheit, kosten, reihenfolge FROM auftrag_positionen`,
+                (err) => {
+                  if (err) {
+                    error("Fehler beim Kopieren: " + err.message);
+                    db.close();
+                    return;
+                  }
+                  db.run("DROP TABLE auftrag_positionen", (err) => {
+                    if (err) {
+                      error(
+                        "Fehler beim Löschen der alten Tabelle: " + err.message
+                      );
+                      db.close();
+                      return;
+                    }
+                    db.run(
+                      "ALTER TABLE auftrag_positionen_new RENAME TO auftrag_positionen",
+                      (err) => {
+                        if (err) {
+                          error("Fehler beim Umbenennen: " + err.message);
+                        } else {
+                          success("Migration erfolgreich abgeschlossen.");
+                        }
+                        db.close();
+                      }
+                    );
+                  });
+                }
+              );
+            }
+          );
+        });
+      } else if (hasKosten && hasGesamt) {
+        warning(
+          "Beide Spalten existieren – nur 'gesamt' wird verwendet, 'kosten' ignoriert."
+        );
+        db.close();
+      } else {
+        info("Weder 'kosten' noch 'gesamt' – keine Migration nötig.");
+        db.close();
+      }
+    });
+  });
+}
+
+// ======== Backup & Dev-Tools ========
 function setupBackupSystem() {
   header("Backup-System einrichten");
-
   const backupDir = path.join(__dirname, "..", "backups");
   createDirectory(backupDir);
-
-  // .gitignore für Backups
   const gitignorePath = path.join(backupDir, ".gitignore");
   if (!checkFileExists(gitignorePath)) {
     fs.writeFileSync(gitignorePath, "# Backup files\n*.db\n*.json\n*.sql\n");
     success("Backup .gitignore erstellt");
   }
-
-  // Backup-Script erstellen
   const backupScriptPath = path.join(__dirname, "backup.js");
   if (!checkFileExists(backupScriptPath)) {
     const backupScript = `#!/usr/bin/env node
-
-const fs = require('fs');
-const path = require('path');
-
+const fs = require('fs'); const path = require('path');
 const sourceDb = path.join(__dirname, '..', 'data', 'lackiererei.db');
 const backupDir = path.join(__dirname, '..', 'backups');
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const backupPath = path.join(backupDir, \`lackiererei_\${timestamp}.db\`);
-
 if (fs.existsSync(sourceDb)) {
   fs.copyFileSync(sourceDb, backupPath);
   console.log(\`✅ Backup erstellt: \${backupPath}\`);
-} else {
-  console.error('❌ Datenbank nicht gefunden');
-}
+} else { console.error('❌ Datenbank nicht gefunden'); }
 `;
     fs.writeFileSync(backupScriptPath, backupScript);
     success("Backup-Script erstellt");
   }
 }
-
-// Konfiguration prüfen
+function setupDevelopment() {
+  header("Development-Umgebung einrichten");
+  const envExamplePath = path.join(__dirname, "..", ".env.example");
+  if (!checkFileExists(envExamplePath)) {
+    const envContent = `# FAF Lackiererei System Environment Variables
+NODE_ENV=development
+PORT=3000
+DB_PATH=./data/lackiererei.db
+SESSION_SECRET=your-secret-key-here
+RATE_LIMIT_MAX=1000
+BACKUP_INTERVAL=24
+MAX_BACKUPS=30
+`;
+    fs.writeFileSync(envExamplePath, envContent);
+    success(".env.example erstellt");
+  }
+  try {
+    const packagePath = path.join(__dirname, "..", "package.json");
+    const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+    const additionalScripts = {
+      setup: "node scripts/setup.js",
+      backup: "node scripts/backup.js",
+      "reset-db": "node scripts/setup.js --reset",
+    };
+    let scriptsAdded = false;
+    Object.entries(additionalScripts).forEach(([key, value]) => {
+      if (!packageJson.scripts[key]) {
+        packageJson.scripts[key] = value;
+        scriptsAdded = true;
+      }
+    });
+    if (scriptsAdded) {
+      fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
+      success("Zusätzliche NPM Scripts hinzugefügt");
+    }
+  } catch (err) {
+    warning("Konnte package.json nicht erweitern");
+  }
+}
 function checkConfiguration() {
   header("Konfiguration prüfen");
-
   const requiredFiles = ["server.js", "package.json", "public/index.html"];
-
   let allFilesExist = true;
-
   requiredFiles.forEach((file) => {
     const filePath = path.join(__dirname, "..", file);
     if (checkFileExists(filePath)) {
@@ -882,78 +774,21 @@ function checkConfiguration() {
       allFilesExist = false;
     }
   });
-
   if (!allFilesExist) {
     warning("Nicht alle erforderlichen Dateien gefunden");
   }
-
   return allFilesExist;
 }
 
-// Development-Umgebung einrichten
-function setupDevelopment() {
-  header("Development-Umgebung einrichten");
-
-  // .env.example erstellen
-  const envExamplePath = path.join(__dirname, "..", ".env.example");
-  if (!checkFileExists(envExamplePath)) {
-    const envContent = `# FAF Lackiererei System Environment Variables
-NODE_ENV=development
-PORT=3000
-DB_PATH=./data/lackiererei.db
-
-# Optional: Security Settings
-SESSION_SECRET=your-secret-key-here
-RATE_LIMIT_MAX=1000
-
-# Backup Settings
-BACKUP_INTERVAL=24
-MAX_BACKUPS=30
-`;
-    fs.writeFileSync(envExamplePath, envContent);
-    success(".env.example erstellt");
-  }
-
-  // Scripts zu package.json hinzufügen
-  try {
-    const packagePath = path.join(__dirname, "..", "package.json");
-    const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
-
-    const additionalScripts = {
-      setup: "node scripts/setup.js",
-      backup: "node scripts/backup.js",
-      "reset-db": "node scripts/setup.js --reset",
-    };
-
-    let scriptsAdded = false;
-    Object.entries(additionalScripts).forEach(([key, value]) => {
-      if (!packageJson.scripts[key]) {
-        packageJson.scripts[key] = value;
-        scriptsAdded = true;
-      }
-    });
-
-    if (scriptsAdded) {
-      fs.writeFileSync(packagePath, JSON.stringify(packageJson, null, 2));
-      success("Zusätzliche NPM Scripts hinzugefügt");
-    }
-  } catch (err) {
-    warning("Konnte package.json nicht erweitern");
-  }
-}
-
-// Server-Test
+// ======== Server-Test ========
 function testServer() {
   header("Server-Test");
-
   return new Promise((resolve) => {
     info("Starte Server zum Testen...");
-
     const server = spawn("node", ["server.js"], {
       stdio: "pipe",
       env: { ...process.env, NODE_ENV: "test" },
     });
-
     let serverStarted = false;
     const timeout = setTimeout(() => {
       if (!serverStarted) {
@@ -962,7 +797,6 @@ function testServer() {
         resolve(false);
       }
     }, 10000);
-
     server.stdout.on("data", (data) => {
       if (
         data.toString().includes("läuft auf Port") ||
@@ -971,7 +805,6 @@ function testServer() {
         serverStarted = true;
         clearTimeout(timeout);
         success("Server erfolgreich gestartet");
-
         setTimeout(() => {
           server.kill();
           success("Server-Test erfolgreich");
@@ -979,13 +812,11 @@ function testServer() {
         }, 2000);
       }
     });
-
     server.stderr.on("data", (data) => {
       if (!serverStarted) {
         warning(`Server-Warnung: ${data.toString().trim()}`);
       }
     });
-
     server.on("error", (err) => {
       clearTimeout(timeout);
       warning(`Server-Test fehlgeschlagen: ${err.message}`);
@@ -994,64 +825,31 @@ function testServer() {
   });
 }
 
-// Installations-Zusammenfassung
+// ======== Zusammenfassung ========
 function showSummary() {
   header("Setup abgeschlossen");
-
   success("🎉 FAF Lackiererei System erfolgreich eingerichtet!");
-
-  log("\n📋 Übersicht:", "cyan");
-  log("✅ Abhängigkeiten installiert", "green");
-  log("✅ Datenbank initialisiert", "green");
-  log("✅ Standard-Einstellungen konfiguriert", "green");
-  log("✅ Demo-Daten eingefügt", "green");
-  log("✅ Backup-System eingerichtet", "green");
-  log("✅ Development-Tools konfiguriert", "green");
-
   log("\n🚀 Nächste Schritte:", "cyan");
   log("1. Server starten: npm start", "white");
   log("2. Browser öffnen: http://localhost:3000", "white");
-  log("3. Einstellungen anpassen", "white");
-  log("4. Firmendaten vervollständigen", "white");
-
+  log("3. Einstellungen anpassen / Firmendaten vervollständigen", "white");
   log("\n🛠️  Verfügbare Kommandos:", "magenta");
   log("• npm start          - Server starten", "white");
   log("• npm run dev        - Development Server", "white");
   log("• npm run setup      - Setup erneut ausführen", "white");
   log("• npm run backup     - Backup erstellen", "white");
   log("• npm run reset-db   - Datenbank zurücksetzen", "white");
-
-  log("\n📊 Datenbank-Inhalt:", "blue");
-  log("• 3 Demo-Kunden mit Fahrzeugen", "white");
-  log("• Standard-Templates für Aufträge", "white");
-  log("• Vorkonfigurierte Einstellungen", "white");
-  log("• Vollständige Tabellenstruktur", "white");
-
-  log("\n🎯 System-Features:", "yellow");
-  log("• Kunden- und Fahrzeugverwaltung", "white");
-  log("• Auftrags- und Rechnungssystem", "white");
-  log("• Template-System für wiederkehrende Arbeiten", "white");
-  log("• Automatische Backup-Funktionen", "white");
-  log("• Flexible Einstellungen", "white");
-
-  log("\n🔧 Wartung:", "cyan");
-  log("• Backups werden in /backups gespeichert", "white");
-  log("• Logs im Browser-Console für Debugging", "white");
-  log("• Einstellungen über Web-Interface anpassbar", "white");
-
   log("\n✨ Viel Erfolg mit Ihrem FAF Lackiererei System!", "green");
 }
 
-// Interaktiver Setup-Modus
+// ======== Interaktives Setup ========
 async function promptUserChoices() {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
-
   return new Promise((resolve) => {
     const dbPath = path.join(__dirname, "..", "data", "lackiererei.db");
-
     if (checkFileExists(dbPath)) {
       rl.question(
         "\n🔄 Datenbank existiert bereits. Was möchten Sie tun?\n" +
@@ -1061,7 +859,6 @@ async function promptUserChoices() {
           "Ihre Wahl [1-3]: ",
         (answer) => {
           rl.close();
-
           switch (answer.trim()) {
             case "1":
               resolve("reset");
@@ -1085,66 +882,55 @@ async function promptUserChoices() {
   });
 }
 
-// Haupt-Setup-Funktion
+// ======== Haupt-Setup ========
 async function runSetup() {
   log(
     `
 ╔══════════════════════════════════════════════════════════════════╗
 ║                                                                  ║
-║    🎨 FAF LACKIEREREI SYSTEM - KOMPLETTES SETUP V2.0           ║
+║    🎨 FAF LACKIEREREI SYSTEM - KOMPLETTES SETUP                 ║
 ║    Rechnungs- und Auftragssystem mit Datenbank-Integration      ║
 ║                                                                  ║
 ╚══════════════════════════════════════════════════════════════════╝
 `,
     "cyan"
   );
-
   try {
-    // Kommandozeilen-Argument prüfen
     const args = process.argv.slice(2);
     const resetMode = args.includes("--reset") || args.includes("-r");
-
     let userChoice = "new";
     if (!resetMode) {
       userChoice = await promptUserChoices();
     } else {
       userChoice = "reset";
     }
-
     if (userChoice === "cancel") {
       log("\n👋 Setup abgebrochen", "yellow");
       process.exit(0);
     }
-
-    // Setup-Schritte ausführen
     checkSystemRequirements();
-
     if (!installDependencies()) {
       error("Installation der Abhängigkeiten fehlgeschlagen");
       process.exit(1);
     }
-
     const configValid = checkConfiguration();
     if (!configValid) {
       warning("Konfiguration unvollständig - Setup wird fortgesetzt");
     }
-
     setupBackupSystem();
     setupDevelopment();
-
-    // Datenbank-Setup nur wenn erforderlich
     if (userChoice === "new" || userChoice === "reset") {
       await initializeDatabase();
+      await setupAuthDatabase();
+      migrateAuftragPositionenColumns();
     } else {
       info("Bestehende Datenbank wird beibehalten");
+      migrateAuftragPositionenColumns();
     }
-
-    // Server-Test (optional)
     const serverWorks = await testServer();
     if (!serverWorks) {
       warning("Server-Test fehlgeschlagen - prüfen Sie die Konfiguration");
     }
-
     showSummary();
   } catch (err) {
     error("Setup fehlgeschlagen");
@@ -1153,28 +939,15 @@ async function runSetup() {
     process.exit(1);
   }
 }
-
-// Fehlerbehandlung
 process.on("SIGINT", () => {
   log("\n\n🛑 Setup abgebrochen...", "yellow");
   process.exit(1);
 });
-
 process.on("uncaughtException", (err) => {
   error("Unbehandelter Fehler:");
   console.error(err);
   process.exit(1);
 });
-
-// Setup starten wenn direkt ausgeführt
 if (require.main === module) {
   runSetup();
 }
-
-module.exports = {
-  runSetup,
-  initializeDatabase,
-  checkSystemRequirements,
-  installDependencies,
-  setupBackupSystem,
-};

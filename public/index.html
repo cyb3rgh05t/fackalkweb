@@ -13,7 +13,6 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/style.css" />
-    <!-- NEUE CSS-Datei für Layout-Editor -->
     <link rel="stylesheet" href="css/layout-editor.css" />
   </head>
   <body>
@@ -44,6 +43,19 @@
               <i class="fas fa-cog"></i> Einstellungen
             </button>
           </nav>
+
+          <!-- User-Bereich mit Logout -->
+          <div class="user-section">
+            <div class="user-info">
+              <span class="user-name" id="user-name">Benutzer</span>
+              <span class="license-status" id="license-status"
+                >✅ Lizenz aktiv</span
+              >
+            </div>
+            <button class="logout-btn" onclick="logout()" title="Abmelden">
+              <i class="fas fa-sign-out-alt"></i>
+            </button>
+          </div>
         </div>
       </div>
     </header>
@@ -59,633 +71,554 @@
               <div class="stat-number" id="stat-auftraege">0</div>
               <div class="stat-label">Offene Aufträge</div>
             </div>
-            <div
-              class="stat-card"
-              style="
-                background: linear-gradient(
-                  135deg,
-                  var(--accent-success),
-                  #059669
-                );
-              "
-            >
+            <div class="stat-card">
               <div class="stat-number" id="stat-rechnungen">0</div>
               <div class="stat-label">Offene Rechnungen</div>
             </div>
-            <div
-              class="stat-card"
-              style="
-                background: linear-gradient(
-                  135deg,
-                  var(--accent-warning),
-                  #d97706
-                );
-              "
-            >
+            <div class="stat-card">
               <div class="stat-number" id="stat-kunden">0</div>
               <div class="stat-label">Kunden</div>
             </div>
-            <div
-              class="stat-card"
-              style="
-                background: linear-gradient(
-                  135deg,
-                  var(--accent-danger),
-                  #dc2626
-                );
-              "
-            >
-              <div class="stat-number" id="stat-umsatz">0€</div>
-              <div class="stat-label">Monatsumsatz</div>
+            <div class="stat-card">
+              <div class="stat-number" id="stat-fahrzeuge">0</div>
+              <div class="stat-label">Fahrzeuge</div>
             </div>
           </div>
 
-          <div class="card">
-            <div class="card-header">
-              <h2 class="card-title">Aktuelle Aufträge</h2>
+          <div class="quick-actions">
+            <h2>Schnellaktionen</h2>
+            <div class="quick-action-grid">
               <button
-                class="btn btn-primary"
-                onclick="showSection('auftraege')"
+                class="quick-action-btn"
+                onclick="showSection('auftraege'); openAuftragModal()"
               >
-                <i class="fas fa-plus"></i> Neuer Auftrag
+                <i class="fas fa-plus"></i>
+                Neuer Auftrag
+              </button>
+              <button
+                class="quick-action-btn"
+                onclick="showSection('rechnungen'); openRechnungModal()"
+              >
+                <i class="fas fa-file-invoice"></i>
+                Neue Rechnung
+              </button>
+              <button
+                class="quick-action-btn"
+                onclick="showSection('kunden'); openKundenModal()"
+              >
+                <i class="fas fa-user-plus"></i>
+                Neuer Kunde
+              </button>
+              <button
+                class="quick-action-btn"
+                onclick="showSection('fahrzeuge'); openFahrzeugModal()"
+              >
+                <i class="fas fa-car"></i>
+                Neues Fahrzeug
               </button>
             </div>
-            <div class="table-container">
-              <table class="table" id="dashboard-auftraege">
-                <thead>
-                  <tr>
-                    <th>Auftrag-Nr.</th>
-                    <th>Kunde</th>
-                    <th>Fahrzeug</th>
-                    <th>Datum</th>
-                    <th>Status</th>
-                    <th>Betrag</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
+          </div>
+
+          <!-- Letzte Aktivitäten -->
+          <div class="recent-activities">
+            <h2>Letzte Aktivitäten</h2>
+            <div class="activity-list" id="activity-list">
+              <div class="activity-item">
+                <div class="activity-icon">
+                  <i class="fas fa-clipboard-list"></i>
+                </div>
+                <div class="activity-content">
+                  <div class="activity-title">Lade Aktivitäten...</div>
+                  <div class="activity-time">-</div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
         <!-- Aufträge Section -->
         <section id="auftraege" class="section">
-          <div class="card-header">
-            <h1 class="card-title">Aufträge</h1>
-            <button class="btn btn-primary" onclick="showAuftragModal()">
+          <div class="section-header">
+            <h1>Aufträge</h1>
+            <button class="btn btn-primary" onclick="openAuftragModal()">
               <i class="fas fa-plus"></i> Neuer Auftrag
             </button>
           </div>
 
-          <div class="card">
-            <div class="search-box">
-              <i class="fas fa-search search-icon"></i>
-              <input
-                type="text"
-                class="search-input"
-                id="auftraege-search"
-                placeholder="Aufträge durchsuchen..."
-              />
-            </div>
-            <div class="table-container">
-              <table class="table" id="auftraege-table">
-                <thead>
-                  <tr>
-                    <th>Auftrag-Nr.</th>
-                    <th>Kunde</th>
-                    <th>Fahrzeug</th>
-                    <th>Datum</th>
-                    <th>Status</th>
-                    <th>Gesamtkosten</th>
-                    <th>Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
+          <div class="filters">
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Aufträge suchen..."
+              id="auftrag-search"
+            />
+            <select class="filter-select" id="auftrag-status-filter">
+              <option value="">Alle Status</option>
+              <option value="offen">Offen</option>
+              <option value="in_bearbeitung">In Bearbeitung</option>
+              <option value="abgeschlossen">Abgeschlossen</option>
+            </select>
+          </div>
+
+          <div class="table-container">
+            <table class="table" id="auftraege-table">
+              <thead>
+                <tr>
+                  <th>Auftrag-Nr.</th>
+                  <th>Kunde</th>
+                  <th>Fahrzeug</th>
+                  <th>Datum</th>
+                  <th>Status</th>
+                  <th>Gesamt</th>
+                  <th>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody id="auftraege-tbody">
+                <tr>
+                  <td colspan="7" style="text-align: center; padding: 2rem">
+                    Lade Aufträge...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
 
         <!-- Rechnungen Section -->
         <section id="rechnungen" class="section">
-          <div class="card-header">
-            <h1 class="card-title">Rechnungen</h1>
-            <button class="btn btn-primary" onclick="showRechnungModal()">
+          <div class="section-header">
+            <h1>Rechnungen</h1>
+            <button class="btn btn-primary" onclick="openRechnungModal()">
               <i class="fas fa-plus"></i> Neue Rechnung
             </button>
           </div>
 
-          <div class="card">
-            <div class="search-box">
-              <i class="fas fa-search search-icon"></i>
-              <input
-                type="text"
-                class="search-input"
-                id="rechnungen-search"
-                placeholder="Rechnungen durchsuchen..."
-              />
-            </div>
-            <div class="table-container">
-              <table class="table" id="rechnungen-table">
-                <thead>
-                  <tr>
-                    <th>Rechnung-Nr.</th>
-                    <th>Kunde</th>
-                    <th>Fahrzeug</th>
-                    <th>Datum</th>
-                    <th>Status</th>
-                    <th>Gesamtbetrag</th>
-                    <th>Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
+          <div class="filters">
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Rechnungen suchen..."
+              id="rechnung-search"
+            />
+            <select class="filter-select" id="rechnung-status-filter">
+              <option value="">Alle Status</option>
+              <option value="offen">Offen</option>
+              <option value="bezahlt">Bezahlt</option>
+              <option value="mahnung">Mahnung</option>
+              <option value="storniert">Storniert</option>
+            </select>
+          </div>
+
+          <div class="table-container">
+            <table class="table" id="rechnungen-table">
+              <thead>
+                <tr>
+                  <th>Rechnung-Nr.</th>
+                  <th>Kunde</th>
+                  <th>Datum</th>
+                  <th>Status</th>
+                  <th>Betrag</th>
+                  <th>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody id="rechnungen-tbody">
+                <tr>
+                  <td colspan="6" style="text-align: center; padding: 2rem">
+                    Lade Rechnungen...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
 
         <!-- Kunden Section -->
         <section id="kunden" class="section">
-          <div class="card-header">
-            <h1 class="card-title">Kunden</h1>
-            <button class="btn btn-primary" onclick="showKundenModal()">
+          <div class="section-header">
+            <h1>Kunden</h1>
+            <button class="btn btn-primary" onclick="openKundenModal()">
               <i class="fas fa-plus"></i> Neuer Kunde
             </button>
           </div>
 
-          <div class="card">
-            <div class="search-box">
-              <i class="fas fa-search search-icon"></i>
-              <input
-                type="text"
-                class="search-input"
-                id="kunden-search"
-                placeholder="Kunden durchsuchen..."
-              />
-            </div>
-            <div class="table-container">
-              <table class="table" id="kunden-table">
-                <thead>
-                  <tr>
-                    <th>Kunden-Nr.</th>
-                    <th>Name</th>
-                    <th>Adresse</th>
-                    <th>Telefon</th>
-                    <th>E-Mail</th>
-                    <th>Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
+          <div class="filters">
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Kunden suchen..."
+              id="kunden-search"
+            />
+          </div>
+
+          <div class="table-container">
+            <table class="table" id="kunden-table">
+              <thead>
+                <tr>
+                  <th>Kunden-Nr.</th>
+                  <th>Name</th>
+                  <th>Ort</th>
+                  <th>Telefon</th>
+                  <th>E-Mail</th>
+                  <th>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody id="kunden-tbody">
+                <tr>
+                  <td colspan="6" style="text-align: center; padding: 2rem">
+                    Lade Kunden...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
 
         <!-- Fahrzeuge Section -->
         <section id="fahrzeuge" class="section">
-          <div class="card-header">
-            <h1 class="card-title">Fahrzeuge</h1>
-            <button class="btn btn-primary" onclick="showFahrzeugModal()">
+          <div class="section-header">
+            <h1>Fahrzeuge</h1>
+            <button class="btn btn-primary" onclick="openFahrzeugModal()">
               <i class="fas fa-plus"></i> Neues Fahrzeug
             </button>
           </div>
 
-          <div class="card">
-            <div class="search-box">
-              <i class="fas fa-search search-icon"></i>
-              <input
-                type="text"
-                class="search-input"
-                id="fahrzeuge-search"
-                placeholder="Fahrzeuge durchsuchen..."
-              />
-            </div>
-            <div class="table-container">
-              <table class="table" id="fahrzeuge-table">
-                <thead>
-                  <tr>
-                    <th>Kennzeichen</th>
-                    <th>Marke/Modell</th>
-                    <th>Besitzer</th>
-                    <th>VIN</th>
-                    <th>Farbe</th>
-                    <th>Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
+          <div class="filters">
+            <input
+              type="text"
+              class="search-input"
+              placeholder="Fahrzeuge suchen..."
+              id="fahrzeug-search"
+            />
+          </div>
+
+          <div class="table-container">
+            <table class="table" id="fahrzeuge-table">
+              <thead>
+                <tr>
+                  <th>Kennzeichen</th>
+                  <th>Marke/Modell</th>
+                  <th>Kunde</th>
+                  <th>Baujahr</th>
+                  <th>Farbe</th>
+                  <th>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody id="fahrzeuge-tbody">
+                <tr>
+                  <td colspan="6" style="text-align: center; padding: 2rem">
+                    Lade Fahrzeuge...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
         </section>
 
         <!-- Einstellungen Section -->
         <section id="einstellungen" class="section">
-          <h1 style="margin-bottom: 2rem">Einstellungen</h1>
-
-          <!-- Tab-Navigation -->
-          <div class="settings-tabs">
-            <button
-              class="settings-tab active"
-              data-tab="firma"
-              onclick="showSettingsTab('firma')"
-            >
-              <i class="fas fa-building"></i> Firmendaten
-            </button>
-            <button
-              class="settings-tab"
-              data-tab="leistungen"
-              onclick="showSettingsTab('leistungen')"
-            >
-              <i class="fas fa-tools"></i> Leistungen
-            </button>
-            <button
-              class="settings-tab"
-              data-tab="rechnungen"
-              onclick="showSettingsTab('rechnungen')"
-            >
-              <i class="fas fa-file-invoice"></i> Rechnungen
-            </button>
-            <button
-              class="settings-tab"
-              data-tab="auftraege"
-              onclick="showSettingsTab('auftraege')"
-            >
-              <i class="fas fa-clipboard-list"></i> Aufträge
-            </button>
+          <div class="section-header">
+            <h1>Einstellungen</h1>
           </div>
 
-          <!-- Firmendaten -->
-          <div id="firma-settings" class="settings-content active">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Firmendaten</h2>
-              </div>
+          <div class="settings-grid">
+            <div class="settings-card">
+              <h3>Firma</h3>
               <form id="firma-form">
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Firmenname *</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="firmenname"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Rechtsform</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="rechtsform"
-                      placeholder="z.B. GmbH, UG, Einzelunternehmen"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Geschäftsführer</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="geschaeftsfuehrer"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Straße, Hausnummer</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="firmen_strasse"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">PLZ</label>
-                    <input type="text" class="form-input" name="firmen_plz" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Ort</label>
-                    <input type="text" class="form-input" name="firmen_ort" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Telefon</label>
-                    <input
-                      type="tel"
-                      class="form-input"
-                      name="firmen_telefon"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Fax</label>
-                    <input type="tel" class="form-input" name="firmen_fax" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">E-Mail</label>
-                    <input
-                      type="email"
-                      class="form-input"
-                      name="firmen_email"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Website</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="firmen_website"
-                      placeholder="www.ihre-website.de oder https://www.ihre-website.de"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Steuernummer</label>
-                    <input type="text" class="form-input" name="steuernummer" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">USt-IdNr.</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="umsatzsteuer_id"
-                    />
-                  </div>
-                </div>
-
-                <h3 style="margin: 2rem 0 1rem 0">Bankverbindung</h3>
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Bank</label>
-                    <input type="text" class="form-input" name="bank_name" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">IBAN</label>
-                    <input type="text" class="form-input" name="bank_iban" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">BIC</label>
-                    <input type="text" class="form-input" name="bank_bic" />
-                  </div>
-                </div>
-
-                <h3 style="margin: 2rem 0 1rem 0">Firmenlogo</h3>
                 <div class="form-group">
-                  <label class="form-label">Logo hochladen</label>
+                  <label>Firmenname</label>
+                  <input type="text" id="firmen_name" class="form-input" />
+                </div>
+                <div class="form-group">
+                  <label>Adresse</label>
+                  <textarea id="firma_adresse" class="form-textarea"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary">Speichern</button>
+              </form>
+            </div>
+
+            <div class="settings-card">
+              <h3>Preise</h3>
+              <form id="preise-form">
+                <div class="form-group">
+                  <label>Basis-Stundenpreis (€)</label>
                   <input
-                    type="file"
+                    type="number"
+                    id="basis_stundenpreis"
                     class="form-input"
-                    accept="image/*"
-                    onchange="handleLogoUpload(event)"
+                    step="0.01"
                   />
-                  <input type="hidden" name="firmen_logo" />
-                  <div id="logo-preview" style="margin-top: 1rem"></div>
-                  <small class="text-muted"
-                    >Maximale Dateigröße: 2MB. Empfohlene Formate: PNG,
-                    JPG</small
-                  >
                 </div>
-
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-save"></i> Firmendaten speichern
-                </button>
+                <div class="form-group">
+                  <label>MwSt.-Satz (%)</label>
+                  <input
+                    type="number"
+                    id="mwst_satz"
+                    class="form-input"
+                    step="0.01"
+                  />
+                </div>
+                <button type="submit" class="btn btn-primary">Speichern</button>
               </form>
             </div>
-          </div>
 
-          <!-- Leistungen -->
-          <div id="leistungen-settings" class="settings-content">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Leistungen & Preise</h2>
+            <div class="settings-card">
+              <h3>Lizenz-Information</h3>
+              <div class="license-info">
+                <p>
+                  <strong>Status:</strong>
+                  <span id="license-info-status">Aktiv</span>
+                </p>
+                <p>
+                  <strong>Läuft ab:</strong>
+                  <span id="license-info-expires">-</span>
+                </p>
+                <p>
+                  <strong>Verbleibende Tage:</strong>
+                  <span id="license-info-days">-</span>
+                </p>
               </div>
-              <form id="leistungen-form">
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Basis-Stundenpreis (€) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      class="form-input"
-                      name="basis_stundenpreis"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Anfahrtspauschale (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      class="form-input"
-                      name="anfahrtspauschale"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Mindestauftragswert (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      class="form-input"
-                      name="mindestauftragswert"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label"
-                      >Standard Arbeitszeit (Std.)</label
-                    >
-                    <input
-                      type="number"
-                      step="0.5"
-                      class="form-input"
-                      name="standard_arbeitszeit"
-                      placeholder="8.0"
-                    />
-                  </div>
-                </div>
-
-                <h3 style="margin: 2rem 0 1rem 0">Zusatzleistungen</h3>
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Express-Zuschlag (%)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      class="form-input"
-                      name="express_zuschlag"
-                      placeholder="20"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Wochenend-Zuschlag (%)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      class="form-input"
-                      name="wochenend_zuschlag"
-                      placeholder="30"
-                    />
-                  </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-save"></i> Leistungen speichern
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <!-- Rechnungen -->
-          <div id="rechnungen-settings" class="settings-content">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Rechnungseinstellungen</h2>
-              </div>
-              <form id="rechnungen-form">
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Mehrwertsteuer (%) *</label>
-                    <input
-                      type="number"
-                      step="1"
-                      class="form-input"
-                      name="mwst_satz"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label"
-                      >Skonto bei Zahlung innerhalb (Tage)</label
-                    >
-                    <input
-                      type="number"
-                      class="form-input"
-                      name="skonto_tage"
-                      placeholder="10"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Skonto-Prozentsatz (%)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      class="form-input"
-                      name="skonto_prozent"
-                      placeholder="2.0"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Zahlungsziel (Tage)</label>
-                    <input
-                      type="number"
-                      class="form-input"
-                      name="zahlungsziel_tage"
-                      placeholder="14"
-                    />
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Zahlungsbedingungen</label>
-                  <textarea
-                    class="form-textarea"
-                    name="zahlungsbedingungen"
-                    rows="4"
-                    placeholder="Zahlbar innerhalb 14 Tagen netto. Bei Überschreitung der Zahlungsfrist werden Verzugszinsen in Höhe von 9% über dem Basiszinssatz berechnet."
-                  ></textarea>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Gewährleistung</label>
-                  <textarea
-                    class="form-textarea"
-                    name="gewaehrleistung"
-                    rows="3"
-                    placeholder="3 Jahre auf Lackierarbeiten bei ordnungsgemäßer Behandlung."
-                  ></textarea>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Rechnungshinweise</label>
-                  <textarea
-                    class="form-textarea"
-                    name="rechnungshinweise"
-                    rows="3"
-                    placeholder="Zusätzliche Hinweise die auf jeder Rechnung erscheinen sollen..."
-                  ></textarea>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-save"></i> Rechnungseinstellungen speichern
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <!-- Aufträge -->
-          <div id="auftraege-settings" class="settings-content">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Auftragseinstellungen</h2>
-              </div>
-              <form id="auftraege-form">
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label"
-                      >Standard Bearbeitungszeit (Tage)</label
-                    >
-                    <input
-                      type="number"
-                      class="form-input"
-                      name="standard_bearbeitungszeit"
-                      placeholder="5"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label"
-                      >Automatische Status-Aktualisierung</label
-                    >
-                    <select class="form-select" name="auto_status_update">
-                      <option value="0">Deaktiviert</option>
-                      <option value="1">Aktiviert</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label"
-                      >E-Mail-Benachrichtigung bei neuen Aufträgen</label
-                    >
-                    <select class="form-select" name="email_benachrichtigung">
-                      <option value="0">Deaktiviert</option>
-                      <option value="1">Aktiviert</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Benachrichtigungs-E-Mail</label>
-                    <input
-                      type="email"
-                      class="form-input"
-                      name="benachrichtigung_email"
-                    />
-                  </div>
-                </div>
-
-                <h3 style="margin: 2rem 0 1rem 0">Standard Arbeitsschritte</h3>
-                <div class="form-group">
-                  <label class="form-label"
-                    >Vordefinierte Arbeitsschritte (einer pro Zeile)</label
-                  >
-                  <textarea
-                    class="form-textarea"
-                    name="standard_arbeitsschritte"
-                    rows="8"
-                    placeholder="Demontage/Vorbereitung&#10;Schleifen/Spachteln&#10;Grundierung&#10;Zwischenschliff&#10;Basislack&#10;Klarlack&#10;Polieren/Finish&#10;Montage"
-                  ></textarea>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-save"></i> Auftragseinstellungen speichern
-                </button>
-              </form>
             </div>
           </div>
         </section>
       </div>
     </main>
 
+    <!-- Modals werden hier eingefügt -->
     <div id="modal-container"></div>
-    <script type="module" src="js/app.js"></script>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none">
+      <div class="loading-spinner">
+        <i class="fas fa-spinner fa-spin"></i>
+        <p>Lädt...</p>
+      </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Basis-Scripts -->
+    <script src="js/app.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/modals.js"></script>
+
+    <script>
+      // Session-Check und App-Initialisierung
+      document.addEventListener("DOMContentLoaded", async () => {
+        await checkAuth();
+        await initializeApp();
+      });
+
+      // Auth-Check mit Lizenz-Validation
+      async function checkAuth() {
+        try {
+          const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+          if (!user.id) {
+            window.location.href = "/login.html";
+            return;
+          }
+
+          // Session-Check beim Server
+          const response = await fetch("/api/auth/session-check", {
+            credentials: "include",
+          });
+
+          if (!response.ok) {
+            localStorage.removeItem("user");
+            window.location.href = "/login.html";
+            return;
+          }
+
+          const sessionData = await response.json();
+
+          // User-Daten in Header anzeigen
+          document.getElementById("user-name").textContent = user.username;
+
+          // Lizenz-Status laden
+          await loadLicenseStatus();
+        } catch (error) {
+          console.error("Auth-Check Fehler:", error);
+          localStorage.removeItem("user");
+          window.location.href = "/login.html";
+        }
+      }
+
+      // Lizenz-Status laden
+      async function loadLicenseStatus() {
+        try {
+          const response = await fetch("/api/auth/license-status", {
+            credentials: "include",
+          });
+
+          if (response.ok) {
+            const licenseData = await response.json();
+            const expires = new Date(licenseData.license.expires_at);
+            const now = new Date();
+            const daysLeft = Math.ceil((expires - now) / (1000 * 60 * 60 * 24));
+
+            const statusElement = document.getElementById("license-status");
+            const infoStatus = document.getElementById("license-info-status");
+            const infoExpires = document.getElementById("license-info-expires");
+            const infoDays = document.getElementById("license-info-days");
+
+            if (daysLeft > 30) {
+              statusElement.innerHTML = "✅ Lizenz aktiv";
+              statusElement.className = "license-status license-valid";
+            } else if (daysLeft > 0) {
+              statusElement.innerHTML = `⚠️ Läuft in ${daysLeft} Tagen ab`;
+              statusElement.className = "license-status license-warning";
+            } else {
+              statusElement.innerHTML = "❌ Lizenz abgelaufen";
+              statusElement.className = "license-status license-expired";
+            }
+
+            if (infoStatus)
+              infoStatus.textContent = daysLeft > 0 ? "Aktiv" : "Abgelaufen";
+            if (infoExpires)
+              infoExpires.textContent = expires.toLocaleDateString("de-DE");
+            if (infoDays) infoDays.textContent = Math.max(0, daysLeft);
+          }
+        } catch (error) {
+          console.error("Lizenz-Status Fehler:", error);
+        }
+      }
+
+      // App initialisieren
+      async function initializeApp() {
+        await loadDashboardStats();
+        // Weitere Initialisierungen...
+      }
+
+      // Dashboard-Statistiken laden
+      async function loadDashboardStats() {
+        try {
+          const [auftraege, rechnungen, kunden, fahrzeuge] = await Promise.all([
+            fetch("/api/auftraege/stats")
+              .then((r) => r.json())
+              .catch(() => ({ total: 0, open: 0 })),
+            fetch("/api/rechnungen/stats")
+              .then((r) => r.json())
+              .catch(() => ({ total: 0, open: 0 })),
+            fetch("/api/kunden/stats")
+              .then((r) => r.json())
+              .catch(() => ({ total: 0 })),
+            fetch("/api/fahrzeuge/stats")
+              .then((r) => r.json())
+              .catch(() => ({ total: 0 })),
+          ]);
+
+          document.getElementById("stat-auftraege").textContent =
+            auftraege.open || 0;
+          document.getElementById("stat-rechnungen").textContent =
+            rechnungen.open || 0;
+          document.getElementById("stat-kunden").textContent =
+            kunden.total || 0;
+          document.getElementById("stat-fahrzeuge").textContent =
+            fahrzeuge.total || 0;
+        } catch (error) {
+          console.error("Stats-Laden Fehler:", error);
+        }
+      }
+
+      // Section wechseln
+      function showSection(sectionName) {
+        // Alle Sections verstecken
+        document.querySelectorAll(".section").forEach((section) => {
+          section.classList.remove("active");
+        });
+
+        // Navigation aktualisierten
+        document.querySelectorAll(".nav-item").forEach((item) => {
+          item.classList.remove("active");
+        });
+
+        // Gewählte Section zeigen
+        document.getElementById(sectionName).classList.add("active");
+        event.target.classList.add("active");
+
+        // Section-spezifische Daten laden
+        loadSectionData(sectionName);
+      }
+
+      // Section-Daten laden
+      async function loadSectionData(section) {
+        switch (section) {
+          case "auftraege":
+            await loadAuftraege();
+            break;
+          case "rechnungen":
+            await loadRechnungen();
+            break;
+          case "kunden":
+            await loadKunden();
+            break;
+          case "fahrzeuge":
+            await loadFahrzeuge();
+            break;
+          case "einstellungen":
+            await loadEinstellungen();
+            break;
+        }
+      }
+
+      // Logout-Funktion
+      async function logout() {
+        try {
+          await fetch("/api/auth/logout", {
+            method: "POST",
+            credentials: "include",
+          });
+        } catch (error) {
+          console.error("Logout-Fehler:", error);
+        }
+
+        localStorage.removeItem("user");
+        window.location.href = "/login.html";
+      }
+
+      // Placeholder-Funktionen für Daten-Loading
+      async function loadAuftraege() {
+        console.log("Lade Aufträge...");
+        // Implementation in separater Datei
+      }
+
+      async function loadRechnungen() {
+        console.log("Lade Rechnungen...");
+        // Implementation in separater Datei
+      }
+
+      async function loadKunden() {
+        console.log("Lade Kunden...");
+        // Implementation in separater Datei
+      }
+
+      async function loadFahrzeuge() {
+        console.log("Lade Fahrzeuge...");
+        // Implementation in separater Datei
+      }
+
+      async function loadEinstellungen() {
+        console.log("Lade Einstellungen...");
+        // Implementation in separater Datei
+      }
+
+      // Modal-Funktionen (Placeholder)
+      function openAuftragModal() {
+        console.log("Öffne Auftrag-Modal");
+      }
+
+      function openRechnungModal() {
+        console.log("Öffne Rechnung-Modal");
+      }
+
+      function openKundenModal() {
+        console.log("Öffne Kunden-Modal");
+      }
+
+      function openFahrzeugModal() {
+        console.log("Öffne Fahrzeug-Modal");
+      }
+    </script>
   </body>
 </html>

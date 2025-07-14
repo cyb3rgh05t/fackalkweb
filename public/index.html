@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -14,48 +14,134 @@
     />
     <link rel="stylesheet" href="css/style.css" />
     <link rel="stylesheet" href="css/layout-editor.css" />
+    <!-- Ensure dark theme styles load immediately -->
+    <style>
+      html,
+      body {
+        background: #0f172a !important;
+        color: #f1f5f9 !important;
+      }
+
+      /* Prevent flash of light theme */
+      * {
+        transition: none !important;
+      }
+
+      /* Clean header layout */
+      .header-content {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 2rem !important;
+      }
+
+      .nav {
+        display: flex !important;
+        gap: 0.5rem !important;
+        align-items: center !important;
+      }
+
+      .nav-item {
+        padding: 0.75rem 1.5rem !important;
+        border-radius: 8px !important;
+        font-size: 0.95rem !important;
+        box-shadow: none !important;
+      }
+
+      /* Footer styles */
+      .footer {
+        background: var(--bg-secondary) !important;
+        border-top: 1px solid var(--border-color) !important;
+        padding: 1rem 0 !important;
+        margin-top: auto !important;
+      }
+
+      .footer-content {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        gap: 2rem !important;
+        flex-wrap: wrap !important;
+      }
+
+      /* Remove shadows from all buttons */
+      .btn,
+      .nav-item,
+      .settings-tab,
+      .logout-btn {
+        box-shadow: none !important;
+      }
+
+      .btn:hover,
+      .nav-item:hover,
+      .settings-tab:hover,
+      .logout-btn:hover {
+        box-shadow: none !important;
+      }
+
+      /* Body layout adjustment */
+      body {
+        display: flex !important;
+        flex-direction: column !important;
+        min-height: 100vh !important;
+      }
+
+      .main {
+        flex: 1 !important;
+      }
+    </style>
   </head>
   <body>
+    <!-- License Warning Banner -->
+    <div id="license-warning-banner" class="license-warning-banner">
+      <i class="fas fa-exclamation-triangle"></i>
+      <span id="license-warning-text">Ihre Lizenz läuft bald ab!</span>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <h3>KFZFacPRO wird geladen...</h3>
+        <p id="loading-status">Authentifizierung prüfen...</p>
+      </div>
+    </div>
+
+    <!-- Clean Header -->
     <header class="header">
       <div class="container">
         <div class="header-content">
           <div class="logo">
-            <i class="fa-solid fa-wallet"></i>
-            KFZ Fac Pro
+            <i class="fa-solid fa-wallet" id="logo-icon"></i>
+            <span id="logo-text">KFZFacPRO</span>
           </div>
+
           <nav class="nav">
             <button class="nav-item active" onclick="showSection('dashboard')">
-              <i class="fas fa-chart-bar"></i> Dashboard
+              <i class="fas fa-chart-bar"></i>
+              <span>Dashboard</span>
             </button>
             <button class="nav-item" onclick="showSection('auftraege')">
-              <i class="fas fa-clipboard-list"></i> Aufträge
+              <i class="fas fa-clipboard-list"></i>
+              <span>Aufträge</span>
             </button>
             <button class="nav-item" onclick="showSection('rechnungen')">
-              <i class="fas fa-file-invoice"></i> Rechnungen
+              <i class="fas fa-file-invoice"></i>
+              <span>Rechnungen</span>
             </button>
             <button class="nav-item" onclick="showSection('kunden')">
-              <i class="fas fa-users"></i> Kunden
+              <i class="fas fa-users"></i>
+              <span>Kunden</span>
             </button>
             <button class="nav-item" onclick="showSection('fahrzeuge')">
-              <i class="fas fa-car"></i> Fahrzeuge
+              <i class="fas fa-car"></i>
+              <span>Fahrzeuge</span>
             </button>
             <button class="nav-item" onclick="showSection('einstellungen')">
-              <i class="fas fa-cog"></i> Einstellungen
+              <i class="fas fa-cog"></i>
+              <span>Einstellungen</span>
             </button>
           </nav>
-
-          <!-- User-Bereich mit Logout -->
-          <div class="user-section">
-            <div class="user-info">
-              <span class="user-name" id="user-name">Benutzer</span>
-              <span class="license-status" id="license-status"
-                >✅ Lizenz aktiv</span
-              >
-            </div>
-            <button class="logout-btn" onclick="logout()" title="Abmelden">
-              <i class="fas fa-sign-out-alt"></i>
-            </button>
-          </div>
         </div>
       </div>
     </header>
@@ -67,315 +153,720 @@
           <h1 style="margin-bottom: 2rem; font-size: 2.5rem">Dashboard</h1>
 
           <div class="dashboard-grid">
-            <div class="stat-card">
-              <div class="stat-number" id="stat-auftraege">0</div>
+            <div class="stat-card stat-loading" id="stat-auftraege-card">
+              <div class="stat-number" id="stat-auftraege">-</div>
               <div class="stat-label">Offene Aufträge</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-number" id="stat-rechnungen">0</div>
+            <div
+              class="stat-card stat-loading"
+              id="stat-rechnungen-card"
+              style="
+                background: linear-gradient(
+                  135deg,
+                  var(--accent-success),
+                  #059669
+                );
+              "
+            >
+              <div class="stat-number" id="stat-rechnungen">-</div>
               <div class="stat-label">Offene Rechnungen</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-number" id="stat-kunden">0</div>
+            <div
+              class="stat-card stat-loading"
+              id="stat-kunden-card"
+              style="
+                background: linear-gradient(
+                  135deg,
+                  var(--accent-warning),
+                  #d97706
+                );
+              "
+            >
+              <div class="stat-number" id="stat-kunden">-</div>
               <div class="stat-label">Kunden</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-number" id="stat-fahrzeuge">0</div>
-              <div class="stat-label">Fahrzeuge</div>
+            <div
+              class="stat-card stat-loading"
+              id="stat-umsatz-card"
+              style="
+                background: linear-gradient(
+                  135deg,
+                  var(--accent-danger),
+                  #dc2626
+                );
+              "
+            >
+              <div class="stat-number" id="stat-umsatz">-</div>
+              <div class="stat-label">Monatsumsatz</div>
             </div>
           </div>
 
-          <div class="quick-actions">
-            <h2>Schnellaktionen</h2>
-            <div class="quick-action-grid">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Aktuelle Aufträge</h2>
               <button
-                class="quick-action-btn"
-                onclick="showSection('auftraege'); openAuftragModal()"
+                class="btn btn-primary"
+                onclick="showSection('auftraege')"
               >
-                <i class="fas fa-plus"></i>
-                Neuer Auftrag
-              </button>
-              <button
-                class="quick-action-btn"
-                onclick="showSection('rechnungen'); openRechnungModal()"
-              >
-                <i class="fas fa-file-invoice"></i>
-                Neue Rechnung
-              </button>
-              <button
-                class="quick-action-btn"
-                onclick="showSection('kunden'); openKundenModal()"
-              >
-                <i class="fas fa-user-plus"></i>
-                Neuer Kunde
-              </button>
-              <button
-                class="quick-action-btn"
-                onclick="showSection('fahrzeuge'); openFahrzeugModal()"
-              >
-                <i class="fas fa-car"></i>
-                Neues Fahrzeug
+                <i class="fas fa-plus"></i> Neuer Auftrag
               </button>
             </div>
-          </div>
-
-          <!-- Letzte Aktivitäten -->
-          <div class="recent-activities">
-            <h2>Letzte Aktivitäten</h2>
-            <div class="activity-list" id="activity-list">
-              <div class="activity-item">
-                <div class="activity-icon">
-                  <i class="fas fa-clipboard-list"></i>
-                </div>
-                <div class="activity-content">
-                  <div class="activity-title">Lade Aktivitäten...</div>
-                  <div class="activity-time">-</div>
-                </div>
-              </div>
+            <div class="table-container">
+              <table class="table" id="dashboard-auftraege">
+                <thead>
+                  <tr>
+                    <th>Auftrag-Nr.</th>
+                    <th>Kunde</th>
+                    <th>Fahrzeug</th>
+                    <th>Datum</th>
+                    <th>Status</th>
+                    <th>Betrag</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-auftraege-tbody">
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: 2rem">
+                      <div
+                        class="loading-spinner"
+                        style="margin: 0 auto 1rem"
+                      ></div>
+                      Lade Aufträge...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </section>
 
         <!-- Aufträge Section -->
         <section id="auftraege" class="section">
-          <div class="section-header">
-            <h1>Aufträge</h1>
-            <button class="btn btn-primary" onclick="openAuftragModal()">
+          <div class="card-header">
+            <h1 class="card-title">Aufträge</h1>
+            <button class="btn btn-primary" onclick="showAuftragModal()">
               <i class="fas fa-plus"></i> Neuer Auftrag
             </button>
           </div>
 
-          <div class="filters">
-            <input
-              type="text"
-              class="search-input"
-              placeholder="Aufträge suchen..."
-              id="auftrag-search"
-            />
-            <select class="filter-select" id="auftrag-status-filter">
-              <option value="">Alle Status</option>
-              <option value="offen">Offen</option>
-              <option value="in_bearbeitung">In Bearbeitung</option>
-              <option value="abgeschlossen">Abgeschlossen</option>
-            </select>
-          </div>
-
-          <div class="table-container">
-            <table class="table" id="auftraege-table">
-              <thead>
-                <tr>
-                  <th>Auftrag-Nr.</th>
-                  <th>Kunde</th>
-                  <th>Fahrzeug</th>
-                  <th>Datum</th>
-                  <th>Status</th>
-                  <th>Gesamt</th>
-                  <th>Aktionen</th>
-                </tr>
-              </thead>
-              <tbody id="auftraege-tbody">
-                <tr>
-                  <td colspan="7" style="text-align: center; padding: 2rem">
-                    Lade Aufträge...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="card">
+            <div class="search-box">
+              <i class="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                class="search-input"
+                id="auftraege-search"
+                placeholder="Aufträge durchsuchen..."
+              />
+            </div>
+            <div class="table-container">
+              <table class="table" id="auftraege-table">
+                <thead>
+                  <tr>
+                    <th>Auftrag-Nr.</th>
+                    <th>Kunde</th>
+                    <th>Fahrzeug</th>
+                    <th>Datum</th>
+                    <th>Status</th>
+                    <th>Gesamtkosten</th>
+                    <th>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody id="auftraege-tbody"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
         <!-- Rechnungen Section -->
         <section id="rechnungen" class="section">
-          <div class="section-header">
-            <h1>Rechnungen</h1>
-            <button class="btn btn-primary" onclick="openRechnungModal()">
+          <div class="card-header">
+            <h1 class="card-title">Rechnungen</h1>
+            <button class="btn btn-primary" onclick="showRechnungModal()">
               <i class="fas fa-plus"></i> Neue Rechnung
             </button>
           </div>
 
-          <div class="filters">
-            <input
-              type="text"
-              class="search-input"
-              placeholder="Rechnungen suchen..."
-              id="rechnung-search"
-            />
-            <select class="filter-select" id="rechnung-status-filter">
-              <option value="">Alle Status</option>
-              <option value="offen">Offen</option>
-              <option value="bezahlt">Bezahlt</option>
-              <option value="mahnung">Mahnung</option>
-              <option value="storniert">Storniert</option>
-            </select>
-          </div>
-
-          <div class="table-container">
-            <table class="table" id="rechnungen-table">
-              <thead>
-                <tr>
-                  <th>Rechnung-Nr.</th>
-                  <th>Kunde</th>
-                  <th>Datum</th>
-                  <th>Status</th>
-                  <th>Betrag</th>
-                  <th>Aktionen</th>
-                </tr>
-              </thead>
-              <tbody id="rechnungen-tbody">
-                <tr>
-                  <td colspan="6" style="text-align: center; padding: 2rem">
-                    Lade Rechnungen...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="card">
+            <div class="search-box">
+              <i class="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                class="search-input"
+                id="rechnungen-search"
+                placeholder="Rechnungen durchsuchen..."
+              />
+            </div>
+            <div class="table-container">
+              <table class="table" id="rechnungen-table">
+                <thead>
+                  <tr>
+                    <th>Rechnung-Nr.</th>
+                    <th>Kunde</th>
+                    <th>Fahrzeug</th>
+                    <th>Datum</th>
+                    <th>Status</th>
+                    <th>Gesamtbetrag</th>
+                    <th>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody id="rechnungen-tbody"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
         <!-- Kunden Section -->
         <section id="kunden" class="section">
-          <div class="section-header">
-            <h1>Kunden</h1>
-            <button class="btn btn-primary" onclick="openKundenModal()">
+          <div class="card-header">
+            <h1 class="card-title">Kunden</h1>
+            <button class="btn btn-primary" onclick="showKundenModal()">
               <i class="fas fa-plus"></i> Neuer Kunde
             </button>
           </div>
 
-          <div class="filters">
-            <input
-              type="text"
-              class="search-input"
-              placeholder="Kunden suchen..."
-              id="kunden-search"
-            />
-          </div>
-
-          <div class="table-container">
-            <table class="table" id="kunden-table">
-              <thead>
-                <tr>
-                  <th>Kunden-Nr.</th>
-                  <th>Name</th>
-                  <th>Ort</th>
-                  <th>Telefon</th>
-                  <th>E-Mail</th>
-                  <th>Aktionen</th>
-                </tr>
-              </thead>
-              <tbody id="kunden-tbody">
-                <tr>
-                  <td colspan="6" style="text-align: center; padding: 2rem">
-                    Lade Kunden...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="card">
+            <div class="search-box">
+              <i class="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                class="search-input"
+                id="kunden-search"
+                placeholder="Kunden durchsuchen..."
+              />
+            </div>
+            <div class="table-container">
+              <table class="table" id="kunden-table">
+                <thead>
+                  <tr>
+                    <th>Kunden-Nr.</th>
+                    <th>Name</th>
+                    <th>Adresse</th>
+                    <th>Telefon</th>
+                    <th>E-Mail</th>
+                    <th>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody id="kunden-tbody"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
         <!-- Fahrzeuge Section -->
         <section id="fahrzeuge" class="section">
-          <div class="section-header">
-            <h1>Fahrzeuge</h1>
-            <button class="btn btn-primary" onclick="openFahrzeugModal()">
+          <div class="card-header">
+            <h1 class="card-title">Fahrzeuge</h1>
+            <button class="btn btn-primary" onclick="showFahrzeugModal()">
               <i class="fas fa-plus"></i> Neues Fahrzeug
             </button>
           </div>
 
-          <div class="filters">
-            <input
-              type="text"
-              class="search-input"
-              placeholder="Fahrzeuge suchen..."
-              id="fahrzeug-search"
-            />
-          </div>
-
-          <div class="table-container">
-            <table class="table" id="fahrzeuge-table">
-              <thead>
-                <tr>
-                  <th>Kennzeichen</th>
-                  <th>Marke/Modell</th>
-                  <th>Kunde</th>
-                  <th>Baujahr</th>
-                  <th>Farbe</th>
-                  <th>Aktionen</th>
-                </tr>
-              </thead>
-              <tbody id="fahrzeuge-tbody">
-                <tr>
-                  <td colspan="6" style="text-align: center; padding: 2rem">
-                    Lade Fahrzeuge...
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="card">
+            <div class="search-box">
+              <i class="fas fa-search search-icon"></i>
+              <input
+                type="text"
+                class="search-input"
+                id="fahrzeuge-search"
+                placeholder="Fahrzeuge durchsuchen..."
+              />
+            </div>
+            <div class="table-container">
+              <table class="table" id="fahrzeuge-table">
+                <thead>
+                  <tr>
+                    <th>Kennzeichen</th>
+                    <th>Marke/Modell</th>
+                    <th>Besitzer</th>
+                    <th>VIN</th>
+                    <th>Farbe</th>
+                    <th>Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody id="fahrzeuge-tbody"></tbody>
+              </table>
+            </div>
           </div>
         </section>
 
         <!-- Einstellungen Section -->
         <section id="einstellungen" class="section">
-          <div class="section-header">
-            <h1>Einstellungen</h1>
+          <h1 style="margin-bottom: 2rem">Einstellungen</h1>
+
+          <!-- Tab-Navigation -->
+          <div class="settings-tabs">
+            <button
+              class="settings-tab active"
+              data-tab="firma"
+              onclick="showSettingsTab('firma')"
+            >
+              <i class="fas fa-building"></i> Firmendaten
+            </button>
+            <button
+              class="settings-tab"
+              data-tab="leistungen"
+              onclick="showSettingsTab('leistungen')"
+            >
+              <i class="fas fa-tools"></i> Leistungen
+            </button>
+            <button
+              class="settings-tab"
+              data-tab="rechnungen"
+              onclick="showSettingsTab('rechnungen')"
+            >
+              <i class="fas fa-file-invoice"></i> Rechnungen
+            </button>
+            <button
+              class="settings-tab"
+              data-tab="auftraege"
+              onclick="showSettingsTab('auftraege')"
+            >
+              <i class="fas fa-clipboard-list"></i> Aufträge
+            </button>
+            <button
+              class="settings-tab"
+              data-tab="lizenz"
+              onclick="showSettingsTab('lizenz')"
+            >
+              <i class="fas fa-certificate"></i> Lizenz
+            </button>
           </div>
 
-          <div class="settings-grid">
-            <div class="settings-card">
-              <h3>Firma</h3>
-              <form id="firma-form">
-                <div class="form-group">
-                  <label>Firmenname</label>
-                  <input type="text" id="firmen_name" class="form-input" />
+          <!-- Firmendaten -->
+          <div id="firma-settings" class="settings-content active">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Firmendaten</h2>
+              </div>
+              <form id="firma-form" onsubmit="saveFirmaData(event)">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Firmenname *</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="firmenname"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Rechtsform</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="rechtsform"
+                      placeholder="z.B. GmbH, UG, Einzelunternehmen"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Geschäftsführer</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="geschaeftsfuehrer"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Straße, Hausnummer</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="firmen_strasse"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">PLZ</label>
+                    <input type="text" class="form-input" name="firmen_plz" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Ort</label>
+                    <input type="text" class="form-input" name="firmen_ort" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Telefon</label>
+                    <input
+                      type="tel"
+                      class="form-input"
+                      name="firmen_telefon"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Fax</label>
+                    <input type="tel" class="form-input" name="firmen_fax" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">E-Mail</label>
+                    <input
+                      type="email"
+                      class="form-input"
+                      name="firmen_email"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Website</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="firmen_website"
+                      placeholder="www.ihre-website.de oder https://www.ihre-website.de"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Steuernummer</label>
+                    <input type="text" class="form-input" name="steuernummer" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">USt-IdNr.</label>
+                    <input
+                      type="text"
+                      class="form-input"
+                      name="umsatzsteuer_id"
+                    />
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label>Adresse</label>
-                  <textarea id="firma_adresse" class="form-textarea"></textarea>
+
+                <h3 style="margin: 2rem 0 1rem 0">Bankverbindung</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Bank</label>
+                    <input type="text" class="form-input" name="bank_name" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">IBAN</label>
+                    <input type="text" class="form-input" name="bank_iban" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">BIC</label>
+                    <input type="text" class="form-input" name="bank_bic" />
+                  </div>
                 </div>
-                <button type="submit" class="btn btn-primary">Speichern</button>
+
+                <h3 style="margin: 2rem 0 1rem 0">Firmenlogo</h3>
+                <div class="form-group">
+                  <label class="form-label">Logo hochladen</label>
+                  <input
+                    type="file"
+                    class="form-input"
+                    id="logo-upload"
+                    accept="image/*"
+                    onchange="handleLogoUpload(event)"
+                  />
+                  <input type="hidden" name="firmen_logo" id="logo-data" />
+                  <div id="logo-preview" style="margin-top: 1rem"></div>
+                  <small class="text-muted"
+                    >Maximale Dateigröße: 2MB. Empfohlene Formate: PNG,
+                    JPG</small
+                  >
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i> Firmendaten speichern
+                </button>
               </form>
             </div>
+          </div>
 
-            <div class="settings-card">
-              <h3>Preise</h3>
-              <form id="preise-form">
-                <div class="form-group">
-                  <label>Basis-Stundenpreis (€)</label>
-                  <input
-                    type="number"
-                    id="basis_stundenpreis"
-                    class="form-input"
-                    step="0.01"
-                  />
+          <!-- Leistungen -->
+          <div id="leistungen-settings" class="settings-content">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Leistungen & Preise</h2>
+              </div>
+              <form id="leistungen-form" onsubmit="saveLeistungenData(event)">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Basis-Stundenpreis (€) *</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      class="form-input"
+                      name="basis_stundenpreis"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Anfahrtspauschale (€)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      class="form-input"
+                      name="anfahrtspauschale"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Mindestauftragswert (€)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      class="form-input"
+                      name="mindestauftragswert"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label"
+                      >Standard Arbeitszeit (Std.)</label
+                    >
+                    <input
+                      type="number"
+                      step="0.5"
+                      class="form-input"
+                      name="standard_arbeitszeit"
+                      placeholder="8.0"
+                    />
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label>MwSt.-Satz (%)</label>
-                  <input
-                    type="number"
-                    id="mwst_satz"
-                    class="form-input"
-                    step="0.01"
-                  />
+
+                <h3 style="margin: 2rem 0 1rem 0">Zusatzleistungen</h3>
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Express-Zuschlag (%)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      class="form-input"
+                      name="express_zuschlag"
+                      placeholder="20"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Wochenend-Zuschlag (%)</label>
+                    <input
+                      type="number"
+                      step="1"
+                      class="form-input"
+                      name="wochenend_zuschlag"
+                      placeholder="30"
+                    />
+                  </div>
                 </div>
-                <button type="submit" class="btn btn-primary">Speichern</button>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i> Leistungen speichern
+                </button>
               </form>
             </div>
+          </div>
 
-            <div class="settings-card">
-              <h3>Lizenz-Information</h3>
-              <div class="license-info">
-                <p>
-                  <strong>Status:</strong>
-                  <span id="license-info-status">Aktiv</span>
-                </p>
-                <p>
-                  <strong>Läuft ab:</strong>
-                  <span id="license-info-expires">-</span>
-                </p>
-                <p>
-                  <strong>Verbleibende Tage:</strong>
-                  <span id="license-info-days">-</span>
-                </p>
+          <!-- Rechnungen -->
+          <div id="rechnungen-settings" class="settings-content">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Rechnungseinstellungen</h2>
+              </div>
+              <form id="rechnungen-form" onsubmit="saveRechnungenData(event)">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Mehrwertsteuer (%) *</label>
+                    <input
+                      type="number"
+                      step="1"
+                      class="form-input"
+                      name="mwst_satz"
+                      required
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label"
+                      >Skonto bei Zahlung innerhalb (Tage)</label
+                    >
+                    <input
+                      type="number"
+                      class="form-input"
+                      name="skonto_tage"
+                      placeholder="10"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Skonto-Prozentsatz (%)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      class="form-input"
+                      name="skonto_prozent"
+                      placeholder="2.0"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Zahlungsziel (Tage)</label>
+                    <input
+                      type="number"
+                      class="form-input"
+                      name="zahlungsziel_tage"
+                      placeholder="14"
+                    />
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Zahlungsbedingungen</label>
+                  <textarea
+                    class="form-textarea"
+                    name="zahlungsbedingungen"
+                    rows="4"
+                    placeholder="Zahlbar innerhalb 14 Tagen netto. Bei Überschreitung der Zahlungsfrist werden Verzugszinsen in Höhe von 9% über dem Basiszinssatz berechnet."
+                  ></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Gewährleistung</label>
+                  <textarea
+                    class="form-textarea"
+                    name="gewaehrleistung"
+                    rows="3"
+                    placeholder="3 Jahre auf Lackierarbeiten bei ordnungsgemäßer Behandlung."
+                  ></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">Rechnungshinweise</label>
+                  <textarea
+                    class="form-textarea"
+                    name="rechnungshinweise"
+                    rows="3"
+                    placeholder="Zusätzliche Hinweise die auf jeder Rechnung erscheinen sollen..."
+                  ></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i> Rechnungseinstellungen speichern
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Aufträge -->
+          <div id="auftraege-settings" class="settings-content">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Auftragseinstellungen</h2>
+              </div>
+              <form id="auftraege-form" onsubmit="saveAuftraegeData(event)">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label"
+                      >Standard Bearbeitungszeit (Tage)</label
+                    >
+                    <input
+                      type="number"
+                      class="form-input"
+                      name="standard_bearbeitungszeit"
+                      placeholder="5"
+                    />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label"
+                      >Automatische Status-Aktualisierung</label
+                    >
+                    <select class="form-select" name="auto_status_update">
+                      <option value="0">Deaktiviert</option>
+                      <option value="1">Aktiviert</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label"
+                      >E-Mail-Benachrichtigung bei neuen Aufträgen</label
+                    >
+                    <select class="form-select" name="email_benachrichtigung">
+                      <option value="0">Deaktiviert</option>
+                      <option value="1">Aktiviert</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Benachrichtigungs-E-Mail</label>
+                    <input
+                      type="email"
+                      class="form-input"
+                      name="benachrichtigung_email"
+                    />
+                  </div>
+                </div>
+
+                <h3 style="margin: 2rem 0 1rem 0">Standard Arbeitsschritte</h3>
+                <div class="form-group">
+                  <label class="form-label"
+                    >Vordefinierte Arbeitsschritte (einer pro Zeile)</label
+                  >
+                  <textarea
+                    class="form-textarea"
+                    name="standard_arbeitsschritte"
+                    rows="8"
+                    placeholder="Demontage/Vorbereitung&#10;Schleifen/Spachteln&#10;Grundierung&#10;Zwischenschliff&#10;Basislack&#10;Klarlack&#10;Polieren/Finish&#10;Montage"
+                  ></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i> Auftragseinstellungen speichern
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <!-- Lizenz -->
+          <div id="lizenz-settings" class="settings-content">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">Lizenz-Information</h2>
+              </div>
+              <div class="license-info-detailed">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Status</label>
+                    <div
+                      id="license-detail-status"
+                      class="license-badge license-valid"
+                    >
+                      Aktiv
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Ablaufdatum</label>
+                    <div
+                      id="license-detail-expires"
+                      style="font-weight: 600; color: var(--text-primary)"
+                    >
+                      -
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Verbleibende Tage</label>
+                    <div
+                      id="license-detail-days"
+                      style="font-weight: 600; color: var(--text-primary)"
+                    >
+                      -
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Lizenz-Schlüssel</label>
+                    <div
+                      id="license-detail-key"
+                      style="
+                        font-family: monospace;
+                        color: var(--text-secondary);
+                      "
+                    >
+                      -
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Max. Kunden</label>
+                    <div
+                      id="license-detail-customers"
+                      style="font-weight: 600; color: var(--text-primary)"
+                    >
+                      -
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Max. Fahrzeuge</label>
+                    <div
+                      id="license-detail-vehicles"
+                      style="font-weight: 600; color: var(--text-primary)"
+                    >
+                      -
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -383,241 +874,1258 @@
       </div>
     </main>
 
-    <!-- Modals werden hier eingefügt -->
+    <!-- Footer with User Info -->
+    <footer class="footer">
+      <div class="container">
+        <div class="footer-content">
+          <div class="footer-info">
+            <div class="user-info-display">
+              <span class="user-name" id="footer-user-name">Benutzer</span>
+              <span class="user-email" id="footer-user-email"
+                >user@example.com</span
+              >
+            </div>
+          </div>
+
+          <div class="license-info-display">
+            <div id="footer-license-status" class="license-badge license-valid">
+              Aktiv
+            </div>
+          </div>
+
+          <div class="footer-actions">
+            <button class="btn btn-secondary btn-sm" onclick="showSystemInfo()">
+              <i class="fas fa-info-circle"></i> System
+            </button>
+            <button class="btn btn-danger btn-sm logout-btn" onclick="logout()">
+              <i class="fas fa-sign-out-alt"></i>
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Modal Container -->
     <div id="modal-container"></div>
 
-    <!-- Loading Overlay -->
-    <div id="loading-overlay" class="loading-overlay" style="display: none">
-      <div class="loading-spinner">
-        <i class="fas fa-spinner fa-spin"></i>
-        <p>Lädt...</p>
+    <!-- System Info Modal -->
+    <div id="system-info-modal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title">System-Information</h3>
+          <button class="close-btn" onclick="closeSystemInfoModal()">
+            &times;
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="system-info-grid">
+            <div class="info-item">
+              <label>Version:</label>
+              <span>KFZFacPRO v2.0</span>
+            </div>
+            <div class="info-item">
+              <label>Lizenz-Status:</label>
+              <span id="system-license-status">-</span>
+            </div>
+            <div class="info-item">
+              <label>Benutzer:</label>
+              <span id="system-user-name">-</span>
+            </div>
+            <div class="info-item">
+              <label>Letzter Login:</label>
+              <span id="system-last-login">-</span>
+            </div>
+            <div class="info-item">
+              <label>Server-Status:</label>
+              <span class="status-active">Online</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- Toast Notifications -->
-    <div id="toast-container" class="toast-container"></div>
-
-    <!-- Basis-Scripts -->
-    <script src="js/app.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/modals.js"></script>
-
+    <script type="module" src="js/app.js"></script>
     <script>
-      // Session-Check und App-Initialisierung
+      // ===================================
+      // THEME MANAGEMENT
+      // ===================================
+
+      // Force dark theme on load
+      document.documentElement.setAttribute("data-theme", "dark");
+      document.body.style.background = "#0f172a";
+      document.body.style.color = "#f1f5f9";
+
+      // Re-enable transitions after theme is set
+      setTimeout(() => {
+        document.querySelectorAll("*").forEach((el) => {
+          el.style.transition = "";
+        });
+      }, 100);
+
+      // ===================================
+      // GLOBAL VARIABLES & STATE
+      // ===================================
+      let currentUser = null;
+      let currentLicense = null;
+      let isLoading = true;
+
+      // ===================================
+      // APP INITIALIZATION
+      // ===================================
       document.addEventListener("DOMContentLoaded", async () => {
-        await checkAuth();
         await initializeApp();
       });
 
-      // Auth-Check mit Lizenz-Validation
-      async function checkAuth() {
+      async function initializeApp() {
+        console.log("🚀 Initialisiere KFZFacPRO...");
+
         try {
-          const user = JSON.parse(localStorage.getItem("user") || "{}");
+          // 1. Auth-Check
+          updateLoadingStatus("Authentifizierung prüfen...");
+          await checkAuthentication();
 
-          if (!user.id) {
-            window.location.href = "/login.html";
-            return;
-          }
+          // 2. User-Info laden
+          updateLoadingStatus("Benutzerdaten laden...");
+          await loadUserInfo();
 
-          // Session-Check beim Server
-          const response = await fetch("/api/auth/session-check", {
-            credentials: "include",
-          });
+          // 3. Lizenz-Status prüfen
+          updateLoadingStatus("Lizenz-Status prüfen...");
+          await checkLicenseStatus();
 
-          if (!response.ok) {
-            localStorage.removeItem("user");
-            window.location.href = "/login.html";
-            return;
-          }
+          // 4. Dashboard-Daten laden
+          updateLoadingStatus("Dashboard-Daten laden...");
+          await loadDashboardData();
 
-          const sessionData = await response.json();
+          // 5. Einstellungen laden
+          updateLoadingStatus("Einstellungen laden...");
+          await loadSettings();
 
-          // User-Daten in Header anzeigen
-          document.getElementById("user-name").textContent = user.username;
+          // 6. Event Listeners einrichten
+          updateLoadingStatus("Interface initialisieren...");
+          setupEventListeners();
 
-          // Lizenz-Status laden
-          await loadLicenseStatus();
+          // 7. Loading beenden
+          hideLoading();
+
+          console.log("✅ KFZFacPRO erfolgreich geladen");
         } catch (error) {
-          console.error("Auth-Check Fehler:", error);
-          localStorage.removeItem("user");
-          window.location.href = "/login.html";
+          console.error("❌ Fehler beim Initialisieren:", error);
+          showAuthError(error.message || "Fehler beim Laden der Anwendung");
+
+          // Nach 2 Sekunden zum Login weiterleiten
+          setTimeout(() => {
+            window.location.href = "/login.html";
+          }, 2000);
         }
       }
 
-      // Lizenz-Status laden
-      async function loadLicenseStatus() {
+      // ===================================
+      // AUTHENTICATION MANAGEMENT
+      // ===================================
+      async function checkAuthentication() {
+        try {
+          const response = await fetch("/api/auth/session-check", {
+            method: "GET",
+            credentials: "include",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (!response.ok) {
+            if (response.status === 401) {
+              throw new Error("Session abgelaufen - bitte erneut anmelden");
+            } else if (response.status === 403) {
+              throw new Error(
+                "Lizenz abgelaufen - bitte kontaktieren Sie den Administrator"
+              );
+            }
+            throw new Error("Authentifizierung fehlgeschlagen");
+          }
+
+          const data = await response.json();
+          currentUser = data.user;
+          currentLicense = data.license;
+
+          console.log("✅ Authentifizierung erfolgreich:", currentUser);
+          return data;
+        } catch (error) {
+          console.error("❌ Auth-Check Fehler:", error);
+          throw error;
+        }
+      }
+
+      async function loadUserInfo() {
+        if (!currentUser) return;
+
+        // User-Info im Footer anzeigen
+        document.getElementById("footer-user-name").textContent =
+          currentUser.username;
+        document.getElementById("footer-user-email").textContent =
+          currentUser.email || "Keine E-Mail";
+
+        // System-Info Modal
+        document.getElementById("system-user-name").textContent =
+          currentUser.username;
+        document.getElementById("system-last-login").textContent =
+          new Date().toLocaleString("de-DE");
+      }
+
+      async function checkLicenseStatus() {
         try {
           const response = await fetch("/api/auth/license-status", {
+            method: "GET",
             credentials: "include",
           });
 
           if (response.ok) {
-            const licenseData = await response.json();
-            const expires = new Date(licenseData.license.expires_at);
-            const now = new Date();
-            const daysLeft = Math.ceil((expires - now) / (1000 * 60 * 60 * 24));
-
-            const statusElement = document.getElementById("license-status");
-            const infoStatus = document.getElementById("license-info-status");
-            const infoExpires = document.getElementById("license-info-expires");
-            const infoDays = document.getElementById("license-info-days");
-
-            if (daysLeft > 30) {
-              statusElement.innerHTML = "✅ Lizenz aktiv";
-              statusElement.className = "license-status license-valid";
-            } else if (daysLeft > 0) {
-              statusElement.innerHTML = `⚠️ Läuft in ${daysLeft} Tagen ab`;
-              statusElement.className = "license-status license-warning";
-            } else {
-              statusElement.innerHTML = "❌ Lizenz abgelaufen";
-              statusElement.className = "license-status license-expired";
-            }
-
-            if (infoStatus)
-              infoStatus.textContent = daysLeft > 0 ? "Aktiv" : "Abgelaufen";
-            if (infoExpires)
-              infoExpires.textContent = expires.toLocaleDateString("de-DE");
-            if (infoDays) infoDays.textContent = Math.max(0, daysLeft);
+            const data = await response.json();
+            updateLicenseUI(data.license);
           }
         } catch (error) {
           console.error("Lizenz-Status Fehler:", error);
         }
       }
 
-      // App initialisieren
-      async function initializeApp() {
-        await loadDashboardStats();
-        // Weitere Initialisierungen...
-      }
-
-      // Dashboard-Statistiken laden
-      async function loadDashboardStats() {
-        try {
-          const [auftraege, rechnungen, kunden, fahrzeuge] = await Promise.all([
-            fetch("/api/auftraege/stats")
-              .then((r) => r.json())
-              .catch(() => ({ total: 0, open: 0 })),
-            fetch("/api/rechnungen/stats")
-              .then((r) => r.json())
-              .catch(() => ({ total: 0, open: 0 })),
-            fetch("/api/kunden/stats")
-              .then((r) => r.json())
-              .catch(() => ({ total: 0 })),
-            fetch("/api/fahrzeuge/stats")
-              .then((r) => r.json())
-              .catch(() => ({ total: 0 })),
-          ]);
-
-          document.getElementById("stat-auftraege").textContent =
-            auftraege.open || 0;
-          document.getElementById("stat-rechnungen").textContent =
-            rechnungen.open || 0;
-          document.getElementById("stat-kunden").textContent =
-            kunden.total || 0;
-          document.getElementById("stat-fahrzeuge").textContent =
-            fahrzeuge.total || 0;
-        } catch (error) {
-          console.error("Stats-Laden Fehler:", error);
+      function updateLicenseUI(license) {
+        if (!license) {
+          updateLicenseBadge("Keine Lizenz", "expired");
+          return;
         }
-      }
 
-      // Section wechseln
-      function showSection(sectionName) {
-        // Alle Sections verstecken
-        document.querySelectorAll(".section").forEach((section) => {
-          section.classList.remove("active");
-        });
+        const now = new Date();
+        const expiresAt = new Date(license.expires_at);
+        const daysLeft = Math.ceil((expiresAt - now) / (1000 * 60 * 60 * 24));
 
-        // Navigation aktualisierten
-        document.querySelectorAll(".nav-item").forEach((item) => {
-          item.classList.remove("active");
-        });
-
-        // Gewählte Section zeigen
-        document.getElementById(sectionName).classList.add("active");
-        event.target.classList.add("active");
-
-        // Section-spezifische Daten laden
-        loadSectionData(sectionName);
-      }
-
-      // Section-Daten laden
-      async function loadSectionData(section) {
-        switch (section) {
-          case "auftraege":
-            await loadAuftraege();
-            break;
-          case "rechnungen":
-            await loadRechnungen();
-            break;
-          case "kunden":
-            await loadKunden();
-            break;
-          case "fahrzeuge":
-            await loadFahrzeuge();
-            break;
-          case "einstellungen":
-            await loadEinstellungen();
-            break;
+        let status, className;
+        if (daysLeft <= 0) {
+          status = "Abgelaufen";
+          className = "expired";
+          showLicenseWarning("Ihre Lizenz ist abgelaufen!");
+        } else if (daysLeft <= 7) {
+          status = `${daysLeft} Tage`;
+          className = "warning";
+          showLicenseWarning(`Ihre Lizenz läuft in ${daysLeft} Tagen ab!`);
+        } else if (daysLeft <= 30) {
+          status = `${daysLeft} Tage`;
+          className = "warning";
+        } else {
+          status = "Aktiv";
+          className = "valid";
         }
+
+        updateLicenseBadge(status, className);
+        updateLicenseDetails(license, daysLeft);
       }
 
-      // Logout-Funktion
+      function updateLicenseBadge(text, className) {
+        const badge = document.getElementById("footer-license-status");
+        badge.textContent = text;
+        badge.className = `license-badge license-${className}`;
+
+        // Update system modal
+        document.getElementById("system-license-status").textContent = text;
+      }
+
+      function updateLicenseDetails(license, daysLeft) {
+        if (!license) return;
+
+        const elements = {
+          "license-detail-status":
+            daysLeft <= 0
+              ? "Abgelaufen"
+              : daysLeft <= 7
+              ? "Läuft bald ab"
+              : "Aktiv",
+          "license-detail-expires": new Date(
+            license.expires_at
+          ).toLocaleDateString("de-DE"),
+          "license-detail-days": daysLeft > 0 ? daysLeft : "Abgelaufen",
+          "license-detail-key": license.license_key || "-",
+          "license-detail-customers": license.max_customers || "-",
+          "license-detail-vehicles": license.max_vehicles || "-",
+        };
+
+        Object.entries(elements).forEach(([id, value]) => {
+          const element = document.getElementById(id);
+          if (element) {
+            element.textContent = value;
+          }
+        });
+      }
+
+      function showLicenseWarning(message) {
+        const banner = document.getElementById("license-warning-banner");
+        const text = document.getElementById("license-warning-text");
+        text.textContent = message;
+        banner.classList.add("show");
+      }
+
+      // ===================================
+      // LOGOUT FUNCTIONALITY
+      // ===================================
       async function logout() {
+        if (!confirm("Möchten Sie sich wirklich abmelden?")) return;
+
         try {
+          showLoading("Abmelden...");
+
           await fetch("/api/auth/logout", {
             method: "POST",
             credentials: "include",
           });
+
+          // Clear local state
+          currentUser = null;
+          currentLicense = null;
+
+          // Redirect to login
+          window.location.href = "/login.html";
         } catch (error) {
           console.error("Logout-Fehler:", error);
+          hideLoading();
+          // Even on error, redirect to login
+          window.location.href = "/login.html";
+        }
+      }
+
+      // ===================================
+      // SETTINGS MANAGEMENT
+      // ===================================
+      async function loadSettings() {
+        try {
+          const response = await apiRequest("/api/einstellungen");
+          if (response && response.success && response.data) {
+            populateFormData(response.data);
+            updateLogoFromSettings(response.data);
+          }
+        } catch (error) {
+          console.error("Fehler beim Laden der Einstellungen:", error);
+        }
+      }
+
+      function populateFormData(settings) {
+        // Populate form fields with saved data
+        Object.keys(settings).forEach((key) => {
+          const input = document.querySelector(`[name="${key}"]`);
+          if (input) {
+            input.value = settings[key] || "";
+          }
+        });
+      }
+
+      function updateLogoFromSettings(settings) {
+        if (settings.firmen_logo) {
+          // Update header logo
+          updateHeaderLogo(settings.firmen_logo, settings.firmenname);
+
+          // Update logo preview
+          showLogoPreview(settings.firmen_logo, "Gespeichertes Logo");
+        }
+      }
+
+      async function saveFirmaData(event) {
+        event.preventDefault();
+        await saveFormData("firma-form", "Firmendaten");
+      }
+
+      async function saveLeistungenData(event) {
+        event.preventDefault();
+        await saveFormData("leistungen-form", "Leistungen");
+      }
+
+      async function saveRechnungenData(event) {
+        event.preventDefault();
+        await saveFormData("rechnungen-form", "Rechnungseinstellungen");
+      }
+
+      async function saveAuftraegeData(event) {
+        event.preventDefault();
+        await saveFormData("auftraege-form", "Auftragseinstellungen");
+      }
+
+      async function saveFormData(formId, sectionName) {
+        try {
+          const form = document.getElementById(formId);
+          const formData = new FormData(form);
+          const data = Object.fromEntries(formData.entries());
+
+          showLoading(`${sectionName} speichern...`);
+
+          const response = await apiRequest("/api/einstellungen", {
+            method: "POST",
+            body: JSON.stringify(data),
+          });
+
+          if (response && response.success) {
+            showNotification(
+              `${sectionName} erfolgreich gespeichert`,
+              "success"
+            );
+
+            // Update logo if it was changed
+            if (data.firmen_logo && formId === "firma-form") {
+              updateHeaderLogo(data.firmen_logo, data.firmenname);
+            }
+          } else {
+            throw new Error("Speichern fehlgeschlagen");
+          }
+        } catch (error) {
+          console.error(`Fehler beim Speichern von ${sectionName}:`, error);
+          showNotification(`Fehler beim Speichern: ${error.message}`, "error");
+        } finally {
+          hideLoading();
+        }
+      }
+
+      // ===================================
+      // LOGO MANAGEMENT
+      // ===================================
+      function handleLogoUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        // File size check (2MB max)
+        if (file.size > 2 * 1024 * 1024) {
+          showNotification("Datei zu groß! Maximale Größe: 2MB", "error");
+          event.target.value = "";
+          return;
         }
 
-        localStorage.removeItem("user");
-        window.location.href = "/login.html";
+        // File type check
+        if (!file.type.startsWith("image/")) {
+          showNotification("Nur Bilddateien sind erlaubt!", "error");
+          event.target.value = "";
+          return;
+        }
+
+        // Show preview and update header
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const imageData = e.target.result;
+
+          // Store in hidden field
+          document.getElementById("logo-data").value = imageData;
+
+          // Show preview
+          showLogoPreview(imageData, file.name, (file.size / 1024).toFixed(1));
+
+          // Update header logo immediately
+          const firmenname =
+            document.querySelector('[name="firmenname"]').value || "KFZFacPRO";
+          updateHeaderLogo(imageData, firmenname);
+        };
+
+        reader.readAsDataURL(file);
       }
 
-      // Placeholder-Funktionen für Daten-Loading
-      async function loadAuftraege() {
-        console.log("Lade Aufträge...");
-        // Implementation in separater Datei
+      function showLogoPreview(imageData, fileName, fileSize) {
+        const preview = document.getElementById("logo-preview");
+        preview.innerHTML = `
+          <div style="display: flex; align-items: center; gap: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+            <img src="${imageData}" alt="Logo Preview" style="max-width: 80px; max-height: 80px; border-radius: 6px;">
+            <div>
+              <p style="font-weight: 600; color: var(--text-primary);">${fileName}</p>
+              ${
+                fileSize
+                  ? `<p style="font-size: 0.85rem; color: var(--text-secondary);">${fileSize} KB</p>`
+                  : ""
+              }
+            </div>
+          </div>
+        `;
       }
 
-      async function loadRechnungen() {
-        console.log("Lade Rechnungen...");
-        // Implementation in separater Datei
+      function updateHeaderLogo(imageData, companyName) {
+        const logoIcon = document.getElementById("logo-icon");
+        const logoText = document.getElementById("logo-text");
+
+        // Replace icon with image
+        logoIcon.style.display = "none";
+
+        // Create or update logo image
+        let logoImg = document.getElementById("header-logo-img");
+        if (!logoImg) {
+          logoImg = document.createElement("img");
+          logoImg.id = "header-logo-img";
+          logoImg.style.cssText =
+            "max-height: 40px; max-width: 120px; object-fit: contain;";
+          logoIcon.parentNode.insertBefore(logoImg, logoIcon);
+        }
+
+        logoImg.src = imageData;
+        logoImg.alt = companyName || "Logo";
+
+        // Update company name
+        if (companyName) {
+          logoText.textContent = companyName;
+        }
       }
 
-      async function loadKunden() {
-        console.log("Lade Kunden...");
-        // Implementation in separater Datei
+      // ===================================
+      // DATA LOADING
+      // ===================================
+      async function loadDashboardData() {
+        try {
+          const promises = [loadStats(), loadRecentAuftraege()];
+
+          await Promise.all(promises);
+        } catch (error) {
+          console.error("Dashboard-Daten Fehler:", error);
+          showNotification("Fehler beim Laden der Dashboard-Daten", "error");
+        }
       }
 
-      async function loadFahrzeuge() {
-        console.log("Lade Fahrzeuge...");
-        // Implementation in separater Datei
+      async function loadStats() {
+        try {
+          const [auftraege, rechnungen, kunden, fahrzeuge] = await Promise.all([
+            apiRequest("/api/auftraege/stats"),
+            apiRequest("/api/rechnungen/stats"),
+            apiRequest("/api/kunden/stats"),
+            apiRequest("/api/fahrzeuge/stats"),
+          ]);
+
+          // Update stat cards
+          updateStatCard(
+            "stat-auftraege",
+            auftraege.total || 0,
+            "stat-auftraege-card"
+          );
+          updateStatCard(
+            "stat-rechnungen",
+            rechnungen.total || 0,
+            "stat-rechnungen-card"
+          );
+          updateStatCard("stat-kunden", kunden.total || 0, "stat-kunden-card");
+          updateStatCard(
+            "stat-umsatz",
+            `${rechnungen.total_value || 0}€`,
+            "stat-umsatz-card"
+          );
+        } catch (error) {
+          console.error("Stats-Fehler:", error);
+          // Show placeholder values on error
+          updateStatCard("stat-auftraege", "?", "stat-auftraege-card");
+          updateStatCard("stat-rechnungen", "?", "stat-rechnungen-card");
+          updateStatCard("stat-kunden", "?", "stat-kunden-card");
+          updateStatCard("stat-umsatz", "?€", "stat-umsatz-card");
+        }
       }
 
-      async function loadEinstellungen() {
-        console.log("Lade Einstellungen...");
-        // Implementation in separater Datei
+      function updateStatCard(elementId, value, cardId) {
+        const element = document.getElementById(elementId);
+        const card = document.getElementById(cardId);
+
+        if (element) {
+          element.textContent = value;
+        }
+
+        if (card) {
+          card.classList.remove("stat-loading");
+        }
       }
 
-      // Modal-Funktionen (Placeholder)
-      function openAuftragModal() {
-        console.log("Öffne Auftrag-Modal");
+      async function loadRecentAuftraege() {
+        try {
+          const response = await apiRequest(
+            "/api/auftraege?limit=5&sort=created_at&order=desc"
+          );
+          const tbody = document.getElementById("dashboard-auftraege-tbody");
+
+          if (!response || !response.data || response.data.length === 0) {
+            tbody.innerHTML = `
+              <tr>
+                <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                  <i class="fas fa-clipboard-list" style="font-size: 2rem; margin-bottom: 1rem; display: block;"></i>
+                  Keine Aufträge gefunden
+                </td>
+              </tr>
+            `;
+            return;
+          }
+
+          tbody.innerHTML = response.data
+            .map(
+              (auftrag) => `
+            <tr>
+              <td>#${auftrag.id}</td>
+              <td>${auftrag.kunde_name || "-"}</td>
+              <td>${auftrag.fahrzeug_kennzeichen || "-"}</td>
+              <td>${formatDate(auftrag.created_at)}</td>
+              <td><span class="status-${auftrag.status}">${
+                auftrag.status || "Offen"
+              }</span></td>
+              <td>${formatCurrency(auftrag.gesamtkosten)}</td>
+            </tr>
+          `
+            )
+            .join("");
+        } catch (error) {
+          console.error("Aufträge-Fehler:", error);
+          const tbody = document.getElementById("dashboard-auftraege-tbody");
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6" style="text-align: center; padding: 2rem; color: var(--accent-danger);">
+                <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i>
+                Fehler beim Laden der Aufträge
+              </td>
+            </tr>
+          `;
+        }
       }
 
-      function openRechnungModal() {
-        console.log("Öffne Rechnung-Modal");
+      // ===================================
+      // API HELPER FUNCTIONS
+      // ===================================
+      async function apiRequest(url, options = {}) {
+        const defaultOptions = {
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+            ...options.headers,
+          },
+        };
+
+        const response = await fetch(url, { ...defaultOptions, ...options });
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            // Session expired
+            window.location.href = "/login.html";
+            return;
+          } else if (response.status === 403) {
+            showNotification(
+              "Zugriff verweigert - Lizenz möglicherweise abgelaufen",
+              "error"
+            );
+            throw new Error("Access denied");
+          }
+
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        return response.json();
       }
 
-      function openKundenModal() {
-        console.log("Öffne Kunden-Modal");
+      // ===================================
+      // UI HELPER FUNCTIONS
+      // ===================================
+      function updateLoadingStatus(status) {
+        const element = document.getElementById("loading-status");
+        if (element) {
+          element.textContent = status;
+        }
       }
 
-      function openFahrzeugModal() {
-        console.log("Öffne Fahrzeug-Modal");
+      function showLoading(message = "Lädt...") {
+        const overlay = document.getElementById("loading-overlay");
+        updateLoadingStatus(message);
+        overlay.style.display = "flex";
+        isLoading = true;
+      }
+
+      function hideLoading() {
+        const overlay = document.getElementById("loading-overlay");
+        overlay.style.display = "none";
+        isLoading = false;
+      }
+
+      function showAuthError(message) {
+        const errorDiv = document.createElement("div");
+        errorDiv.className = "auth-error";
+        errorDiv.innerHTML = `
+          <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem;"></i>
+          ${message}
+        `;
+
+        document.body.appendChild(errorDiv);
+
+        setTimeout(() => errorDiv.classList.add("show"), 100);
+        setTimeout(() => {
+          errorDiv.classList.remove("show");
+          setTimeout(() => errorDiv.remove(), 300);
+        }, 5000);
+      }
+
+      function showNotification(message, type = "info") {
+        const notification = document.createElement("div");
+        notification.className = `notification notification-${type}`;
+        notification.innerHTML = `
+          <i class="fas fa-${
+            type === "success"
+              ? "check-circle"
+              : type === "error"
+              ? "exclamation-circle"
+              : "info-circle"
+          }"></i>
+          <span>${message}</span>
+        `;
+
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          background: ${
+            type === "success"
+              ? "#10b981"
+              : type === "error"
+              ? "#ef4444"
+              : "#3b82f6"
+          };
+          color: white;
+          padding: 1rem 1.5rem;
+          border-radius: 8px;
+          z-index: 10000;
+          transform: translateX(400px);
+          transition: transform 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        `;
+
+        document.body.appendChild(notification);
+
+        setTimeout(() => (notification.style.transform = "translateX(0)"), 100);
+        setTimeout(() => {
+          notification.style.transform = "translateX(400px)";
+          setTimeout(() => notification.remove(), 300);
+        }, 3000);
+      }
+
+      function formatDate(dateString) {
+        if (!dateString) return "-";
+        return new Date(dateString).toLocaleDateString("de-DE");
+      }
+
+      function formatCurrency(amount) {
+        if (!amount && amount !== 0) return "-";
+        return new Intl.NumberFormat("de-DE", {
+          style: "currency",
+          currency: "EUR",
+        }).format(amount);
+      }
+
+      // ===================================
+      // EVENT LISTENERS
+      // ===================================
+      function setupEventListeners() {
+        // Navigation
+        setupNavigation();
+
+        // Session refresh every 30 minutes
+        setInterval(async () => {
+          try {
+            await checkAuthentication();
+          } catch (error) {
+            console.warn("Session refresh failed:", error);
+          }
+        }, 30 * 60 * 1000);
+      }
+
+      function setupNavigation() {
+        // Add navigation logic here if not already in app.js
+      }
+
+      // ===================================
+      // MODAL FUNCTIONS
+      // ===================================
+      function showSystemInfo() {
+        document.getElementById("system-info-modal").style.display = "flex";
+      }
+
+      function closeSystemInfoModal() {
+        document.getElementById("system-info-modal").style.display = "none";
+      }
+
+      // ===================================
+      // NAVIGATION FUNCTIONS
+      // ===================================
+      function showSection(sectionName) {
+        // Hide all sections
+        document.querySelectorAll(".section").forEach((section) => {
+          section.classList.remove("active");
+        });
+
+        // Show target section
+        const targetSection = document.getElementById(sectionName);
+        if (targetSection) {
+          targetSection.classList.add("active");
+        }
+
+        // Update navigation
+        document.querySelectorAll(".nav-item").forEach((item) => {
+          item.classList.remove("active");
+        });
+
+        // Set active nav item
+        document
+          .querySelector(`.nav-item[onclick="showSection('${sectionName}')"]`)
+          ?.classList.add("active");
+
+        console.log("Switching to section:", sectionName);
+      }
+
+      function showSettingsTab(tabName) {
+        // Hide all settings content
+        document.querySelectorAll(".settings-content").forEach((content) => {
+          content.classList.remove("active");
+        });
+
+        // Show target content
+        const targetContent = document.getElementById(`${tabName}-settings`);
+        if (targetContent) {
+          targetContent.classList.add("active");
+        }
+
+        // Update tabs
+        document.querySelectorAll(".settings-tab").forEach((tab) => {
+          tab.classList.remove("active");
+        });
+
+        // Set active tab
+        document
+          .querySelector(`.settings-tab[data-tab="${tabName}"]`)
+          ?.classList.add("active");
+
+        console.log("Switching to settings tab:", tabName);
+      }
+
+      // ===================================
+      // PLACEHOLDER FUNCTIONS (to be implemented in app.js)
+      // ===================================
+      function showAuftragModal() {
+        createModal(
+          "Neuer Auftrag",
+          `
+          <form id="auftrag-form" onsubmit="saveAuftrag(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Kunde *</label>
+                <select class="form-select" name="kunden_id" required>
+                  <option value="">Kunde auswählen...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fahrzeug *</label>
+                <select class="form-select" name="fahrzeug_id" required>
+                  <option value="">Zuerst Kunde auswählen</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Auftragsdatum *</label>
+                <input type="date" class="form-input" name="datum" required 
+                       value="${new Date().toISOString().split("T")[0]}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                  <option value="offen">Offen</option>
+                  <option value="in_bearbeitung">In Bearbeitung</option>
+                  <option value="abgeschlossen">Abgeschlossen</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bemerkungen</label>
+              <textarea class="form-textarea" name="bemerkungen" rows="3"></textarea>
+            </div>
+          </form>
+        `,
+          `
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+          <button type="submit" form="auftrag-form" class="btn btn-primary">
+            <i class="fas fa-save"></i> Speichern
+          </button>
+        `
+        );
+
+        loadKundenForSelect();
+      }
+
+      function showRechnungModal() {
+        createModal(
+          "Neue Rechnung",
+          `
+          <form id="rechnung-form" onsubmit="saveRechnung(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Kunde *</label>
+                <select class="form-select" name="kunden_id" required>
+                  <option value="">Kunde auswählen...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Fahrzeug *</label>
+                <select class="form-select" name="fahrzeug_id" required>
+                  <option value="">Zuerst Kunde auswählen</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Rechnungsdatum *</label>
+                <input type="date" class="form-input" name="rechnungsdatum" required 
+                       value="${new Date().toISOString().split("T")[0]}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                  <option value="offen">Offen</option>
+                  <option value="verschickt">Verschickt</option>
+                  <option value="bezahlt">Bezahlt</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Bemerkungen</label>
+              <textarea class="form-textarea" name="bemerkungen" rows="3"></textarea>
+            </div>
+          </form>
+        `,
+          `
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+          <button type="submit" form="rechnung-form" class="btn btn-primary">
+            <i class="fas fa-save"></i> Speichern
+          </button>
+        `
+        );
+
+        loadKundenForSelect();
+      }
+
+      function showKundenModal() {
+        createModal(
+          "Neuer Kunde",
+          `
+          <form id="kunde-form" onsubmit="saveKunde(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Firmenname / Name *</label>
+                <input type="text" class="form-input" name="firmenname" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ansprechpartner</label>
+                <input type="text" class="form-input" name="ansprechpartner">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Straße *</label>
+                <input type="text" class="form-input" name="strasse" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">PLZ *</label>
+                <input type="text" class="form-input" name="plz" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Ort *</label>
+                <input type="text" class="form-input" name="ort" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Telefon</label>
+                <input type="tel" class="form-input" name="telefon">
+              </div>
+              <div class="form-group">
+                <label class="form-label">E-Mail</label>
+                <input type="email" class="form-input" name="email">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Website</label>
+                <input type="text" class="form-input" name="website">
+              </div>
+            </div>
+          </form>
+        `,
+          `
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+          <button type="submit" form="kunde-form" class="btn btn-primary">
+            <i class="fas fa-save"></i> Speichern
+          </button>
+        `
+        );
+      }
+
+      function showFahrzeugModal() {
+        createModal(
+          "Neues Fahrzeug",
+          `
+          <form id="fahrzeug-form" onsubmit="saveFahrzeug(event)">
+            <div class="form-grid">
+              <div class="form-group">
+                <label class="form-label">Besitzer *</label>
+                <select class="form-select" name="kunden_id" required>
+                  <option value="">Kunde auswählen...</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Kennzeichen *</label>
+                <input type="text" class="form-input" name="kennzeichen" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Marke *</label>
+                <input type="text" class="form-input" name="marke" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Modell *</label>
+                <input type="text" class="form-input" name="modell" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Baujahr</label>
+                <input type="number" class="form-input" name="baujahr" min="1900" max="2030">
+              </div>
+              <div class="form-group">
+                <label class="form-label">VIN/Fahrgestellnummer</label>
+                <input type="text" class="form-input" name="vin">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Farbe</label>
+                <input type="text" class="form-input" name="farbe">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Motor</label>
+                <input type="text" class="form-input" name="motor">
+              </div>
+            </div>
+          </form>
+        `,
+          `
+          <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+          <button type="submit" form="fahrzeug-form" class="btn btn-primary">
+            <i class="fas fa-save"></i> Speichern
+          </button>
+        `
+        );
+
+        loadKundenForSelect();
+      }
+
+      // ===================================
+      // MODAL SYSTEM
+      // ===================================
+      function createModal(title, content, footer) {
+        const modal = document.createElement("div");
+        modal.className = "modal";
+        modal.style.display = "flex";
+        modal.innerHTML = `
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3 class="modal-title">${title}</h3>
+              <button class="close-btn" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+              ${content}
+            </div>
+            <div class="modal-footer">
+              ${footer}
+            </div>
+          </div>
+        `;
+
+        document.getElementById("modal-container").appendChild(modal);
+
+        // Close on outside click
+        modal.addEventListener("click", (e) => {
+          if (e.target === modal) {
+            closeModal();
+          }
+        });
+      }
+
+      function closeModal() {
+        const modals = document.querySelectorAll("#modal-container .modal");
+        modals.forEach((modal) => modal.remove());
+      }
+
+      // ===================================
+      // FORM HANDLERS
+      // ===================================
+      async function saveKunde(event) {
+        event.preventDefault();
+
+        const form = event.target;
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+          const response = await apiRequest("/api/kunden", {
+            method: "POST",
+            body: JSON.stringify(data),
+          });
+
+          if (response && response.success) {
+            showNotification("Kunde erfolgreich erstellt", "success");
+            closeModal();
+            // Reload data if on relevant section
+            if (
+              document.getElementById("kunden").classList.contains("active")
+            ) {
+              await loadKundenData();
+            }
+          }
+        } catch (error) {
+          showNotification(`Fehler beim Speichern: ${error.message}`, "error");
+        }
+      }
+
+      async function saveFahrzeug(event) {
+        event.preventDefault();
+
+        const form = event.target;
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+          const response = await apiRequest("/api/fahrzeuge", {
+            method: "POST",
+            body: JSON.stringify(data),
+          });
+
+          if (response && response.success) {
+            showNotification("Fahrzeug erfolgreich erstellt", "success");
+            closeModal();
+            // Reload data if on relevant section
+            if (
+              document.getElementById("fahrzeuge").classList.contains("active")
+            ) {
+              await loadFahrzeugeData();
+            }
+          }
+        } catch (error) {
+          showNotification(`Fehler beim Speichern: ${error.message}`, "error");
+        }
+      }
+
+      async function saveAuftrag(event) {
+        event.preventDefault();
+
+        const form = event.target;
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+          const response = await apiRequest("/api/auftraege", {
+            method: "POST",
+            body: JSON.stringify(data),
+          });
+
+          if (response && response.success) {
+            showNotification("Auftrag erfolgreich erstellt", "success");
+            closeModal();
+            // Reload data if on relevant section
+            if (
+              document.getElementById("auftraege").classList.contains("active")
+            ) {
+              await loadAuftraegeData();
+            }
+          }
+        } catch (error) {
+          showNotification(`Fehler beim Speichern: ${error.message}`, "error");
+        }
+      }
+
+      async function saveRechnung(event) {
+        event.preventDefault();
+
+        const form = event.target;
+        const formData = new FormData(form);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+          const response = await apiRequest("/api/rechnungen", {
+            method: "POST",
+            body: JSON.stringify(data),
+          });
+
+          if (response && response.success) {
+            showNotification("Rechnung erfolgreich erstellt", "success");
+            closeModal();
+            // Reload data if on relevant section
+            if (
+              document.getElementById("rechnungen").classList.contains("active")
+            ) {
+              await loadRechnungenData();
+            }
+          }
+        } catch (error) {
+          showNotification(`Fehler beim Speichern: ${error.message}`, "error");
+        }
+      }
+
+      // ===================================
+      // DATA LOADING HELPERS
+      // ===================================
+      async function loadKundenForSelect() {
+        try {
+          const response = await apiRequest("/api/kunden");
+          const kunden = response.data || response || [];
+
+          const selects = document.querySelectorAll('select[name="kunden_id"]');
+          selects.forEach((select) => {
+            select.innerHTML = '<option value="">Kunde auswählen...</option>';
+            kunden.forEach((kunde) => {
+              const option = document.createElement("option");
+              option.value = kunde.id;
+              option.textContent = kunde.firmenname || kunde.name;
+              select.appendChild(option);
+            });
+          });
+
+          // Event listener for fahrzeug loading
+          selects.forEach((select) => {
+            select.addEventListener("change", async (e) => {
+              const kundenId = e.target.value;
+              if (kundenId) {
+                await loadFahrzeugeForKunde(kundenId);
+              }
+            });
+          });
+        } catch (error) {
+          console.error("Fehler beim Laden der Kunden:", error);
+        }
+      }
+
+      async function loadFahrzeugeForKunde(kundenId) {
+        try {
+          const response = await apiRequest(
+            `/api/fahrzeuge?kunden_id=${kundenId}`
+          );
+          const fahrzeuge = response.data || response || [];
+
+          const selects = document.querySelectorAll(
+            'select[name="fahrzeug_id"]'
+          );
+          selects.forEach((select) => {
+            select.innerHTML =
+              '<option value="">Fahrzeug auswählen...</option>';
+            fahrzeuge.forEach((fahrzeug) => {
+              const option = document.createElement("option");
+              option.value = fahrzeug.id;
+              option.textContent = `${fahrzeug.kennzeichen} - ${fahrzeug.marke} ${fahrzeug.modell}`;
+              select.appendChild(option);
+            });
+          });
+        } catch (error) {
+          console.error("Fehler beim Laden der Fahrzeuge:", error);
+        }
+      }
+
+      // Basic data loading functions (simplified)
+      async function loadKundenData() {
+        console.log("Loading Kunden data...");
+        // TODO: Implement table loading
+      }
+
+      async function loadFahrzeugeData() {
+        console.log("Loading Fahrzeuge data...");
+        // TODO: Implement table loading
+      }
+
+      async function loadAuftraegeData() {
+        console.log("Loading Aufträge data...");
+        // TODO: Implement table loading
+      }
+
+      async function loadRechnungenData() {
+        console.log("Loading Rechnungen data...");
+        // TODO: Implement table loading
       }
     </script>
   </body>

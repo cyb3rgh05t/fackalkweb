@@ -1,6 +1,6 @@
 // routes/auth.js
 const express = require("express");
-const { login } = require("../middleware/auth");
+const { login, authDb } = require("../middleware/auth");
 const router = express.Router();
 
 // Login
@@ -43,12 +43,15 @@ router.post("/logout", (req, res) => {
   const sessionId = req.cookies?.session_id;
 
   if (sessionId) {
-    const { authDb } = require("../middleware/auth");
-    authDb().run("DELETE FROM sessions WHERE id = ?", [sessionId], (err) => {
-      if (err) {
-        console.error("Session-Löschung fehlgeschlagen:", err);
-      }
-    });
+    try {
+      authDb().run("DELETE FROM sessions WHERE id = ?", [sessionId], (err) => {
+        if (err) {
+          console.error("Session-Löschung fehlgeschlagen:", err);
+        }
+      });
+    } catch (error) {
+      console.error("Fehler beim Zugriff auf authDb:", error);
+    }
   }
 
   res.clearCookie("session_id");
@@ -68,8 +71,6 @@ router.get("/session-check", async (req, res) => {
         error: "Keine Session gefunden",
       });
     }
-
-    const { authDb } = require("../middleware/auth");
 
     // Session validieren
     authDb().get(
@@ -164,8 +165,6 @@ router.get("/license-status", async (req, res) => {
       });
     }
 
-    const { authDb } = require("../middleware/auth");
-
     // User über Session ermitteln
     authDb().get(
       "SELECT user_id FROM sessions WHERE id = ? AND expires_at > datetime('now')",
@@ -180,7 +179,7 @@ router.get("/license-status", async (req, res) => {
           `SELECT l.*, u.role 
            FROM licenses l 
            JOIN users u ON l.user_id = u.id 
-           WHERE l.user_id = ? AND l.is_active = 1`,
+           WHERE l.user_id = ?`,
           [session.user_id],
           (err, license) => {
             if (err) {
@@ -188,24 +187,10 @@ router.get("/license-status", async (req, res) => {
               return res.status(500).json({ error: "Server-Fehler" });
             }
 
-            if (!license) {
-              return res.status(404).json({
-                error: "Keine Lizenz gefunden",
-              });
-            }
-
-            const expires = new Date(license.expires_at);
-            const now = new Date();
-            const daysLeft = Math.ceil((expires - now) / (1000 * 60 * 60 * 24));
-
             res.json({
-              license: {
-                expires_at: license.expires_at,
-                is_active: license.is_active,
-                days_remaining: Math.max(0, daysLeft),
-                is_expired: expires <= now,
-                license_key: license.license_key,
-              },
+              success: true,
+              license: license || null,
+              message: "Lizenz-Status abgerufen",
             });
           }
         );
@@ -219,171 +204,74 @@ router.get("/license-status", async (req, res) => {
   }
 });
 
-// Demo-User erstellen (nur in Development)
+// Demo-User erstellen (für Development)
 router.post("/create-demo-user", async (req, res) => {
   if (process.env.NODE_ENV === "production") {
-    return res.status(403).json({
-      error: "Demo-User Erstellung nur in Development möglich",
-    });
+    return res
+      .status(403)
+      .json({ error: "Nur im Development-Modus verfügbar" });
   }
 
   try {
     const bcrypt = require("bcrypt");
     const crypto = require("crypto");
-    const { authDb } = require("../middleware/auth");
 
     const demoPassword = "demo123";
     const passwordHash = await bcrypt.hash(demoPassword, 10);
-    const demoDbName = `demo_user_${Date.now()}`;
+    const dbName = `demo_${Date.now()}`;
 
+    // Demo-User erstellen
     authDb().run(
-      "INSERT OR IGNORE INTO users (username, email, password_hash, role, database_name) VALUES (?, ?, ?, ?, ?)",
-      ["demo", "demo@faf-lackiererei.de", passwordHash, "user", demoDbName],
+      "INSERT INTO users (username, email, password_hash, role, database_name) VALUES (?, ?, ?, ?, ?)",
+      ["demo", `demo_${Date.now()}@localhost`, passwordHash, "user", dbName],
       function (err) {
         if (err) {
-          console.error("Demo-User Erstellung fehlgeschlagen:", err);
+          console.error("Demo-User Fehler:", err);
           return res
             .status(500)
-            .json({ error: "Demo-User Erstellung fehlgeschlagen" });
+            .json({ error: "Fehler beim Erstellen des Demo-Users" });
         }
 
-        if (this.lastID) {
-          // Demo-Lizenz erstellen (1 Jahr)
-          const licenseKey = `DEMO-LICENSE-${Date.now()}`;
-          const expiresAt = new Date();
-          expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        const userId = this.lastID;
 
-          authDb().run(
-            "INSERT INTO licenses (user_id, license_key, expires_at) VALUES (?, ?, ?)",
-            [this.lastID, licenseKey, expiresAt.toISOString()],
-            (err) => {
-              if (err) {
-                console.error("Demo-Lizenz Erstellung fehlgeschlagen:", err);
-              } else {
-                console.log("✅ Demo-User erstellt (demo/demo123)");
-              }
-            }
-          );
-        }
-
-        res.json({
-          success: true,
-          message: "Demo-User erstellt",
-          credentials: {
-            username: "demo",
-            password: "demo123",
-          },
-        });
-      }
-    );
-  } catch (error) {
-    console.error("Demo-User Fehler:", error);
-    res.status(500).json({
-      error: "Fehler bei Demo-User Erstellung",
-    });
-  }
-});
-
-// Session-Cleanup (abgelaufene Sessions löschen)
-router.post("/cleanup-sessions", async (req, res) => {
-  try {
-    const { authDb } = require("../middleware/auth");
-
-    authDb().run(
-      "DELETE FROM sessions WHERE expires_at <= datetime('now')",
-      [],
-      function (err) {
-        if (err) {
-          console.error("Session-Cleanup Fehler:", err);
-          return res.status(500).json({ error: "Cleanup fehlgeschlagen" });
-        }
-
-        res.json({
-          success: true,
-          message: `${this.changes} abgelaufene Sessions gelöscht`,
-          deleted_sessions: this.changes,
-        });
-      }
-    );
-  } catch (error) {
-    console.error("Session-Cleanup Fehler:", error);
-    res.status(500).json({
-      error: "Server-Fehler bei Session-Cleanup",
-    });
-  }
-});
-
-// Passwort ändern
-router.put("/change-password", async (req, res) => {
-  try {
-    const { currentPassword, newPassword } = req.body;
-    const sessionId = req.cookies?.session_id;
-
-    if (!sessionId) {
-      return res.status(401).json({ error: "Nicht authentifiziert" });
-    }
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({
-        error: "Aktuelles und neues Passwort erforderlich",
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        error: "Neues Passwort muss mindestens 6 Zeichen lang sein",
-      });
-    }
-
-    const bcrypt = require("bcrypt");
-    const { authDb } = require("../middleware/auth");
-
-    // User über Session ermitteln
-    authDb().get(
-      "SELECT u.* FROM users u JOIN sessions s ON u.id = s.user_id WHERE s.id = ?",
-      [sessionId],
-      async (err, user) => {
-        if (err || !user) {
-          return res.status(401).json({ error: "Ungültige Session" });
-        }
-
-        // Aktuelles Passwort prüfen
-        const passwordValid = await bcrypt.compare(
-          currentPassword,
-          user.password_hash
-        );
-        if (!passwordValid) {
-          return res.status(400).json({
-            error: "Aktuelles Passwort ist falsch",
-          });
-        }
-
-        // Neues Passwort hashen und speichern
-        const newPasswordHash = await bcrypt.hash(newPassword, 10);
+        // Demo-Lizenz erstellen
+        const licenseKey = `DEMO-${Date.now()}-${Math.random()
+          .toString(36)
+          .substr(2, 8)
+          .toUpperCase()}`;
+        const expiresAt = new Date(
+          Date.now() + 30 * 24 * 60 * 60 * 1000
+        ).toISOString(); // 30 Tage
 
         authDb().run(
-          "UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?",
-          [newPasswordHash, user.id],
-          function (err) {
+          "INSERT INTO licenses (user_id, license_key, expires_at, is_active, max_customers, max_vehicles) VALUES (?, ?, ?, 1, 50, 200)",
+          [userId, licenseKey, expiresAt],
+          (err) => {
             if (err) {
-              console.error("Passwort-Update Fehler:", err);
+              console.error("Demo-Lizenz Fehler:", err);
               return res
                 .status(500)
-                .json({ error: "Passwort-Update fehlgeschlagen" });
+                .json({ error: "Fehler beim Erstellen der Demo-Lizenz" });
             }
 
             res.json({
               success: true,
-              message: "Passwort erfolgreich geändert",
+              demo_user: {
+                username: "demo",
+                password: demoPassword,
+                license_key: licenseKey,
+                expires_at: expiresAt,
+              },
+              message: "Demo-User erstellt",
             });
           }
         );
       }
     );
   } catch (error) {
-    console.error("Passwort-Änderung Fehler:", error);
+    console.error("Demo-User Fehler:", error);
     res.status(500).json({
-      error: "Server-Fehler bei Passwort-Änderung",
+      error: "Server-Fehler beim Erstellen des Demo-Users",
     });
   }
 });

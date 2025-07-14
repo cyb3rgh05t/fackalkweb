@@ -47,6 +47,8 @@ function createAuthTables() {
       license_key TEXT UNIQUE NOT NULL,
       expires_at DATETIME NOT NULL,
       is_active BOOLEAN DEFAULT 1,
+      max_customers INTEGER DEFAULT 100,
+      max_vehicles INTEGER DEFAULT 500,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
     );
@@ -89,269 +91,105 @@ async function createDefaultAdmin() {
 
         authDatabase.run(
           "INSERT INTO users (username, email, password_hash, role, database_name) VALUES (?, ?, ?, ?, ?)",
-          [
-            "admin",
-            "admin@faf-lackiererei.de",
-            passwordHash,
-            "admin",
-            "main_db",
-          ],
+          ["admin", "admin@localhost", passwordHash, "admin", "admin_db"],
           function (err) {
-            if (err) return;
-
-            // Admin-Lizenz erstellen (läuft nicht ab)
-            const licenseKey = `ADMIN-LIFETIME-${Date.now()}`;
-            const expiresAt = new Date("2099-12-31").toISOString();
-
-            authDatabase.run(
-              "INSERT INTO licenses (user_id, license_key, expires_at) VALUES (?, ?, ?)",
-              [this.lastID, licenseKey, expiresAt],
-              () => {
-                console.log("✅ Standard-Admin erstellt (admin/admin123)");
-              }
-            );
+            if (err) {
+              console.error(
+                "❌ Fehler beim Erstellen des Standard-Admins:",
+                err.message
+              );
+            } else {
+              console.log("✅ Standard-Admin erstellt (admin/admin123)");
+            }
           }
         );
       }
     );
   } catch (error) {
-    console.error("❌ Admin-Erstellung fehlgeschlagen:", error);
+    console.error("❌ Fehler beim Hashen des Admin-Passworts:", error);
   }
 }
 
-// Dynamische DB-Verbindung pro User
-function getUserDatabase(dbName) {
-  // Admin verwendet die Haupt-DB
-  if (dbName === "main_db" || !dbName) {
-    return new sqlite3.Database(path.join(__dirname, "..", "data", "kfz.db"));
+// Auth-Middleware
+function requireAuth(req, res, next) {
+  const sessionId = req.cookies?.session_id;
+
+  if (!sessionId) {
+    return res.status(401).json({ error: "Nicht authentifiziert" });
   }
 
-  const userDbPath = path.join(
-    __dirname,
-    "..",
-    "data",
-    "users",
-    `${dbName}.db`
-  );
-
-  // User-DB erstellen falls nicht existiert
-  if (!fs.existsSync(userDbPath)) {
-    console.log(`🔧 Erstelle User-DB: ${dbName}`);
-    createUserDatabase(dbName);
-  }
-
-  return new sqlite3.Database(userDbPath);
-}
-
-// User-DB erstellen mit Schema
-function createUserDatabase(dbName) {
-  const userDbDir = path.join(__dirname, "..", "data", "users");
-
-  if (!fs.existsSync(userDbDir)) {
-    fs.mkdirSync(userDbDir, { recursive: true });
-  }
-
-  const userDbPath = path.join(userDbDir, `${dbName}.db`);
-  const userDb = new sqlite3.Database(userDbPath);
-
-  const schema = `
-    CREATE TABLE kunden (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      kunden_nr TEXT UNIQUE NOT NULL,
-      name TEXT NOT NULL,
-      strasse TEXT,
-      plz TEXT,
-      ort TEXT,
-      telefon TEXT,
-      email TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    CREATE TABLE fahrzeuge (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      kunden_id INTEGER,
-      kennzeichen TEXT NOT NULL,
-      marke TEXT,
-      modell TEXT,
-      vin TEXT,
-      baujahr INTEGER,
-      farbe TEXT,
-      farbcode TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE auftraege (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      auftrag_nr TEXT UNIQUE NOT NULL,
-      kunden_id INTEGER,
-      fahrzeug_id INTEGER,
-      datum DATE NOT NULL,
-      status TEXT DEFAULT 'offen',
-      basis_stundenpreis DECIMAL(10,2) DEFAULT 110.00,
-      gesamt_zeit DECIMAL(10,2) DEFAULT 0,
-      gesamt_kosten DECIMAL(10,2) DEFAULT 0,
-      mwst_betrag DECIMAL(10,2) DEFAULT 0,
-      bemerkungen TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL,
-      FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE auftrag_positionen (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      auftrag_id INTEGER,
-      beschreibung TEXT NOT NULL,
-      stundenpreis DECIMAL(10,2),
-      zeit DECIMAL(10,2),
-      einheit TEXT DEFAULT 'Std.',
-      gesamt DECIMAL(10,2),
-      reihenfolge INTEGER,
-      FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE rechnungen (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      rechnung_nr TEXT UNIQUE NOT NULL,
-      auftrag_id INTEGER,
-      kunden_id INTEGER,
-      fahrzeug_id INTEGER,
-      rechnungsdatum DATE NOT NULL,
-      auftragsdatum DATE,
-      status TEXT DEFAULT 'offen',
-      zwischensumme DECIMAL(10,2) DEFAULT 0,
-      rabatt_prozent DECIMAL(5,2) DEFAULT 0,
-      rabatt_betrag DECIMAL(10,2) DEFAULT 0,
-      netto_nach_rabatt DECIMAL(10,2) DEFAULT 0,
-      mwst_19 DECIMAL(10,2) DEFAULT 0,
-      mwst_7 DECIMAL(10,2) DEFAULT 0,
-      gesamtbetrag DECIMAL(10,2) DEFAULT 0,
-      zahlungsbedingungen TEXT,
-      gewaehrleistung TEXT,
-      erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY (auftrag_id) REFERENCES auftraege (id) ON DELETE SET NULL,
-      FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL,
-      FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
-    );
-
-    CREATE TABLE rechnung_positionen (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      rechnung_id INTEGER,
-      kategorie TEXT NOT NULL,
-      beschreibung TEXT NOT NULL,
-      menge DECIMAL(10,2),
-      einheit TEXT,
-      einzelpreis DECIMAL(10,2),
-      mwst_prozent DECIMAL(5,2),
-      gesamt DECIMAL(10,2),
-      reihenfolge INTEGER,
-      FOREIGN KEY (rechnung_id) REFERENCES rechnungen (id) ON DELETE CASCADE
-    );
-
-    CREATE TABLE einstellungen (
-      key TEXT PRIMARY KEY,
-      value TEXT,
-      beschreibung TEXT,
-      aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP
-    );
-
-    INSERT INTO einstellungen (key, value, beschreibung) VALUES 
-    ('firmen_name', 'Meine Lackiererei', 'Name der Firma'),
-    ('mwst_satz', '19', 'Mehrwertsteuersatz in Prozent'),
-    ('basis_stundenpreis', '110.00', 'Standard-Stundenpreis');
-  `;
-
-  userDb.exec(schema, (err) => {
-    if (err) {
-      console.error(
-        `❌ Fehler beim Erstellen der User-DB ${dbName}:`,
-        err.message
-      );
-    } else {
-      console.log(`✅ User-DB ${dbName} erstellt`);
-    }
-    userDb.close();
-  });
-}
-
-// Session-basierte Authentifizierung
-async function requireAuth(req, res, next) {
-  try {
-    const sessionId =
-      req.headers.authorization?.replace("Bearer ", "") ||
-      req.cookies?.session_id;
-
-    if (!sessionId) {
-      return res.status(401).json({
-        error: "Nicht autorisiert",
-        action: "login_required",
-      });
-    }
-
-    // Session validieren
-    const session = await getSession(sessionId);
-    if (!session || new Date() > new Date(session.expires_at)) {
-      return res.status(401).json({
-        error: "Session abgelaufen",
-        action: "login_required",
-      });
-    }
-
-    // User-Daten laden
-    const user = await getUser(session.user_id);
-    if (!user || !user.is_active) {
-      return res.status(401).json({
-        error: "User nicht aktiv",
-        action: "contact_admin",
-      });
-    }
-
-    // Lizenz-Check (nur für normale User)
-    if (user.role !== "admin") {
-      const license = await getLicense(user.id);
-      if (!license || new Date() > new Date(license.expires_at)) {
-        return res.status(403).json({
-          error: "Lizenz abgelaufen",
-          action: "renew_license",
-          expires_at: license?.expires_at,
-        });
+  authDatabase.get(
+    "SELECT s.*, u.* FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.id = ? AND s.expires_at > datetime('now')",
+    [sessionId],
+    (err, session) => {
+      if (err) {
+        console.error("Session-Fehler:", err);
+        return res.status(500).json({ error: "Server-Fehler" });
       }
+
+      if (!session || !session.is_active) {
+        return res.status(401).json({ error: "Ungültige Session" });
+      }
+
+      req.user = {
+        id: session.user_id,
+        username: session.username,
+        email: session.email,
+        role: session.role,
+        database_name: session.database_name,
+      };
+
+      next();
     }
-
-    // User-spezifische DB-Verbindung setzen
-    req.user = user;
-    req.userDb = getUserDatabase(user.database_name);
-
-    next();
-  } catch (error) {
-    console.error("Auth-Middleware Fehler:", error);
-    res.status(500).json({
-      error: "Server-Fehler bei Authentifizierung",
-    });
-  }
+  );
 }
 
-// Admin-Auth Middleware
-async function requireAdmin(req, res, next) {
-  await requireAuth(req, res, () => {
-    if (req.user?.role !== "admin") {
-      return res.status(403).json({
-        error: "Admin-Berechtigung erforderlich",
-      });
+// Admin-Middleware
+function requireAdmin(req, res, next) {
+  const sessionId = req.cookies?.session_id;
+
+  if (!sessionId) {
+    return res.status(401).json({ error: "Nicht authentifiziert" });
+  }
+
+  authDatabase.get(
+    "SELECT s.*, u.* FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.id = ? AND s.expires_at > datetime('now')",
+    [sessionId],
+    (err, session) => {
+      if (err) {
+        console.error("Admin-Session-Fehler:", err);
+        return res.status(500).json({ error: "Server-Fehler" });
+      }
+
+      if (!session || !session.is_active) {
+        return res.status(401).json({ error: "Ungültige Session" });
+      }
+
+      if (session.role !== "admin") {
+        return res
+          .status(403)
+          .json({ error: "Admin-Berechtigung erforderlich" });
+      }
+
+      req.user = {
+        id: session.user_id,
+        username: session.username,
+        email: session.email,
+        role: session.role,
+        database_name: session.database_name,
+      };
+
+      next();
     }
-    next();
-  });
+  );
 }
 
 // Login-Funktion
-async function login(username, password) {
+function login(username, password) {
   return new Promise((resolve, reject) => {
     authDatabase.get(
-      "SELECT * FROM users WHERE username = ? AND is_active = 1",
-      [username],
+      "SELECT * FROM users WHERE (username = ? OR email = ?) AND is_active = 1",
+      [username, username],
       async (err, user) => {
         if (err) {
           reject(new Error("Datenbankfehler"));
@@ -363,97 +201,68 @@ async function login(username, password) {
           return;
         }
 
-        // Passwort prüfen
-        const passwordValid = await bcrypt.compare(
-          password,
-          user.password_hash
-        );
-        if (!passwordValid) {
-          reject(new Error("Ungültige Anmeldedaten"));
-          return;
-        }
-
-        // Lizenz-Check für normale User
-        if (user.role !== "admin") {
-          const license = await getLicense(user.id);
-          if (!license || new Date() > new Date(license.expires_at)) {
-            reject(new Error("Lizenz abgelaufen - bitte Admin kontaktieren"));
+        try {
+          const isPasswordValid = await bcrypt.compare(
+            password,
+            user.password_hash
+          );
+          if (!isPasswordValid) {
+            reject(new Error("Ungültige Anmeldedaten"));
             return;
           }
-        }
 
-        // Session erstellen
-        const sessionId = crypto.randomUUID();
-        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+          // Session erstellen
+          const sessionId = crypto.randomUUID();
+          const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
 
-        authDatabase.run(
-          "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
-          [sessionId, user.id, expiresAt.toISOString()],
-          (err) => {
-            if (err) {
-              reject(new Error("Session-Fehler"));
-              return;
+          authDatabase.run(
+            "INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)",
+            [sessionId, user.id, expiresAt.toISOString()],
+            (err) => {
+              if (err) {
+                reject(new Error("Session-Fehler"));
+                return;
+              }
+
+              resolve({
+                user: {
+                  id: user.id,
+                  username: user.username,
+                  email: user.email,
+                  role: user.role,
+                  database_name: user.database_name,
+                },
+                sessionId,
+              });
             }
-
-            resolve({
-              user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                role: user.role,
-                database_name: user.database_name,
-              },
-              sessionId,
-            });
-          }
-        );
+          );
+        } catch (bcryptError) {
+          reject(new Error("Passwort-Verifikation fehlgeschlagen"));
+        }
       }
     );
   });
 }
 
-// Helper-Funktionen
-function getSession(sessionId) {
+// User-spezifische Datenbank ermitteln
+function getUserDatabase(userId) {
   return new Promise((resolve, reject) => {
     authDatabase.get(
-      "SELECT * FROM sessions WHERE id = ?",
-      [sessionId],
-      (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      }
-    );
-  });
-}
-
-function getUser(userId) {
-  return new Promise((resolve, reject) => {
-    authDatabase.get(
-      "SELECT * FROM users WHERE id = ?",
+      "SELECT database_name FROM users WHERE id = ?",
       [userId],
       (err, row) => {
         if (err) reject(err);
-        else resolve(row);
+        else resolve(row?.database_name);
       }
     );
   });
 }
 
-function getLicense(userId) {
-  return new Promise((resolve, reject) => {
-    authDatabase.get(
-      "SELECT * FROM licenses WHERE user_id = ? AND is_active = 1",
-      [userId],
-      (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-      }
-    );
-  });
-}
-
-// Auth-DB für Admin-Routen exportieren
-function authDb() {
+// ✅ KORRIGIERTE EXPORT-FUNKTION
+function getAuthDb() {
+  if (!authDatabase) {
+    throw new Error("Auth-Datenbank nicht initialisiert");
+  }
   return authDatabase;
 }
 
@@ -465,6 +274,6 @@ module.exports = {
   requireAdmin,
   login,
   getUserDatabase,
-  authDb: () => authDb,
+  authDb: getAuthDb, // ✅ Direkte Funktion exportieren, nicht () => authDb
   initAuthDb,
 };

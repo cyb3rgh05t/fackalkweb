@@ -339,7 +339,7 @@ function insertDefaultData(db, resolve, reject) {
   // Erweiterte Standard-Einstellungen
   const defaultSettings = [
     // Firmendaten
-    ["firmenname", "KFZ Fac Pro", "Name der Firma"],
+    ["firmenname", "Meine Firma", "Name der Firma"],
     ["firmen_strasse", "Musterstraße 123", "Firmen-Straße und Hausnummer"],
     ["firmen_plz", "12345", "Firmen-PLZ"],
     ["firmen_ort", "Musterstadt", "Firmen-Ort"],

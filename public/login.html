@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Login - Meine Firma</title>
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #333;
+      }
+
+      .login-container {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        width: 100%;
+        max-width: 400px;
+        position: relative;
+      }
+
+      .login-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        text-align: center;
+      }
+
+      .login-header h1 {
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        font-weight: 300;
+      }
+
+      .login-header p {
+        opacity: 0.9;
+        font-size: 0.9rem;
+      }
+
+      .login-form {
+        padding: 2rem;
+      }
+
+      .form-group {
+        margin-bottom: 1.5rem;
+      }
+
+      .form-label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #555;
+        font-weight: 500;
+        font-size: 0.9rem;
+      }
+
+      .form-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 2px solid #e0e0e0;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        background: #f8f9fa;
+      }
+
+      .form-input:focus {
+        outline: none;
+        border-color: #667eea;
+        background: white;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+      }
+
+      .input-icon {
+        position: relative;
+      }
+
+      .input-icon i {
+        position: absolute;
+        left: 1rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        z-index: 2;
+      }
+
+      .input-icon .form-input {
+        padding-left: 2.5rem;
+      }
+
+      .btn-login {
+        width: 100%;
+        padding: 0.75rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-size: 1rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .btn-login:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+
+      .btn-login:active {
+        transform: translateY(0);
+      }
+
+      .btn-login:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .spinner {
+        display: none;
+        width: 20px;
+        height: 20px;
+        border: 2px solid transparent;
+        border-top: 2px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 0.5rem;
+      }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .error-message {
+        background: #fee;
+        color: #c53030;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+        border-left: 4px solid #c53030;
+        display: none;
+      }
+
+      .success-message {
+        background: #f0fff4;
+        color: #2d7d32;
+        padding: 0.75rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+        border-left: 4px solid #2d7d32;
+        display: none;
+      }
+
+      .login-footer {
+        text-align: center;
+        padding: 1rem 2rem 2rem;
+        color: #666;
+        font-size: 0.8rem;
+      }
+
+      .version-info {
+        position: absolute;
+        bottom: 1rem;
+        right: 1rem;
+        background: rgba(255, 255, 255, 0.9);
+        color: #666;
+        padding: 0.25rem 0.5rem;
+        border-radius: 15px;
+        font-size: 0.7rem;
+        backdrop-filter: blur(10px);
+      }
+
+      @media (max-width: 480px) {
+        .login-container {
+          margin: 1rem;
+          border-radius: 15px;
+        }
+
+        .login-header h1 {
+          font-size: 1.5rem;
+        }
+      }
+
+      /* Zugänglichkeits-Verbesserungen */
+      .form-input:focus {
+        outline: 2px solid #667eea;
+        outline-offset: 2px;
+      }
+
+      .btn-login:focus {
+        outline: 2px solid #4c51bf;
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="login-container">
+      <div class="login-header">
+        <h1><i class="fas fa-car"></i> Meine Firma</h1>
+        <p>Rechnungs- und Auftragssystem</p>
+      </div>
+
+      <form class="login-form" id="loginForm">
+        <div id="errorMessage" class="error-message"></div>
+        <div id="successMessage" class="success-message"></div>
+
+        <div class="form-group">
+          <label class="form-label" for="username">Benutzername</label>
+          <div class="input-icon">
+            <i class="fas fa-user"></i>
+            <input
+              type="text"
+              class="form-input"
+              id="username"
+              name="username"
+              required
+              autocomplete="username"
+              placeholder="Benutzername eingeben"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="password">Passwort</label>
+          <div class="input-icon">
+            <i class="fas fa-lock"></i>
+            <input
+              type="password"
+              class="form-input"
+              id="password"
+              name="password"
+              required
+              autocomplete="current-password"
+              placeholder="Passwort eingeben"
+            />
+          </div>
+        </div>
+
+        <button type="submit" class="btn-login" id="loginButton">
+          <div class="spinner" id="loginSpinner"></div>
+          <span id="loginButtonText">Anmelden</span>
+        </button>
+      </form>
+
+      <div class="login-footer">Secure Login • © 2025 Meine Firma</div>
+    </div>
+
+    <div class="version-info">v2.0 + Auth</div>
+
+    <script>
+      class LoginManager {
+        constructor() {
+          this.form = document.getElementById("loginForm");
+          this.errorDiv = document.getElementById("errorMessage");
+          this.successDiv = document.getElementById("successMessage");
+          this.loginButton = document.getElementById("loginButton");
+          this.loginSpinner = document.getElementById("loginSpinner");
+          this.loginButtonText = document.getElementById("loginButtonText");
+
+          this.init();
+        }
+
+        init() {
+          this.form.addEventListener("submit", (e) => this.handleLogin(e));
+
+          // Enter-Taste handling
+          document.addEventListener("keypress", (e) => {
+            if (e.key === "Enter" && !this.loginButton.disabled) {
+              this.form.dispatchEvent(new Event("submit"));
+            }
+          });
+
+          // Auto-focus erstes Eingabefeld
+          document.getElementById("username").focus();
+
+          // Prüfen ob bereits eingeloggt
+          this.checkAuthStatus();
+        }
+
+        async checkAuthStatus() {
+          try {
+            const response = await fetch("/api/auth/status");
+            const data = await response.json();
+
+            if (data.authenticated) {
+              // Bereits eingeloggt, zur Hauptseite weiterleiten
+              window.location.href = "/";
+            }
+          } catch (error) {
+            console.log("Auth-Status-Prüfung fehlgeschlagen:", error);
+          }
+        }
+
+        async handleLogin(e) {
+          e.preventDefault();
+
+          const formData = new FormData(this.form);
+          const loginData = {
+            username: formData.get("username").trim(),
+            password: formData.get("password"),
+          };
+
+          // Validierung
+          if (!loginData.username || !loginData.password) {
+            this.showError("Bitte alle Felder ausfüllen");
+            return;
+          }
+
+          this.setLoading(true);
+          this.hideMessages();
+
+          try {
+            const response = await fetch("/api/auth/login", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(loginData),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+              this.showSuccess("Login erfolgreich! Weiterleitung...");
+              setTimeout(() => {
+                window.location.href = "/";
+              }, 1000);
+            } else {
+              this.showError(data.error || "Login fehlgeschlagen");
+            }
+          } catch (error) {
+            console.error("Login-Fehler:", error);
+            this.showError("Verbindungsfehler. Bitte versuchen Sie es erneut.");
+          } finally {
+            this.setLoading(false);
+          }
+        }
+
+        setLoading(loading) {
+          this.loginButton.disabled = loading;
+
+          if (loading) {
+            this.loginSpinner.style.display = "inline-block";
+            this.loginButtonText.textContent = "Anmelden...";
+          } else {
+            this.loginSpinner.style.display = "none";
+            this.loginButtonText.textContent = "Anmelden";
+          }
+        }
+
+        showError(message) {
+          this.errorDiv.textContent = message;
+          this.errorDiv.style.display = "block";
+          this.successDiv.style.display = "none";
+        }
+
+        showSuccess(message) {
+          this.successDiv.textContent = message;
+          this.successDiv.style.display = "block";
+          this.errorDiv.style.display = "none";
+        }
+
+        hideMessages() {
+          this.errorDiv.style.display = "none";
+          this.successDiv.style.display = "none";
+        }
+      }
+
+      // Login-Manager initialisieren wenn DOM geladen ist
+      document.addEventListener("DOMContentLoaded", () => {
+        new LoginManager();
+      });
+    </script>
+  </body>
+</html>

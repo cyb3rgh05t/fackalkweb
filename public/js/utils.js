@@ -47,7 +47,7 @@ export function showNotification(message, type = "info") {
   notification.style.background = colors[type] || colors.info;
   notification.textContent = message;
   document.body.appendChild(notification);
-  setTimeout(() => notification.remove(), 5000);
+  setTimeout(() => notification.remove(), 3000);
 }
 
 export function formatDate(dateString) {

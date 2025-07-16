@@ -44,6 +44,23 @@
               <i class="fas fa-cog"></i> Einstellungen
             </button>
           </nav>
+          <!-- User-Bereich mit Logout -->
+          <div class="user-area">
+            <div class="user-info" id="user-info">
+              <i class="fas fa-user-circle"></i>
+              <span id="current-username">Laden...</span>
+            </div>
+            <div class="user-actions">
+              <button
+                class="logout-btn"
+                onclick="handleLogout()"
+                title="Abmelden"
+              >
+                <i class="fas fa-sign-out-alt"></i>
+                <span class="logout-text">Logout</span>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -686,6 +703,171 @@
     </main>
 
     <div id="modal-container"></div>
+    <script>
+      // User-Informationen laden und anzeigen
+      async function loadUserInfo() {
+        try {
+          const response = await fetch("/api/auth/status");
+          const data = await response.json();
+
+          if (data.authenticated && data.user) {
+            document.getElementById("current-username").textContent =
+              data.user.username;
+
+            // Optional: Rolle anzeigen
+            if (data.user.role === "admin") {
+              const userInfo = document.getElementById("user-info");
+              userInfo.innerHTML += ' <span class="admin-badge">Admin</span>';
+            }
+          } else {
+            // Nicht eingeloggt - zur Login-Seite weiterleiten
+            window.location.href = "/login";
+          }
+        } catch (error) {
+          console.error("Fehler beim Laden der Benutzer-Informationen:", error);
+          // Bei Fehler auch zur Login-Seite weiterleiten
+          window.location.href = "/login";
+        }
+      }
+
+      // Logout-Funktionalität
+      async function handleLogout() {
+        // Bestätigung anzeigen
+        if (!confirm("Möchten Sie sich wirklich abmelden?")) {
+          return;
+        }
+
+        try {
+          // Loading-Indikator
+          const logoutBtn = document.querySelector(".logout-btn");
+          const originalText = logoutBtn.innerHTML;
+          logoutBtn.innerHTML =
+            '<i class="fas fa-spinner fa-spin"></i> Abmelden...';
+          logoutBtn.disabled = true;
+
+          // Logout-Request
+          const response = await fetch("/api/auth/logout", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          });
+
+          if (response.ok) {
+            // Erfolgreiche Abmeldung
+            showNotification("Erfolgreich abgemeldet", "success");
+
+            // Kurz warten, dann weiterleiten
+            setTimeout(() => {
+              window.location.href = "/login";
+            }, 1000);
+          } else {
+            throw new Error("Logout fehlgeschlagen");
+          }
+        } catch (error) {
+          console.error("Logout-Fehler:", error);
+
+          // Auch bei Fehlern zur Login-Seite weiterleiten
+          // Der Server-seitige Logout-Endpunkt sollte funktioniert haben
+          showNotification("Abgemeldet", "info");
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 500);
+        }
+      }
+
+      // Notification-Funktion (falls nicht bereits vorhanden)
+      function showNotification(message, type = "info") {
+        // Simple Notification - Sie können dies durch Ihre bestehende Implementierung ersetzen
+        const notification = document.createElement("div");
+        notification.className = `notification notification-${type}`;
+        notification.textContent = message;
+
+        // Styling
+        Object.assign(notification.style, {
+          position: "fixed",
+          top: "20px",
+          right: "20px",
+          padding: "12px 20px",
+          borderRadius: "8px",
+          color: "white",
+          fontWeight: "500",
+          zIndex: "9999",
+          transform: "translateX(100%)",
+          transition: "transform 0.3s ease",
+        });
+
+        // Type-spezifische Farben
+        const colors = {
+          success: "#1ecb4f",
+          error: "#ef4444",
+          warning: "#f59e0b",
+          info: "#2cabe3",
+        };
+        notification.style.backgroundColor = colors[type] || colors.info;
+
+        document.body.appendChild(notification);
+
+        // Animation einblenden
+        setTimeout(() => {
+          notification.style.transform = "translateX(0)";
+        }, 100);
+
+        // Nach 3 Sekunden entfernen
+        setTimeout(() => {
+          notification.style.transform = "translateX(100%)";
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+          }, 300);
+        }, 3000);
+      }
+
+      // Session-Überwachung
+      function startSessionMonitoring() {
+        // Alle 5 Minuten prüfen ob Session noch gültig ist
+        setInterval(async () => {
+          try {
+            const response = await fetch("/api/auth/status");
+            const data = await response.json();
+
+            if (!data.authenticated) {
+              showNotification(
+                "Session abgelaufen. Bitte melden Sie sich erneut an.",
+                "warning"
+              );
+              setTimeout(() => {
+                window.location.href = "/login";
+              }, 2000);
+            }
+          } catch (error) {
+            console.error("Session-Check fehlgeschlagen:", error);
+          }
+        }, 5 * 60 * 1000); // 5 Minuten
+      }
+
+      // Beim Laden der Seite initialisieren
+      document.addEventListener("DOMContentLoaded", function () {
+        loadUserInfo();
+        startSessionMonitoring();
+
+        // Ihre bestehenden Initialisierungsfunktionen hier...
+      });
+
+      // Keyboard-Shortcut für Logout (Ctrl+L)
+      document.addEventListener("keydown", function (event) {
+        if (event.ctrlKey && event.key === "l") {
+          event.preventDefault();
+          handleLogout();
+        }
+      });
+    </script>
+
+    <!-- Ihre bestehenden JavaScript-Dateien -->
     <script type="module" src="js/app.js"></script>
+    <script type="module" src="js/utils.js"></script>
+    <script type="module" src="js/dashboard.js"></script>
+    <script type="module" src="js/einstellungen.js"></script>
   </body>
 </html>

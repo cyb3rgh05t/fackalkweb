@@ -7,6 +7,11 @@ const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const fs = require("fs");
 
+// ===== NEUE IMPORTS FÜR LOGIN-SYSTEM =====
+const session = require("express-session");
+const SQLiteStore = require("connect-sqlite3")(session);
+const { requireAuth, attachUser } = require("./middleware/auth");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -58,7 +63,30 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// OPTIMIERTE RATE LIMITS (LÖSUNG FÜR DAS PROBLEM)
+// ===== SESSION-KONFIGURATION FÜR LOGIN-SYSTEM =====
+app.use(
+  session({
+    store: new SQLiteStore({
+      db: "sessions.db",
+      dir: "./data",
+    }),
+    secret:
+      process.env.SESSION_SECRET ||
+      "your-super-secret-key-change-in-production",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: false, // In Produktion auf true setzen (HTTPS erforderlich)
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24 Stunden
+    },
+  })
+);
+
+// User-Informationen an alle Requests anhängen
+app.use(attachUser);
+
+// OPTIMIERTE RATE LIMITS (ORIGINAL-KONFIGURATION BEIBEHALTEN)
 
 // Allgemeines Rate Limit - erhöht für normale Nutzung
 const generalLimiter = rateLimit({
@@ -67,6 +95,18 @@ const generalLimiter = rateLimit({
   message: { error: "Zu viele Anfragen, versuchen Sie es später erneut" },
   standardHeaders: true,
   legacyHeaders: false,
+});
+
+// Login-spezifisches Rate Limit
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 Minuten
+  max: 5, // Maximal 5 Login-Versuche pro 15 Minuten
+  message: {
+    error: "Zu viele Login-Versuche. Versuchen Sie es später erneut.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // Erfolgreiche Logins nicht mitzählen
 });
 
 // Spezielles Rate Limit für Einstellungen - sehr großzügig
@@ -94,29 +134,6 @@ const exportLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 Minute
   max: 5, // Maximal 5 Exports pro Minute
   message: { error: "Export-Limit erreicht, versuchen Sie es später erneut" },
-});
-
-// RATE LIMITER ANWENDEN - RICHTIGE REIHENFOLGE WICHTIG!
-
-// 1. Spezifische Limits zuerst (werden zuerst geprüft)
-app.use("/api/einstellungen", settingsLimiter);
-app.use("/api/upload", uploadLimiter);
-app.use("/api/*/export", exportLimiter);
-
-// 2. Allgemeines Limit für alle anderen API-Calls
-app.use("/api/", generalLimiter);
-
-// DEBUGGING: Rate Limit Status loggen
-app.use("/api/", (req, res, next) => {
-  // Rate Limit Headers für Debugging
-  res.on("finish", () => {
-    if (res.statusCode === 429) {
-      console.warn(
-        `⚠️  Rate Limit erreicht: ${req.method} ${req.url} - IP: ${req.ip}`
-      );
-    }
-  });
-  next();
 });
 
 // ALTERNATIVE: Conditional Rate Limiting basierend auf Request-Typ
@@ -163,9 +180,69 @@ app.use((req, res, next) => {
   next();
 });
 
-// Logo-Upload-Endpunkt
+// ===== AUTHENTIFIZIERUNGS-ROUTEN (ÖFFENTLICH) =====
+app.use("/api/auth", loginLimiter, require("./routes/auth"));
+
+// ===== LOGIN-SEITE (ÖFFENTLICH) =====
+app.get("/login", (req, res) => {
+  // Wenn bereits eingeloggt, zur Hauptseite weiterleiten
+  if (req.session && req.session.userId) {
+    return res.redirect("/");
+  }
+  res.sendFile(path.join(__dirname, "public", "login.html"));
+});
+
+// Logout-Route (GET für einfache Verwendung)
+app.get("/logout", (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error("Logout-Fehler:", err);
+    }
+    res.clearCookie("connect.sid");
+    res.redirect("/login");
+  });
+});
+
+// RATE LIMITER ANWENDEN - RICHTIGE REIHENFOLGE WICHTIG!
+
+// 1. Spezifische Limits zuerst (werden zuerst geprüft)
+app.use("/api/einstellungen", settingsLimiter);
+app.use("/api/upload", uploadLimiter);
+app.use("/api/*/export", exportLimiter);
+
+// 2. Allgemeines Limit für alle anderen API-Calls (NUR für geschützte Routen)
+app.use("/api/", generalLimiter);
+
+// DEBUGGING: Rate Limit Status loggen
+app.use("/api/", (req, res, next) => {
+  // Rate Limit Headers für Debugging
+  res.on("finish", () => {
+    if (res.statusCode === 429) {
+      console.warn(
+        `⚠️  Rate Limit erreicht: ${req.method} ${req.url} - IP: ${req.ip}`
+      );
+    }
+  });
+  next();
+});
+
+// ===== ÖFFENTLICHE API-ENDPUNKTE (ohne Auth) =====
+// Health Check
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    version: "2.0",
+    authenticated: !!req.session?.userId,
+  });
+});
+
+// ===== GESCHÜTZTE API-ENDPUNKTE (ab hier Auth erforderlich) =====
+
+// Logo-Upload-Endpunkt (GESCHÜTZT)
 app.post(
   "/api/upload/logo",
+  requireAuth,
   uploadLimiter,
   upload.single("logo"),
   async (req, res) => {
@@ -196,8 +273,8 @@ app.post(
   }
 );
 
-// Backup-Endpunkt
-app.post("/api/backup/create", async (req, res) => {
+// Backup-Endpunkt (GESCHÜTZT)
+app.post("/api/backup/create", requireAuth, async (req, res) => {
   try {
     const backupDir = path.join(__dirname, "backups");
     if (!fs.existsSync(backupDir)) {
@@ -241,8 +318,8 @@ app.post("/api/backup/create", async (req, res) => {
   }
 });
 
-// Backup-Wiederherstellung
-app.post("/api/backup/restore", async (req, res) => {
+// Backup-Wiederherstellung (GESCHÜTZT)
+app.post("/api/backup/restore", requireAuth, async (req, res) => {
   try {
     const { backupFile } = req.body;
 
@@ -270,8 +347,8 @@ app.post("/api/backup/restore", async (req, res) => {
   }
 });
 
-// Systemstatus-Endpunkt
-app.get("/api/system/status", (req, res) => {
+// Systemstatus-Endpunkt (GESCHÜTZT)
+app.get("/api/system/status", requireAuth, (req, res) => {
   const db = require("./db");
 
   db.get("SELECT COUNT(*) as count FROM einstellungen", (err, result) => {
@@ -295,26 +372,18 @@ app.get("/api/system/status", (req, res) => {
         node_version: process.version,
         platform: process.platform,
       },
+      user: req.user || null,
       timestamp: new Date().toISOString(),
     });
   });
 });
 
-// Health Check
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    version: "2.0",
-  });
-});
-
-// API Routes
-app.use("/api/kunden", require("./routes/kunden"));
-app.use("/api/fahrzeuge", require("./routes/fahrzeuge"));
-app.use("/api/auftraege", require("./routes/auftraege"));
-app.use("/api/rechnungen", require("./routes/rechnungen"));
-app.use("/api/einstellungen", require("./routes/einstellungen"));
+// ===== HAUPTANWENDUNGS-API-ROUTEN (ALLE GESCHÜTZT) =====
+app.use("/api/kunden", requireAuth, require("./routes/kunden"));
+app.use("/api/fahrzeuge", requireAuth, require("./routes/fahrzeuge"));
+app.use("/api/auftraege", requireAuth, require("./routes/auftraege"));
+app.use("/api/rechnungen", requireAuth, require("./routes/rechnungen"));
+app.use("/api/einstellungen", requireAuth, require("./routes/einstellungen"));
 
 // Statische Dateien mit erweiterten Headers
 app.use(
@@ -325,8 +394,8 @@ app.use(
   })
 );
 
-// Haupt-Route
-app.get("/", (req, res) => {
+// ===== HAUPT-ROUTE (GESCHÜTZT) =====
+app.get("/", requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
@@ -336,11 +405,17 @@ app.use("/api/*", (req, res) => {
     error: "API-Endpunkt nicht gefunden",
     requested: req.originalUrl,
     available_endpoints: [
+      "/api/auth/login (POST)",
+      "/api/auth/logout (POST)",
+      "/api/auth/status (GET)",
       "/api/kunden",
       "/api/fahrzeuge",
       "/api/auftraege",
       "/api/rechnungen",
       "/api/einstellungen",
+      "/api/upload/logo",
+      "/api/backup/create",
+      "/api/backup/restore",
       "/api/system/status",
       "/api/health",
     ],
@@ -379,10 +454,12 @@ const server = app.listen(PORT, () => {
   console.log(`💾 Datenbank: ${path.join(__dirname, "data", "kfz.db")}`);
   console.log(`📁 Statische Dateien: ${path.join(__dirname, "public")}`);
   console.log(`🛡️  Sicherheitsfeatures aktiviert`);
+  console.log(`🔐 Login-System aktiviert`);
   console.log(`📊 System-Status: http://localhost:${PORT}/api/system/status`);
+  console.log(`🔑 Login-Seite: http://localhost:${PORT}/login`);
 });
 
-// Graceful Shutdown mit erweiterten Aufräumarbeiten
+// Graceful Shutdown mit erweiterten Aufräumarbeiten (ORIGINAL BEIBEHALTEN)
 const gracefulShutdown = (signal) => {
   console.log(`\n🛑 ${signal} erhalten. Server wird heruntergefahren...`);
 
@@ -463,23 +540,24 @@ async function cleanup() {
   );
 }
 
-// Signal-Handler
+// Signal-Handler (ORIGINAL BEIBEHALTEN)
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
-// Unbehandelte Promise-Rejections
+// Unbehandelte Promise-Rejections (ORIGINAL BEIBEHALTEN)
 process.on("unhandledRejection", (reason, promise) => {
   console.error("❌ Unbehandelte Promise-Rejection:", reason);
   console.error("Promise:", promise);
   // Server nicht automatisch beenden, aber Fehler loggen
 });
 
-// Unbehandelte Exceptions
+// Unbehandelte Exceptions (ORIGINAL BEIBEHALTEN)
 process.on("uncaughtException", (error) => {
   console.error("❌ Unbehandelte Exception:", error);
   gracefulShutdown("UNCAUGHT_EXCEPTION");
 });
 
+// Module Exports (ORIGINAL BEIBEHALTEN)
 module.exports = {
   generalLimiter,
   settingsLimiter,

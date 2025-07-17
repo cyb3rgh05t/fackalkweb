@@ -1,62 +1,61 @@
 {
   "name": "kfzfacpro",
   "version": "2.0.0",
-  "author": "Flammang Yves",
-  "description": "Rechnungs- und Auftragssystem für Lackiererei mit Login-System",
+  "description": "KFZ Fac Pro - Rechnungs- und Auftragssystem",
   "main": "electron-main.js",
-  "homepage": "./",
+  "author": "Meine Firma",
+  "license": "MIT",
   "scripts": {
+    "start": "node server.js",
+    "init-db": "node scripts/setup.js",
     "electron": "electron .",
     "electron-dev": "NODE_ENV=development electron .",
-    "build-win": "electron-builder --win",
+    "build-win": "electron-builder --win --dir",
     "build-mac": "electron-builder --mac",
     "build-linux": "electron-builder --linux",
     "dist": "electron-builder",
-    "setup": "node scripts/setup.js",
-    "backup": "node scripts/backup.js",
-    "reset-db": "node scripts/setup.js --reset",
-    "setup-reset": "node scripts/complete-setup.js --reset",
-    "debug-db": "node scripts/debug-db.js"
+    "rebuild": "electron-rebuild -f -w sqlite3"
   },
   "dependencies": {
-    "bcrypt": "^5.1.1",
-    "body-parser": "^1.20.2",
-    "compression": "^1.7.4",
-    "connect-sqlite3": "^0.9.13",
-    "cors": "^2.8.5",
     "express": "^4.18.2",
+    "sqlite3": "^5.1.6",
+    "cors": "^2.8.5",
+    "helmet": "^6.0.1",
+    "compression": "^1.7.4",
     "express-rate-limit": "^6.7.0",
+    "multer": "^1.4.5-lts.1",
     "express-session": "^1.17.3",
-    "helmet": "^7.0.0",
-    "multer": "^2.0.1",
-    "sqlite3": "^5.1.6"
+    "connect-sqlite3": "^0.9.13",
+    "bcrypt": "^5.1.0",
+    "body-parser": "^1.20.2"
   },
   "devDependencies": {
-    "electron": "^37.2.3",
-    "electron-builder": "^26.0.12",
-    "nodemon": "^3.0.1"
-  },
-  "engines": {
-    "node": ">=16.0.0"
+    "electron": "^32.0.0",
+    "electron-builder": "^26.0.0"
   },
   "build": {
     "appId": "com.meinefirma.kfzfacpro",
-    "productName": "Meine Firma - KFZ Fac Pro - Rechnungssystem",
+    "productName": "KFZ Fac Pro",
     "directories": {
       "output": "dist"
     },
+    "asar": false,
     "files": [
       "**/*",
-      "!node_modules/**/*",
-      "node_modules/sqlite3/**/*",
-      "node_modules/express/**/*",
-      "node_modules/cors/**/*",
-      "node_modules/helmet/**/*",
-      "node_modules/compression/**/*",
-      "node_modules/express-rate-limit/**/*",
-      "node_modules/multer/**/*",
-      "node_modules/express-session/**/*",
-      "node_modules/connect-sqlite3/**/*"
+      "!dist/**/*",
+      "!.git/**/*",
+      "!README.md",
+      "!.gitignore",
+      "!*.log"
+    ],
+    "extraFiles": [
+      {
+        "from": "data",
+        "to": "data",
+        "filter": [
+          "**/*"
+        ]
+      }
     ],
     "win": {
       "target": "nsis",
@@ -66,8 +65,7 @@
     },
     "mac": {
       "target": "dmg",
-      "icon": "public/favicon.ico",
-      "identity": null
+      "icon": "public/favicon.ico"
     },
     "linux": {
       "target": "AppImage",
@@ -75,11 +73,9 @@
     },
     "nsis": {
       "oneClick": false,
-      "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Meine Firma - KFZ Fac Pro - Rechnungssystem"
+      "createStartMenuShortcut": true
     }
   }
 }

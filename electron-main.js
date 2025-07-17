@@ -1,44 +1,65 @@
 const { app, BrowserWindow, Menu, shell, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const { spawn } = require("child_process");
 
 // Produktionsmodus erkennen
 const isDev = process.env.NODE_ENV === "development";
 const PORT = process.env.PORT || 3000;
 
 let mainWindow;
-let serverProcess;
+let serverStarted = false;
 
-// Server-Prozess starten
+// Server direkt in dieser Instanz starten (ohne spawn)
 function startServer() {
   return new Promise((resolve, reject) => {
+    if (serverStarted) {
+      resolve();
+      return;
+    }
+
     console.log("🚀 Starte Express Server...");
 
-    serverProcess = spawn("node", ["server.js"], {
-      cwd: __dirname,
-      env: { ...process.env, NODE_ENV: isDev ? "development" : "production" },
-    });
+    try {
+      // Verschiedene Pfade für server.js testen
+      const possiblePaths = [
+        path.join(__dirname, "server.js"),
+        path.join(process.resourcesPath, "app", "server.js"),
+        path.join(process.resourcesPath, "server.js"),
+        path.join(__dirname, "..", "server.js"),
+      ];
 
-    serverProcess.stdout.on("data", (data) => {
-      console.log(`Server: ${data}`);
-      if (data.toString().includes("Server läuft")) {
-        resolve();
+      let serverPath = null;
+
+      for (const testPath of possiblePaths) {
+        if (fs.existsSync(testPath)) {
+          serverPath = testPath;
+          console.log("✅ Server.js gefunden:", serverPath);
+          break;
+        }
       }
-    });
 
-    serverProcess.stderr.on("data", (data) => {
-      console.error(`Server Error: ${data}`);
-    });
+      if (!serverPath) {
+        throw new Error(
+          "Server.js nicht gefunden in den Pfaden: " + possiblePaths.join(", ")
+        );
+      }
 
-    serverProcess.on("close", (code) => {
-      console.log(`Server beendet mit Code ${code}`);
-    });
+      // Working Directory auf den Server-Ordner setzen
+      process.chdir(path.dirname(serverPath));
 
-    // Timeout für Server-Start
-    setTimeout(() => {
-      resolve(); // Auch bei Timeout weitermachen
-    }, 5000);
+      // Server laden
+      require(serverPath);
+
+      serverStarted = true;
+
+      // Kurz warten, bis Server gestartet ist
+      setTimeout(() => {
+        resolve();
+      }, 3000);
+    } catch (error) {
+      console.error("Fehler beim Starten des Servers:", error);
+      reject(error);
+    }
   });
 }
 
@@ -64,22 +85,52 @@ function createWindow() {
   createMenu();
 
   // Warten bis Server läuft, dann Fenster laden
-  startServer().then(() => {
-    mainWindow.loadURL(`http://localhost:${PORT}`);
+  startServer()
+    .then(() => {
+      console.log("✅ Server gestartet, lade Fenster...");
+      mainWindow.loadURL(`http://localhost:${PORT}`);
 
-    mainWindow.once("ready-to-show", () => {
-      mainWindow.show();
-      if (isDev) {
-        mainWindow.webContents.openDevTools();
-      }
+      mainWindow.once("ready-to-show", () => {
+        mainWindow.show();
+        if (isDev) {
+          mainWindow.webContents.openDevTools();
+        }
+      });
+    })
+    .catch((error) => {
+      console.error("❌ Server-Start fehlgeschlagen:", error);
+      // Fehlerdialog anzeigen
+      dialog.showErrorBox(
+        "Server-Fehler",
+        "Der Express-Server konnte nicht gestartet werden.\n\nFehler: " +
+          error.message
+      );
+      app.quit();
     });
-  });
 
   // Externe Links im Browser öffnen
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: "deny" };
   });
+
+  // Fehler beim Laden abfangen
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (event, errorCode, errorDescription, validatedURL) => {
+      console.error(
+        "Fehler beim Laden:",
+        errorCode,
+        errorDescription,
+        validatedURL
+      );
+
+      // Retry nach 1 Sekunde
+      setTimeout(() => {
+        mainWindow.loadURL(`http://localhost:${PORT}`);
+      }, 1000);
+    }
+  );
 
   mainWindow.on("closed", () => {
     mainWindow = null;
@@ -193,10 +244,10 @@ function createMenu() {
           click: () => {
             dialog.showMessageBox(mainWindow, {
               type: "info",
-              title: "Über Meine Firma - Rechnungssystem",
-              message: "Meine Firma - Rechnungssystem",
+              title: "Über KFZ Fac Pro - Rechnungssystem",
+              message: "KFZ Fac Pro - Rechnungssystem",
               detail:
-                "Version 2.0\\nEin modernes Rechnungs- und Auftragssystem\\nEntwickelt mit Electron und Node.js",
+                "Version 2.0\nEin modernes Rechnungs- und Auftragssystem\nEntwickelt mit Electron und Node.js",
             });
           },
         },
@@ -212,9 +263,6 @@ function createMenu() {
 app.whenReady().then(createWindow);
 
 app.on("window-all-closed", () => {
-  if (serverProcess) {
-    serverProcess.kill();
-  }
   if (process.platform !== "darwin") {
     app.quit();
   }
@@ -226,15 +274,15 @@ app.on("activate", () => {
   }
 });
 
-app.on("before-quit", () => {
-  if (serverProcess) {
-    serverProcess.kill();
-  }
-});
-
 // Unbehandelte Exceptions abfangen
 process.on("uncaughtException", (error) => {
   console.error("Unbehandelte Exception:", error);
+  if (mainWindow) {
+    dialog.showErrorBox(
+      "Anwendungsfehler",
+      "Ein unerwarteter Fehler ist aufgetreten:\n\n" + error.message
+    );
+  }
 });
 
 process.on("unhandledRejection", (reason, promise) => {

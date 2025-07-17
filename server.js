@@ -68,7 +68,7 @@ app.use(
   session({
     store: new SQLiteStore({
       db: "sessions.db",
-      dir: "./data",
+      dir: path.join(__dirname, "data"), // Absoluter Pfad
     }),
     secret:
       process.env.SESSION_SECRET ||
@@ -457,6 +457,10 @@ const server = app.listen(PORT, () => {
   console.log(`🔐 Login-System aktiviert`);
   console.log(`📊 System-Status: http://localhost:${PORT}/api/system/status`);
   console.log(`🔑 Login-Seite: http://localhost:${PORT}/login`);
+
+  if (process.send) {
+    process.send("server-ready");
+  }
 });
 
 // Graceful Shutdown mit erweiterten Aufräumarbeiten (ORIGINAL BEIBEHALTEN)

@@ -443,13 +443,13 @@ function insertDefaultSettings(db, resolve, reject) {
 
   const defaultSettings = [
     // Firmendaten
-    ["firmenname", "KFZFacPRO Beispiel GmbH", "Name der Firma"],
+    ["firmenname", "Meine Firma", "Name der Firma"],
     ["firmen_strasse", "Musterstraße 123", "Firmen-Straße und Hausnummer"],
     ["firmen_plz", "12345", "Firmen-PLZ"],
     ["firmen_ort", "Musterstadt", "Firmen-Ort"],
     ["firmen_telefon", "+49 123 456789", "Firmen-Telefonnummer"],
-    ["firmen_email", "info@kfzfacpro.de", "Firmen-E-Mail"],
-    ["firmen_website", "www.kfzfacpro.de", "Firmen-Website"],
+    ["firmen_email", "info@meinfirma.de", "Firmen-E-Mail"],
+    ["firmen_website", "www.meinefirma.de", "Firmen-Website"],
     ["firmen_logo", "", "Base64-kodiertes Firmenlogo"],
 
     // Geschäftsdaten

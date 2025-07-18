@@ -9,17 +9,178 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="css/login.css" />
+    <style>
+      /* Notification Styles für Login-Seite */
+      .notification-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10001;
+        pointer-events: none;
+        max-width: calc(100vw - 40px);
+      }
+
+      .notification {
+        position: relative;
+        padding: 12px 16px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        color: white;
+        font-weight: 500;
+        font-size: 14px;
+        line-height: 1.4;
+        max-width: 350px;
+        min-width: 250px;
+        word-wrap: break-word;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+        transform: translateX(100%);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 0;
+        pointer-events: auto;
+        border-left: 4px solid rgba(255, 255, 255, 0.3);
+      }
+
+      .notification.show {
+        transform: translateX(0);
+        opacity: 1;
+      }
+
+      .notification.hide {
+        transform: translateX(100%);
+        opacity: 0;
+      }
+
+      .notification-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        border-left-color: #34d399;
+      }
+
+      .notification-error {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        border-left-color: #f87171;
+      }
+
+      .notification-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        border-left-color: #fbbf24;
+      }
+
+      .notification-info {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        border-left-color: #60a5fa;
+      }
+
+      .notification-close {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 16px;
+        cursor: pointer;
+        padding: 4px;
+        line-height: 1;
+        transition: color 0.2s ease;
+      }
+
+      .notification-close:hover {
+        color: white;
+      }
+
+      .notification-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 0 0 8px 8px;
+        transition: width linear;
+      }
+
+      /* Logo Styles */
+      .company-logo {
+        width: 48px;
+        height: 48px;
+        margin-right: 0.75rem;
+        border-radius: 8px;
+        object-fit: contain;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 4px;
+      }
+
+      .login-header {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+
+      .company-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 0.5rem;
+      }
+
+      .company-info h1 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 300;
+      }
+
+      /* Responsive Logo */
+      @media (max-width: 480px) {
+        .notification-container {
+          top: 10px;
+          right: 10px;
+          left: 10px;
+          max-width: none;
+        }
+
+        .notification {
+          max-width: none;
+          min-width: auto;
+          font-size: 13px;
+        }
+
+        .company-logo {
+          width: 40px;
+          height: 40px;
+          margin-right: 0.5rem;
+        }
+
+        .company-info h1 {
+          font-size: 1.5rem;
+        }
+      }
+    </style>
   </head>
   <body>
     <div class="login-container">
       <div class="login-header">
-        <h1><i class="fas fa-car"></i> Meine Firma</h1>
+        <div class="company-info">
+          <img
+            src="assets/logo/logo.png"
+            alt="Meine Firma Logo"
+            class="company-logo"
+          />
+          <h1>Meine Firma</h1>
+        </div>
         <p>Rechnungs- und Auftragssystem</p>
       </div>
 
       <form class="login-form" id="loginForm">
-        <div id="errorMessage" class="error-message"></div>
-        <div id="successMessage" class="success-message"></div>
+        <div
+          id="errorMessage"
+          style="display: none"
+          class="error-message"
+        ></div>
+        <div
+          id="successMessage"
+          style="display: none"
+          class="success-message"
+        ></div>
 
         <div class="form-group">
           <label class="form-label" for="username">Benutzername</label>
@@ -65,6 +226,154 @@
     <div class="version-info">v2.0 + Auth</div>
 
     <script>
+      // Notification System für Login-Seite
+      class NotificationManager {
+        constructor() {
+          this.container = null;
+          this.notifications = new Map();
+          this.init();
+        }
+
+        init() {
+          this.container = document.querySelector(".notification-container");
+          if (!this.container) {
+            this.container = document.createElement("div");
+            this.container.className = "notification-container";
+            document.body.appendChild(this.container);
+          }
+        }
+
+        show(message, type = "info", options = {}) {
+          const config = {
+            duration: 4000,
+            closable: true,
+            persistent: false,
+            showProgress: true,
+            ...options,
+          };
+
+          const id =
+            "notification-" +
+            Date.now() +
+            "-" +
+            Math.random().toString(36).substr(2, 9);
+          const notification = this.createElement(message, type, config, id);
+
+          this.init();
+          this.container.appendChild(notification);
+          this.notifications.set(id, notification);
+
+          requestAnimationFrame(() => {
+            notification.classList.add("show");
+          });
+
+          if (config.showProgress && !config.persistent) {
+            const progressBar = notification.querySelector(
+              ".notification-progress"
+            );
+            if (progressBar) {
+              progressBar.style.width = "100%";
+              setTimeout(() => {
+                progressBar.style.width = "0%";
+                progressBar.style.transition = `width ${config.duration}ms linear`;
+              }, 50);
+            }
+          }
+
+          if (!config.persistent) {
+            setTimeout(() => {
+              this.hide(id);
+            }, config.duration);
+          }
+
+          return id;
+        }
+
+        createElement(message, type, config, id) {
+          const notification = document.createElement("div");
+          notification.className = `notification notification-${type}`;
+          notification.setAttribute("data-id", id);
+
+          let html = `<div class="notification-content">${message}</div>`;
+
+          if (config.closable) {
+            html += `<button class="notification-close" aria-label="Schließen">&times;</button>`;
+          }
+
+          if (config.showProgress && !config.persistent) {
+            html += `<div class="notification-progress"></div>`;
+          }
+
+          notification.innerHTML = html;
+
+          if (config.closable) {
+            const closeBtn = notification.querySelector(".notification-close");
+            closeBtn.addEventListener("click", () => {
+              this.hide(id);
+            });
+          }
+
+          notification.addEventListener("mouseenter", () => {
+            const progressBar = notification.querySelector(
+              ".notification-progress"
+            );
+            if (progressBar) {
+              progressBar.style.animationPlayState = "paused";
+            }
+          });
+
+          notification.addEventListener("mouseleave", () => {
+            const progressBar = notification.querySelector(
+              ".notification-progress"
+            );
+            if (progressBar) {
+              progressBar.style.animationPlayState = "running";
+            }
+          });
+
+          return notification;
+        }
+
+        hide(id) {
+          const notification = this.notifications.get(id);
+          if (!notification) return;
+
+          notification.classList.remove("show");
+          notification.classList.add("hide");
+
+          setTimeout(() => {
+            if (notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            }
+            this.notifications.delete(id);
+          }, 300);
+        }
+
+        success(message, options = {}) {
+          return this.show(message, "success", options);
+        }
+
+        error(message, options = {}) {
+          return this.show(message, "error", { duration: 6000, ...options });
+        }
+
+        warning(message, options = {}) {
+          return this.show(message, "warning", options);
+        }
+
+        info(message, options = {}) {
+          return this.show(message, "info", options);
+        }
+      }
+
+      // Globale Notification-Instanz
+      const notificationManager = new NotificationManager();
+
+      // Globale showNotification Funktion
+      function showNotification(message, type = "info", options = {}) {
+        return notificationManager.show(message, type, options);
+      }
+
       class LoginManager {
         constructor() {
           this.form = document.getElementById("loginForm");
@@ -80,18 +389,37 @@
         init() {
           this.form.addEventListener("submit", (e) => this.handleLogin(e));
 
-          // Enter-Taste handling
           document.addEventListener("keypress", (e) => {
             if (e.key === "Enter" && !this.loginButton.disabled) {
               this.form.dispatchEvent(new Event("submit"));
             }
           });
 
-          // Auto-focus erstes Eingabefeld
           document.getElementById("username").focus();
-
-          // Prüfen ob bereits eingeloggt
           this.checkAuthStatus();
+
+          // Logo Fallback
+          this.setupLogoFallback();
+        }
+
+        setupLogoFallback() {
+          const logo = document.querySelector(".company-logo");
+          if (logo) {
+            logo.addEventListener("error", () => {
+              // Fallback zu Font Awesome Icon wenn Logo nicht gefunden wird
+              const companyInfo = document.querySelector(".company-info");
+              logo.style.display = "none";
+
+              if (!companyInfo.querySelector(".fa-car")) {
+                const icon = document.createElement("i");
+                icon.className = "fas fa-car";
+                icon.style.fontSize = "2rem";
+                icon.style.marginRight = "0.75rem";
+                icon.style.color = "rgba(255, 255, 255, 0.9)";
+                companyInfo.insertBefore(icon, companyInfo.querySelector("h1"));
+              }
+            });
+          }
         }
 
         async checkAuthStatus() {
@@ -100,8 +428,13 @@
             const data = await response.json();
 
             if (data.authenticated) {
-              // Bereits eingeloggt, zur Hauptseite weiterleiten
-              window.location.href = "/";
+              showNotification(
+                "Sie sind bereits angemeldet. Weiterleitung...",
+                "info"
+              );
+              setTimeout(() => {
+                window.location.href = "/";
+              }, 1500);
             }
           } catch (error) {
             console.log("Auth-Status-Prüfung fehlgeschlagen:", error);
@@ -117,8 +450,8 @@
             password: formData.get("password"),
           };
 
-          // Validierung
           if (!loginData.username || !loginData.password) {
+            showNotification("Bitte alle Felder ausfüllen", "warning");
             this.showError("Bitte alle Felder ausfüllen");
             return;
           }
@@ -138,16 +471,25 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
+              showNotification(
+                "Login erfolgreich! Weiterleitung...",
+                "success"
+              );
               this.showSuccess("Login erfolgreich! Weiterleitung...");
               setTimeout(() => {
                 window.location.href = "/";
               }, 1000);
             } else {
-              this.showError(data.error || "Login fehlgeschlagen");
+              const errorMessage = data.error || "Login fehlgeschlagen";
+              showNotification(errorMessage, "error");
+              this.showError(errorMessage);
             }
           } catch (error) {
             console.error("Login-Fehler:", error);
-            this.showError("Verbindungsfehler. Bitte versuchen Sie es erneut.");
+            const errorMessage =
+              "Verbindungsfehler. Bitte versuchen Sie es erneut.";
+            showNotification(errorMessage, "error");
+            this.showError(errorMessage);
           } finally {
             this.setLoading(false);
           }

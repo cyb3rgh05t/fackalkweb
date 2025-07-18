@@ -43,19 +43,18 @@
           <!-- User-Bereich mit Logout -->
           <div class="user-area">
             <div class="user-info" id="user-info">
-              <i class="fas fa-user-circle"></i>
-              <span id="current-username">Laden...</span>
+              <i class="fas fa-user"></i>
+              <span id="current-username">Lädt...</span>
             </div>
-            <div class="user-actions">
-              <button
-                class="logout-btn"
-                onclick="handleLogout()"
-                title="Abmelden"
-              >
-                <i class="fas fa-sign-out-alt"></i>
-                <span class="logout-text">Logout</span>
-              </button>
-            </div>
+
+            <button
+              onclick="handleLogout()"
+              class="logout-btn"
+              title="Abmelden"
+            >
+              <i class="fas fa-sign-out-alt"></i>
+              Abmelden
+            </button>
           </div>
         </div>
       </div>
@@ -297,8 +296,16 @@
 
           <!-- Tab-Navigation -->
           <div class="settings-tabs">
+            <!-- NEUER PROFIL-TAB -->
             <button
               class="settings-tab active"
+              data-tab="profil"
+              onclick="showSettingsTab('profil')"
+            >
+              <i class="fas fa-user-cog"></i> Profil
+            </button>
+            <button
+              class="settings-tab"
               data-tab="firma"
               onclick="showSettingsTab('firma')"
             >
@@ -328,7 +335,7 @@
           </div>
 
           <!-- Firmendaten -->
-          <div id="firma-settings" class="settings-content active">
+          <div id="firma-settings" class="settings-content">
             <div class="card">
               <div class="card-header">
                 <h2 class="card-title">Firmendaten</h2>
@@ -694,11 +701,342 @@
               </form>
             </div>
           </div>
+
+          <div id="modal-container"></div>
+
+          <div id="profil-settings" class="settings-content active">
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">
+                  <i class="fas fa-user-circle"></i> Profil-Informationen
+                </h2>
+              </div>
+
+              <!-- Benutzer-Info Anzeige -->
+              <div
+                style="
+                  display: grid;
+                  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                  gap: 1rem;
+                  margin-bottom: 2rem;
+                "
+              >
+                <div
+                  style="
+                    padding: 1rem;
+                    background: var(--clr-surface-a20);
+                    border-radius: 8px;
+                    border: 1px solid var(--border-color);
+                  "
+                >
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 0.5rem;
+                      margin-bottom: 0.5rem;
+                    "
+                  >
+                    <i
+                      class="fas fa-user"
+                      style="color: var(--accent-primary)"
+                    ></i>
+                    <strong>Benutzername</strong>
+                  </div>
+                  <div
+                    id="settings-profile-username"
+                    style="color: var(--text-primary); font-size: 1.1rem"
+                  >
+                    Lädt...
+                  </div>
+                </div>
+
+                <div
+                  style="
+                    padding: 1rem;
+                    background: var(--clr-surface-a20);
+                    border-radius: 8px;
+                    border: 1px solid var(--border-color);
+                  "
+                >
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 0.5rem;
+                      margin-bottom: 0.5rem;
+                    "
+                  >
+                    <i
+                      class="fas fa-shield-alt"
+                      style="color: var(--accent-primary)"
+                    ></i>
+                    <strong>Rolle</strong>
+                  </div>
+                  <div
+                    id="settings-profile-role"
+                    style="color: var(--text-primary); font-size: 1.1rem"
+                  >
+                    Lädt...
+                  </div>
+                </div>
+
+                <div
+                  style="
+                    padding: 1rem;
+                    background: var(--clr-surface-a20);
+                    border-radius: 8px;
+                    border: 1px solid var(--border-color);
+                  "
+                >
+                  <div
+                    style="
+                      display: flex;
+                      align-items: center;
+                      gap: 0.5rem;
+                      margin-bottom: 0.5rem;
+                    "
+                  >
+                    <i
+                      class="fas fa-clock"
+                      style="color: var(--accent-primary)"
+                    ></i>
+                    <strong>Status</strong>
+                  </div>
+                  <div style="color: var(--accent-primary); font-size: 1.1rem">
+                    Aktiv
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">
+                  <i class="fas fa-edit"></i> Benutzerdaten ändern
+                </h2>
+              </div>
+
+              <form id="settings-change-username-form">
+                <div class="form-group">
+                  <label class="form-label">Benutzername *</label>
+                  <input
+                    type="text"
+                    class="form-input"
+                    id="settings-username-input"
+                    name="newUsername"
+                    placeholder="Neuer Benutzername"
+                    required
+                    minlength="3"
+                  />
+                  <small class="text-muted"
+                    >Mindestens 3 Zeichen. Nur Buchstaben, Zahlen und
+                    Unterstriche erlaubt.</small
+                  >
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-bottom: 2rem">
+                  <button
+                    type="submit"
+                    class="btn btn-primary"
+                    id="settings-username-submit"
+                  >
+                    <i class="fas fa-user-edit"></i> Benutzername ändern
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    onclick="resetUsernameForm()"
+                  >
+                    <i class="fas fa-undo"></i> Zurücksetzen
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">
+                  <i class="fas fa-lock"></i> Passwort ändern
+                </h2>
+              </div>
+
+              <form id="settings-change-password-form">
+                <div class="form-grid">
+                  <div class="form-group">
+                    <label class="form-label">Aktuelles Passwort *</label>
+                    <div style="position: relative">
+                      <input
+                        type="password"
+                        class="form-input"
+                        id="settings-current-password"
+                        name="currentPassword"
+                        placeholder="Ihr aktuelles Passwort"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onclick="toggleSettingsPassword('settings-current-password')"
+                        style="
+                          position: absolute;
+                          right: 10px;
+                          top: 50%;
+                          transform: translateY(-50%);
+                          background: none;
+                          border: none;
+                          color: var(--text-muted);
+                          cursor: pointer;
+                        "
+                      >
+                        <i class="fas fa-eye"></i>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Neues Passwort *</label>
+                    <div style="position: relative">
+                      <input
+                        type="password"
+                        class="form-input"
+                        id="settings-new-password"
+                        name="newPassword"
+                        placeholder="Neues Passwort (min. 6 Zeichen)"
+                        required
+                        oninput="checkSettingsPasswordStrength(this.value)"
+                      />
+                      <button
+                        type="button"
+                        onclick="toggleSettingsPassword('settings-new-password')"
+                        style="
+                          position: absolute;
+                          right: 10px;
+                          top: 50%;
+                          transform: translateY(-50%);
+                          background: none;
+                          border: none;
+                          color: var(--text-muted);
+                          cursor: pointer;
+                        "
+                      >
+                        <i class="fas fa-eye"></i>
+                      </button>
+                    </div>
+                    <!-- Passwort-Stärke Anzeige -->
+                    <div
+                      id="settings-password-strength"
+                      style="display: none; margin-top: 0.5rem"
+                    >
+                      <div
+                        style="
+                          height: 4px;
+                          background: var(--clr-surface-a20);
+                          border-radius: 2px;
+                          overflow: hidden;
+                          margin-bottom: 0.5rem;
+                        "
+                      >
+                        <div
+                          id="settings-strength-fill"
+                          style="
+                            height: 100%;
+                            transition: all 0.3s ease;
+                            border-radius: 2px;
+                            width: 0;
+                          "
+                        ></div>
+                      </div>
+                      <div
+                        id="settings-strength-text"
+                        style="font-size: 0.8rem; color: var(--text-muted)"
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">Passwort bestätigen *</label>
+                    <div style="position: relative">
+                      <input
+                        type="password"
+                        class="form-input"
+                        id="settings-confirm-password"
+                        name="confirmPassword"
+                        placeholder="Neues Passwort wiederholen"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onclick="toggleSettingsPassword('settings-confirm-password')"
+                        style="
+                          position: absolute;
+                          right: 10px;
+                          top: 50%;
+                          transform: translateY(-50%);
+                          background: none;
+                          border: none;
+                          color: var(--text-muted);
+                          cursor: pointer;
+                        "
+                      >
+                        <i class="fas fa-eye"></i>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div style="display: flex; gap: 1rem; margin-top: 1.5rem">
+                  <button
+                    type="submit"
+                    class="btn btn-primary"
+                    id="settings-password-submit"
+                  >
+                    <i class="fas fa-save"></i> Passwort ändern
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-secondary"
+                    onclick="resetSettingsPasswordForm()"
+                  >
+                    <i class="fas fa-undo"></i> Zurücksetzen
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <div class="card">
+              <div class="card-header">
+                <h2 class="card-title">
+                  <i class="fas fa-shield-alt"></i> Sicherheit
+                </h2>
+              </div>
+
+              <div style="display: flex; flex-wrap: wrap; gap: 1rem">
+                <button
+                  type="button"
+                  class="btn btn-secondary"
+                  onclick="showSettingsSessionInfo()"
+                >
+                  <i class="fas fa-info-circle"></i> Sitzungsinformationen
+                </button>
+
+                <button
+                  type="button"
+                  class="btn"
+                  onclick="logoutFromSettings()"
+                  style="
+                    background: linear-gradient(135deg, #ef4444, #dc2626);
+                    color: white;
+                  "
+                >
+                  <i class="fas fa-sign-out-alt"></i> Alle Sitzungen beenden
+                </button>
+              </div>
+            </div>
+          </div>
         </section>
       </div>
     </main>
 
-    <div id="modal-container"></div>
     <script>
       // User-Informationen laden und anzeigen
       async function loadUserInfo() {
@@ -810,9 +1148,564 @@
           handleLogout();
         }
       });
+      // JavaScript Code für Profil-Tab (in public/js/auth.js oder public/app.js hinzufügen)
+
+      // Globale Variable für aktuellen Benutzer
+      let currentProfileUser = null;
+
+      // Profil-Informationen beim Laden aktualisieren
+      document.addEventListener("DOMContentLoaded", function () {
+        // Warte bis authManager verfügbar ist
+        setTimeout(updateProfileSettings, 1000);
+      });
+
+      // Benutzer-Daten sicher abrufen
+      function getCurrentUserSafe() {
+        // Versuche verschiedene Wege den aktuellen Benutzer zu bekommen
+        if (window.authManager && window.authManager.getCurrentUser) {
+          return window.authManager.getCurrentUser();
+        }
+
+        if (window.getCurrentUser) {
+          return window.getCurrentUser();
+        }
+
+        if (currentProfileUser) {
+          return currentProfileUser;
+        }
+
+        // Fallback: Direkt von API abrufen
+        return null;
+      }
+
+      // Profil-Einstellungen aktualisieren
+      async function updateProfileSettings() {
+        let user = getCurrentUserSafe();
+
+        // Falls kein Benutzer gefunden, von API laden
+        if (!user) {
+          try {
+            const response = await fetch("/api/auth/status");
+            const data = await response.json();
+            if (data.authenticated && data.user) {
+              user = data.user;
+              currentProfileUser = user;
+            }
+          } catch (error) {
+            console.error("Fehler beim Laden der Benutzerdaten:", error);
+            return;
+          }
+        }
+
+        if (user) {
+          const usernameEl = document.getElementById(
+            "settings-profile-username"
+          );
+          const roleEl = document.getElementById("settings-profile-role");
+
+          if (usernameEl) {
+            usernameEl.textContent = user.username;
+            // Auch das Username-Input-Feld mit aktuellem Wert füllen
+            const usernameInput = document.getElementById(
+              "settings-username-input"
+            );
+            if (usernameInput) {
+              usernameInput.placeholder = `Aktuell: ${user.username}`;
+            }
+          }
+
+          if (roleEl) {
+            if (user.role === "admin") {
+              roleEl.innerHTML =
+                'Administrator <span style="background: var(--accent-warning); color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; margin-left: 0.5rem;">ADMIN</span>';
+            } else {
+              roleEl.textContent = "Benutzer";
+            }
+          }
+        }
+      }
+
+      // Passwort-Sichtbarkeit in Einstellungen umschalten
+      function toggleSettingsPassword(inputId) {
+        const input = document.getElementById(inputId);
+        const button = input.nextElementSibling;
+        const icon = button.querySelector("i");
+
+        if (input.type === "password") {
+          input.type = "text";
+          icon.className = "fas fa-eye-slash";
+        } else {
+          input.type = "password";
+          icon.className = "fas fa-eye";
+        }
+      }
+
+      // Passwort-Stärke in Einstellungen prüfen
+      function checkSettingsPasswordStrength(password) {
+        const strengthDiv = document.getElementById(
+          "settings-password-strength"
+        );
+        const strengthFill = document.getElementById("settings-strength-fill");
+        const strengthText = document.getElementById("settings-strength-text");
+
+        if (!password) {
+          strengthDiv.style.display = "none";
+          return;
+        }
+
+        strengthDiv.style.display = "block";
+
+        let score = 0;
+        let feedback = [];
+
+        // Länge
+        if (password.length >= 8) score++;
+        else feedback.push("mindestens 8 Zeichen");
+
+        // Großbuchstaben
+        if (/[A-Z]/.test(password)) score++;
+        else feedback.push("Großbuchstaben");
+
+        // Kleinbuchstaben
+        if (/[a-z]/.test(password)) score++;
+        else feedback.push("Kleinbuchstaben");
+
+        // Zahlen
+        if (/\d/.test(password)) score++;
+        else feedback.push("Zahlen");
+
+        // Sonderzeichen
+        if (/[^A-Za-z0-9]/.test(password)) score++;
+        else feedback.push("Sonderzeichen");
+
+        // Stärke anzeigen
+        if (score <= 1) {
+          strengthFill.style.background = "#ef4444";
+          strengthFill.style.width = "25%";
+          strengthText.textContent =
+            "Schwach - Fehlt: " + feedback.slice(0, 3).join(", ");
+        } else if (score <= 2) {
+          strengthFill.style.background = "#f59e0b";
+          strengthFill.style.width = "50%";
+          strengthText.textContent =
+            "Mittelmäßig - Fehlt: " + feedback.slice(0, 2).join(", ");
+        } else if (score <= 3) {
+          strengthFill.style.background = "#10b981";
+          strengthFill.style.width = "75%";
+          strengthText.textContent =
+            "Gut - Empfohlen: " + (feedback[0] || "Sonderzeichen");
+        } else {
+          strengthFill.style.background = "#059669";
+          strengthFill.style.width = "100%";
+          strengthText.textContent = "Stark - Sicheres Passwort";
+        }
+      }
+
+      // Benutzername-Formular zurücksetzen
+      function resetUsernameForm() {
+        document.getElementById("settings-change-username-form").reset();
+      }
+
+      // Passwort-Formular in Einstellungen zurücksetzen
+      function resetSettingsPasswordForm() {
+        document.getElementById("settings-change-password-form").reset();
+        document.getElementById("settings-password-strength").style.display =
+          "none";
+      }
+
+      // Sitzungsinformationen in Einstellungen anzeigen
+      async function showSettingsSessionInfo() {
+        let user = getCurrentUserSafe();
+
+        // Falls kein Benutzer gefunden, von API laden
+        if (!user) {
+          try {
+            const response = await fetch("/api/auth/status");
+            const data = await response.json();
+            if (data.authenticated && data.user) {
+              user = data.user;
+              currentProfileUser = user;
+            }
+          } catch (error) {
+            console.error("Fehler beim Laden der Benutzerdaten:", error);
+            if (typeof showNotification === "function") {
+              showNotification("Fehler beim Laden der Benutzerdaten", "error");
+            } else {
+              alert("Fehler beim Laden der Benutzerdaten");
+            }
+            return;
+          }
+        }
+
+        if (user) {
+          const info = `
+Aktuelle Sitzung:
+
+Benutzer: ${user.username}
+Rolle: ${user.role}
+Angemeldet seit: ${new Date().toLocaleString("de-DE")}
+Browser: ${navigator.userAgent.split(" ").pop()}
+IP-Adresse: ${window.location.hostname}
+Protokoll: ${window.location.protocol}
+    `.trim();
+
+          // Verwende das bestehende Notification-System falls vorhanden
+          if (typeof showNotification === "function") {
+            showNotification(
+              "Sitzungsinformationen in der Konsole angezeigt",
+              "info"
+            );
+            console.log(info);
+          } else {
+            alert(info);
+          }
+        } else {
+          if (typeof showNotification === "function") {
+            showNotification("Keine Benutzerdaten verfügbar", "error");
+          } else {
+            alert("Keine Benutzerdaten verfügbar");
+          }
+        }
+      }
+
+      // Logout von Einstellungen
+      async function logoutFromSettings() {
+        if (!confirm("Möchten Sie sich wirklich von allen Geräten abmelden?")) {
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/auth/logout", {
+            method: "POST",
+          });
+
+          if (response.ok) {
+            if (typeof showNotification === "function") {
+              showNotification(
+                "Erfolgreich von allen Sitzungen abgemeldet",
+                "success"
+              );
+            }
+
+            setTimeout(() => {
+              window.location.href = "/login";
+            }, 1500);
+          } else {
+            if (typeof showNotification === "function") {
+              showNotification("Fehler beim Abmelden", "error");
+            } else {
+              alert("Fehler beim Abmelden");
+            }
+          }
+        } catch (error) {
+          console.error("Fehler beim Abmelden:", error);
+          if (typeof showNotification === "function") {
+            showNotification("Netzwerkfehler beim Abmelden", "error");
+          } else {
+            alert("Netzwerkfehler beim Abmelden");
+          }
+        }
+      }
+
+      // Event Listener für Formulare in Einstellungen
+      document.addEventListener("DOMContentLoaded", function () {
+        // Event Listener für Benutzername-Formular
+        const usernameForm = document.getElementById(
+          "settings-change-username-form"
+        );
+
+        if (usernameForm) {
+          usernameForm.addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const newUsername = formData.get("newUsername").trim();
+
+            // Validierung
+            if (!newUsername) {
+              if (typeof showNotification === "function") {
+                showNotification("Benutzername ist erforderlich", "error");
+              } else {
+                alert("Benutzername ist erforderlich");
+              }
+              return;
+            }
+
+            if (newUsername.length < 3) {
+              if (typeof showNotification === "function") {
+                showNotification(
+                  "Benutzername muss mindestens 3 Zeichen lang sein",
+                  "error"
+                );
+              } else {
+                alert("Benutzername muss mindestens 3 Zeichen lang sein");
+              }
+              return;
+            }
+
+            // Nur Buchstaben, Zahlen und Unterstriche erlauben
+            if (!/^[a-zA-Z0-9_]+$/.test(newUsername)) {
+              if (typeof showNotification === "function") {
+                showNotification(
+                  "Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten",
+                  "error"
+                );
+              } else {
+                alert(
+                  "Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten"
+                );
+              }
+              return;
+            }
+
+            // Prüfen ob Username sich geändert hat
+            const currentUser = getCurrentUserSafe();
+            if (currentUser && currentUser.username === newUsername) {
+              if (typeof showNotification === "function") {
+                showNotification(
+                  "Neuer Benutzername muss sich vom aktuellen unterscheiden",
+                  "error"
+                );
+              } else {
+                alert(
+                  "Neuer Benutzername muss sich vom aktuellen unterscheiden"
+                );
+              }
+              return;
+            }
+
+            const submitBtn = document.getElementById(
+              "settings-username-submit"
+            );
+            const originalText = submitBtn.innerHTML;
+
+            try {
+              submitBtn.disabled = true;
+              submitBtn.innerHTML =
+                '<i class="fas fa-spinner fa-spin"></i> Wird geändert...';
+
+              const response = await fetch("/api/auth/change-username", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  newUsername: newUsername,
+                }),
+              });
+
+              const data = await response.json();
+
+              if (response.ok && data.success) {
+                if (typeof showNotification === "function") {
+                  showNotification(
+                    "Benutzername erfolgreich geändert",
+                    "success"
+                  );
+                } else {
+                  alert("Benutzername erfolgreich geändert");
+                }
+
+                // Benutzerdaten aktualisieren
+                if (currentProfileUser) {
+                  currentProfileUser.username = newUsername;
+                }
+
+                // UI aktualisieren
+                updateProfileSettings();
+
+                // Auch den Username in der Hauptnavigation aktualisieren
+                const mainUsernameEl =
+                  document.getElementById("current-username");
+                if (mainUsernameEl) {
+                  mainUsernameEl.textContent = newUsername;
+                }
+
+                resetUsernameForm();
+              } else {
+                if (typeof showNotification === "function") {
+                  showNotification(
+                    data.error || "Fehler beim Ändern des Benutzernamens",
+                    "error"
+                  );
+                } else {
+                  alert(data.error || "Fehler beim Ändern des Benutzernamens");
+                }
+              }
+            } catch (error) {
+              console.error("Fehler beim Ändern des Benutzernamens:", error);
+              if (typeof showNotification === "function") {
+                showNotification(
+                  "Netzwerkfehler beim Ändern des Benutzernamens",
+                  "error"
+                );
+              } else {
+                alert("Netzwerkfehler beim Ändern des Benutzernamens");
+              }
+            } finally {
+              submitBtn.disabled = false;
+              submitBtn.innerHTML = originalText;
+            }
+          });
+        }
+
+        // Event Listener für Passwort-Formular
+        const passwordForm = document.getElementById(
+          "settings-change-password-form"
+        );
+
+        if (passwordForm) {
+          passwordForm.addEventListener("submit", async function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const currentPassword = formData.get("currentPassword");
+            const newPassword = formData.get("newPassword");
+            const confirmPassword = formData.get("confirmPassword");
+
+            // Validierung
+            if (!currentPassword || !newPassword || !confirmPassword) {
+              if (typeof showNotification === "function") {
+                showNotification("Alle Felder sind erforderlich", "error");
+              } else {
+                alert("Alle Felder sind erforderlich");
+              }
+              return;
+            }
+
+            if (newPassword.length < 6) {
+              if (typeof showNotification === "function") {
+                showNotification(
+                  "Neues Passwort muss mindestens 6 Zeichen lang sein",
+                  "error"
+                );
+              } else {
+                alert("Neues Passwort muss mindestens 6 Zeichen lang sein");
+              }
+              return;
+            }
+
+            if (newPassword !== confirmPassword) {
+              if (typeof showNotification === "function") {
+                showNotification(
+                  "Neue Passwörter stimmen nicht überein",
+                  "error"
+                );
+              } else {
+                alert("Neue Passwörter stimmen nicht überein");
+              }
+              return;
+            }
+
+            if (currentPassword === newPassword) {
+              if (typeof showNotification === "function") {
+                showNotification(
+                  "Neues Passwort muss sich vom aktuellen unterscheiden",
+                  "error"
+                );
+              } else {
+                alert("Neues Passwort muss sich vom aktuellen unterscheiden");
+              }
+              return;
+            }
+
+            const submitBtn = document.getElementById(
+              "settings-password-submit"
+            );
+            const originalText = submitBtn.innerHTML;
+
+            try {
+              submitBtn.disabled = true;
+              submitBtn.innerHTML =
+                '<i class="fas fa-spinner fa-spin"></i> Wird geändert...';
+
+              const response = await fetch("/api/auth/change-password", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  currentPassword: currentPassword,
+                  newPassword: newPassword,
+                }),
+              });
+
+              const data = await response.json();
+
+              if (response.ok && data.success) {
+                if (typeof showNotification === "function") {
+                  showNotification("Passwort erfolgreich geändert", "success");
+                } else {
+                  alert("Passwort erfolgreich geändert");
+                }
+                resetSettingsPasswordForm();
+              } else {
+                if (typeof showNotification === "function") {
+                  showNotification(
+                    data.error || "Fehler beim Ändern des Passworts",
+                    "error"
+                  );
+                } else {
+                  alert(data.error || "Fehler beim Ändern des Passworts");
+                }
+              }
+            } catch (error) {
+              console.error("Fehler beim Ändern des Passworts:", error);
+              if (typeof showNotification === "function") {
+                showNotification(
+                  "Netzwerkfehler beim Ändern des Passworts",
+                  "error"
+                );
+              } else {
+                alert("Netzwerkfehler beim Ändern des Passworts");
+              }
+            } finally {
+              submitBtn.disabled = false;
+              submitBtn.innerHTML = originalText;
+            }
+          });
+        }
+      });
+
+      // showSettingsTab Funktion erweitern (falls nicht vorhanden)
+      if (typeof window.showSettingsTab === "undefined") {
+        window.showSettingsTab = function (tabName) {
+          // Alle Tabs und Content verstecken
+          document.querySelectorAll(".settings-tab").forEach((tab) => {
+            tab.classList.remove("active");
+          });
+          document.querySelectorAll(".settings-content").forEach((content) => {
+            content.classList.remove("active");
+          });
+
+          // Aktiven Tab und Content anzeigen
+          const activeTab = document.querySelector(`[data-tab="${tabName}"]`);
+          const activeContent = document.getElementById(`${tabName}-settings`);
+
+          if (activeTab) activeTab.classList.add("active");
+          if (activeContent) activeContent.classList.add("active");
+
+          // Profil-Daten laden wenn Profil-Tab geöffnet wird
+          if (tabName === "profil") {
+            setTimeout(updateProfileSettings, 100);
+          }
+        };
+      } else {
+        // Erweitere bestehende Funktion
+        const originalShowSettingsTab = window.showSettingsTab;
+        window.showSettingsTab = function (tabName) {
+          originalShowSettingsTab(tabName);
+
+          // Profil-Daten laden wenn Profil-Tab geöffnet wird
+          if (tabName === "profil") {
+            setTimeout(updateProfileSettings, 100);
+          }
+        };
+      }
     </script>
 
     <!-- Ihre bestehenden JavaScript-Dateien -->
+
     <script type="module" src="js/app.js"></script>
     <script type="module" src="js/notifications.js"></script>
     <script type="module" src="js/utils.js"></script>

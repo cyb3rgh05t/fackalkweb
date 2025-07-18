@@ -70,7 +70,7 @@
     ],
     "win": {
       "target": "nsis",
-      "icon": "public/assets/icon/favicon.ico",
+      "icon": "public/favicon.png",
       "verifyUpdateCodeSignature": false,
       "forceCodeSigning": false,
       "extraResources": [
@@ -82,11 +82,11 @@
     },
     "mac": {
       "target": "dmg",
-      "icon": "public/assets/icon/favicon.ico"
+      "icon": "public/favicon.png"
     },
     "linux": {
       "target": "AppImage",
-      "icon": "public/assets/icon/favicon.ico"
+      "icon": "public/favicon.png"
     },
     "nsis": {
       "oneClick": false,

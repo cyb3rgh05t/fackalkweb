@@ -695,14 +695,39 @@ body {
     flex-wrap: wrap;
     gap: 0.5rem;
   }
+  /* Profile Link Styling */
+  .profile-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: rgba(131, 222, 143, 0.1);
+    color: var(--accent-primary);
+    border: 1px solid rgba(131, 222, 143, 0.3);
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.3s ease;
+  }
+
+  .profile-link:hover {
+    background: var(--accent-primary);
+    color: var(--clr-dark-a0);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(131, 222, 143, 0.3);
+  }
+
+  .profile-link i {
+    font-size: 1rem;
+  }
+
+  /* User Area Layout anpassen */
   .user-area {
-    order: 1;
-    border-left: none;
-    border-bottom: 1px solid var(--border-color);
-    padding-left: 0;
-    padding-bottom: 1rem;
-    width: 100%;
-    justify-content: space-between;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-left: 2rem;
+    border-left: 1px solid var(--border-color);
   }
   .user-info span,
   .logout-text {

@@ -14,5 +14,5 @@ router.post("/change-password", requireAuth, authController.changePassword);
 
 // Admin-Routen (Admin-Rechte erforderlich)
 router.post("/create-user", requireAdmin, authController.createUser);
-
+router.post("/change-username", requireAuth, authController.changeUsername);
 module.exports = router;

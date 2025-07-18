@@ -176,6 +176,25 @@ const User = {
     });
   },
 
+  // Benutzername aktualisieren
+  updateUsername: function (userId, newUsername) {
+    return new Promise(function (resolve, reject) {
+      const query = `
+      UPDATE users 
+      SET username = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `;
+
+      db.run(query, [newUsername, userId], function (err) {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(this.changes);
+        }
+      });
+    });
+  },
+
   // Prüfen ob bereits Benutzer existieren
   countUsers: function () {
     return new Promise(function (resolve, reject) {

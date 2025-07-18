@@ -443,6 +443,10 @@ app.get("/", requireAuth, requireValidLicense, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+app.get("/profile", requireAuth, requireValidLicense, (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "profile.html"));
+});
+
 // 404 Handler für API-Routen
 app.use("/api/*", (req, res) => {
   res.status(404).json({

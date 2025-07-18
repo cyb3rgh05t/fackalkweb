@@ -132,6 +132,79 @@ const authController = {
       res.status(500).json({ error: "Benutzer-Erstellung fehlgeschlagen" });
     }
   },
+  // Benutzername ändern
+  changeUsername: async (req, res) => {
+    try {
+      const { newUsername } = req.body;
+      const userId = req.session.userId;
+
+      // Validierung
+      if (!newUsername) {
+        return res.status(400).json({
+          error: "Neuer Benutzername ist erforderlich",
+        });
+      }
+
+      // Benutzername validieren
+      const trimmedUsername = newUsername.trim();
+
+      if (trimmedUsername.length < 3) {
+        return res.status(400).json({
+          error: "Benutzername muss mindestens 3 Zeichen lang sein",
+        });
+      }
+
+      if (trimmedUsername.length > 50) {
+        return res.status(400).json({
+          error: "Benutzername darf maximal 50 Zeichen lang sein",
+        });
+      }
+
+      // Nur erlaubte Zeichen (Buchstaben, Zahlen, Unterstriche)
+      if (!/^[a-zA-Z0-9_]+$/.test(trimmedUsername)) {
+        return res.status(400).json({
+          error:
+            "Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten",
+        });
+      }
+
+      // Aktueller Benutzer abrufen
+      const currentUser = await User.findById(userId);
+      if (!currentUser) {
+        return res.status(404).json({ error: "Benutzer nicht gefunden" });
+      }
+
+      // Prüfen ob sich der Username geändert hat
+      if (currentUser.username === trimmedUsername) {
+        return res.status(400).json({
+          error: "Neuer Benutzername muss sich vom aktuellen unterscheiden",
+        });
+      }
+
+      // Prüfen ob Benutzername bereits existiert
+      const existingUser = await User.findByUsername(trimmedUsername);
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).json({
+          error: "Benutzername bereits vergeben",
+        });
+      }
+
+      // Benutzername aktualisieren
+      await User.updateUsername(userId, trimmedUsername);
+
+      // Session aktualisieren
+      req.session.username = trimmedUsername;
+
+      res.json({
+        success: true,
+        message: "Benutzername erfolgreich geändert",
+        newUsername: trimmedUsername,
+      });
+    } catch (error) {
+      console.error("Benutzername-Änderung fehlgeschlagen:", error);
+      res.status(500).json({ error: "Benutzername-Änderung fehlgeschlagen" });
+    }
+  },
 
   // Passwort ändern
   changePassword: async (req, res) => {

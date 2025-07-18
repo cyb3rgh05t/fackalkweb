@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profil-Einstellungen - KFZ Admin</title>
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <link rel="stylesheet" href="css/profile.css" />
+  </head>
+  <body>
+    <div class="profile-container">
+      <a href="/" class="back-link">
+        <i class="fas fa-arrow-left"></i>
+        Zurück zum Dashboard
+      </a>
+
+      <div class="profile-header">
+        <h1><i class="fas fa-user-circle"></i> Profil-Einstellungen</h1>
+        <p>
+          Verwalten Sie Ihre Kontoinformationen und Sicherheitseinstellungen
+        </p>
+      </div>
+
+      <!-- Benutzer-Informationen -->
+      <div class="profile-card">
+        <div class="profile-section-title">
+          <i class="fas fa-info-circle"></i>
+          <h2>Konto-Informationen</h2>
+        </div>
+
+        <div class="user-info-grid">
+          <div class="info-item">
+            <i class="fas fa-user"></i>
+            <div class="info-content">
+              <div class="info-label">Benutzername</div>
+              <div class="info-value" id="profile-username">Lädt...</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <i class="fas fa-shield-alt"></i>
+            <div class="info-content">
+              <div class="info-label">Rolle</div>
+              <div class="info-value" id="profile-role">Lädt...</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <i class="fas fa-clock"></i>
+            <div class="info-content">
+              <div class="info-label">Letzte Anmeldung</div>
+              <div class="info-value" id="profile-last-login">Aktuell</div>
+            </div>
+          </div>
+
+          <div class="info-item">
+            <i class="fas fa-key"></i>
+            <div class="info-content">
+              <div class="info-label">Passwort</div>
+              <div class="info-value">••••••••••</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Passwort ändern -->
+      <div class="profile-card">
+        <div class="profile-section-title">
+          <i class="fas fa-lock"></i>
+          <h2>Passwort ändern</h2>
+        </div>
+
+        <form id="change-password-form">
+          <div class="form-group">
+            <label class="form-label" for="current-password"
+              >Aktuelles Passwort</label
+            >
+            <div class="password-input-wrapper">
+              <input
+                type="password"
+                class="form-input"
+                id="current-password"
+                name="currentPassword"
+                placeholder="Ihr aktuelles Passwort eingeben"
+                required
+              />
+              <button
+                type="button"
+                class="password-toggle"
+                onclick="togglePasswordVisibility('current-password')"
+              >
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="new-password">Neues Passwort</label>
+            <div class="password-input-wrapper">
+              <input
+                type="password"
+                class="form-input"
+                id="new-password"
+                name="newPassword"
+                placeholder="Ihr neues Passwort eingeben (mindestens 6 Zeichen)"
+                required
+                oninput="checkPasswordStrength(this.value)"
+              />
+              <button
+                type="button"
+                class="password-toggle"
+                onclick="togglePasswordVisibility('new-password')"
+              >
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+            <div
+              class="password-strength"
+              id="password-strength"
+              style="display: none"
+            >
+              <div class="strength-bar">
+                <div class="strength-fill" id="strength-fill"></div>
+              </div>
+              <div class="strength-text" id="strength-text"></div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="confirm-password"
+              >Neues Passwort bestätigen</label
+            >
+            <div class="password-input-wrapper">
+              <input
+                type="password"
+                class="form-input"
+                id="confirm-password"
+                name="confirmPassword"
+                placeholder="Neues Passwort wiederholen"
+                required
+              />
+              <button
+                type="button"
+                class="password-toggle"
+                onclick="togglePasswordVisibility('confirm-password')"
+              >
+                <i class="fas fa-eye"></i>
+              </button>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 1rem; margin-top: 2rem">
+            <button
+              type="submit"
+              class="btn btn-primary"
+              id="change-password-btn"
+            >
+              <i class="fas fa-save"></i>
+              <span>Passwort ändern</span>
+              <div
+                class="spinner"
+                id="password-spinner"
+                style="display: none"
+              ></div>
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="resetPasswordForm()"
+            >
+              <i class="fas fa-undo"></i>
+              Zurücksetzen
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Sicherheitsoptionen -->
+      <div class="profile-card">
+        <div class="profile-section-title">
+          <i class="fas fa-shield-alt"></i>
+          <h2>Sicherheit & Sitzung</h2>
+        </div>
+
+        <div style="display: flex; flex-wrap: wrap; gap: 1rem">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick="showSessionInfo()"
+          >
+            <i class="fas fa-info-circle"></i>
+            Sitzungsinformationen
+          </button>
+
+          <button
+            type="button"
+            class="btn btn-danger"
+            onclick="logoutAllSessions()"
+          >
+            <i class="fas fa-sign-out-alt"></i>
+            Alle Sitzungen beenden
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let currentUser = null;
+
+      // Beim Laden der Seite Benutzerinformationen laden
+      document.addEventListener("DOMContentLoaded", function () {
+        loadUserProfile();
+      });
+
+      // Benutzerinformationen laden
+      async function loadUserProfile() {
+        try {
+          const response = await fetch("/api/auth/status");
+          const data = await response.json();
+
+          if (data.authenticated && data.user) {
+            currentUser = data.user;
+            updateUserDisplay();
+          } else {
+            window.location.href = "/login";
+          }
+        } catch (error) {
+          console.error("Fehler beim Laden der Benutzerdaten:", error);
+          showNotification("Fehler beim Laden der Benutzerdaten", "error");
+        }
+      }
+
+      // Benutzeranzeige aktualisieren
+      function updateUserDisplay() {
+        if (!currentUser) return;
+
+        document.getElementById("profile-username").textContent =
+          currentUser.username;
+
+        // Rolle mit Badge
+        const roleElement = document.getElementById("profile-role");
+        if (currentUser.role === "admin") {
+          roleElement.innerHTML =
+            'Administrator <span style="background: var(--accent-warning); color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; margin-left: 0.5rem;">ADMIN</span>';
+        } else {
+          roleElement.textContent = "Benutzer";
+        }
+      }
+
+      // Passwort-Formular abschicken
+      document
+        .getElementById("change-password-form")
+        .addEventListener("submit", async function (e) {
+          e.preventDefault();
+
+          const formData = new FormData(e.target);
+          const currentPassword = formData.get("currentPassword");
+          const newPassword = formData.get("newPassword");
+          const confirmPassword = formData.get("confirmPassword");
+
+          // Validierung
+          if (!currentPassword || !newPassword || !confirmPassword) {
+            showNotification("Alle Felder sind erforderlich", "error");
+            return;
+          }
+
+          if (newPassword.length < 6) {
+            showNotification(
+              "Neues Passwort muss mindestens 6 Zeichen lang sein",
+              "error"
+            );
+            return;
+          }
+
+          if (newPassword !== confirmPassword) {
+            showNotification("Neue Passwörter stimmen nicht überein", "error");
+            return;
+          }
+
+          if (currentPassword === newPassword) {
+            showNotification(
+              "Neues Passwort muss sich vom aktuellen unterscheiden",
+              "error"
+            );
+            return;
+          }
+
+          const btn = document.getElementById("change-password-btn");
+          const spinner = document.getElementById("password-spinner");
+
+          try {
+            btn.disabled = true;
+            spinner.style.display = "block";
+
+            const response = await fetch("/api/auth/change-password", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                currentPassword: currentPassword,
+                newPassword: newPassword,
+              }),
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+              showNotification("Passwort erfolgreich geändert", "success");
+              resetPasswordForm();
+            } else {
+              showNotification(
+                data.error || "Fehler beim Ändern des Passworts",
+                "error"
+              );
+            }
+          } catch (error) {
+            console.error("Fehler beim Ändern des Passworts:", error);
+            showNotification(
+              "Netzwerkfehler beim Ändern des Passworts",
+              "error"
+            );
+          } finally {
+            btn.disabled = false;
+            spinner.style.display = "none";
+          }
+        });
+
+      // Passwort-Sichtbarkeit umschalten
+      function togglePasswordVisibility(inputId) {
+        const input = document.getElementById(inputId);
+        const button = input.nextElementSibling;
+        const icon = button.querySelector("i");
+
+        if (input.type === "password") {
+          input.type = "text";
+          icon.className = "fas fa-eye-slash";
+        } else {
+          input.type = "password";
+          icon.className = "fas fa-eye";
+        }
+      }
+
+      // Passwort-Stärke prüfen
+      function checkPasswordStrength(password) {
+        const strengthDiv = document.getElementById("password-strength");
+        const strengthFill = document.getElementById("strength-fill");
+        const strengthText = document.getElementById("strength-text");
+
+        if (!password) {
+          strengthDiv.style.display = "none";
+          return;
+        }
+
+        strengthDiv.style.display = "block";
+
+        let score = 0;
+        let feedback = [];
+
+        // Länge
+        if (password.length >= 8) score++;
+        else feedback.push("mindestens 8 Zeichen");
+
+        // Großbuchstaben
+        if (/[A-Z]/.test(password)) score++;
+        else feedback.push("Großbuchstaben");
+
+        // Kleinbuchstaben
+        if (/[a-z]/.test(password)) score++;
+        else feedback.push("Kleinbuchstaben");
+
+        // Zahlen
+        if (/\d/.test(password)) score++;
+        else feedback.push("Zahlen");
+
+        // Sonderzeichen
+        if (/[^A-Za-z0-9]/.test(password)) score++;
+        else feedback.push("Sonderzeichen");
+
+        // Stärke anzeigen
+        strengthFill.className = "strength-fill";
+        if (score <= 1) {
+          strengthFill.classList.add("strength-weak");
+          strengthText.textContent =
+            "Schwach - Fehlt: " + feedback.slice(0, 3).join(", ");
+        } else if (score <= 2) {
+          strengthFill.classList.add("strength-fair");
+          strengthText.textContent =
+            "Mittelmäßig - Fehlt: " + feedback.slice(0, 2).join(", ");
+        } else if (score <= 3) {
+          strengthFill.classList.add("strength-good");
+          strengthText.textContent =
+            "Gut - Empfohlen: " + (feedback[0] || "Sonderzeichen");
+        } else {
+          strengthFill.classList.add("strength-strong");
+          strengthText.textContent = "Stark - Sicheres Passwort";
+        }
+      }
+
+      // Passwort-Formular zurücksetzen
+      function resetPasswordForm() {
+        document.getElementById("change-password-form").reset();
+        document.getElementById("password-strength").style.display = "none";
+      }
+
+      // Sitzungsinformationen anzeigen
+      function showSessionInfo() {
+        if (currentUser) {
+          const info = `
+Benutzer: ${currentUser.username}
+Rolle: ${currentUser.role}
+Sitzung aktiv seit: ${new Date().toLocaleString("de-DE")}
+Browser: ${navigator.userAgent.split(" ").pop()}
+                `.trim();
+
+          alert(info);
+        }
+      }
+
+      // Alle Sitzungen beenden
+      async function logoutAllSessions() {
+        if (!confirm("Möchten Sie sich wirklich von allen Geräten abmelden?")) {
+          return;
+        }
+
+        try {
+          const response = await fetch("/api/auth/logout", {
+            method: "POST",
+          });
+
+          if (response.ok) {
+            showNotification(
+              "Erfolgreich von allen Sitzungen abgemeldet",
+              "success"
+            );
+            setTimeout(() => {
+              window.location.href = "/login";
+            }, 1500);
+          } else {
+            showNotification("Fehler beim Abmelden", "error");
+          }
+        } catch (error) {
+          console.error("Fehler beim Abmelden:", error);
+          showNotification("Netzwerkfehler beim Abmelden", "error");
+        }
+      }
+
+      // Benachrichtigungen anzeigen
+      function showNotification(message, type = "success") {
+        // Bestehende Benachrichtigungen entfernen
+        const existing = document.querySelector(".notification");
+        if (existing) {
+          existing.remove();
+        }
+
+        const notification = document.createElement("div");
+        notification.className = `notification notification-${type}`;
+        notification.innerHTML = `
+                <i class="fas ${
+                  type === "success"
+                    ? "fa-check-circle"
+                    : "fa-exclamation-circle"
+                }"></i>
+                <span>${message}</span>
+            `;
+
+        document.body.appendChild(notification);
+
+        // Animation einblenden
+        setTimeout(() => notification.classList.add("show"), 100);
+
+        // Automatisch ausblenden
+        setTimeout(() => {
+          notification.classList.remove("show");
+          setTimeout(() => notification.remove(), 300);
+        }, 4000);
+      }
+    </script>
+  </body>
+</html>

@@ -11,6 +11,7 @@ const fs = require("fs");
 const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
 const { requireAuth, attachUser } = require("./middleware/auth");
+const { requireValidLicense } = require("./middleware/licenseauth");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -203,6 +204,8 @@ app.get("/logout", (req, res) => {
   });
 });
 
+app.use("/api/license", require("./routes/license"));
+
 // RATE LIMITER ANWENDEN - RICHTIGE REIHENFOLGE WICHTIG!
 
 // 1. Spezifische Limits zuerst (werden zuerst geprüft)
@@ -243,6 +246,7 @@ app.get("/api/health", (req, res) => {
 app.post(
   "/api/upload/logo",
   requireAuth,
+  requireValidLicense,
   uploadLimiter,
   upload.single("logo"),
   async (req, res) => {
@@ -274,81 +278,96 @@ app.post(
 );
 
 // Backup-Endpunkt (GESCHÜTZT)
-app.post("/api/backup/create", requireAuth, async (req, res) => {
-  try {
-    const backupDir = path.join(__dirname, "backups");
-    if (!fs.existsSync(backupDir)) {
-      fs.mkdirSync(backupDir, { recursive: true });
+app.post(
+  "/api/backup/create",
+  requireAuth,
+  requireValidLicense,
+  async (req, res) => {
+    try {
+      const backupDir = path.join(__dirname, "backups");
+      if (!fs.existsSync(backupDir)) {
+        fs.mkdirSync(backupDir, { recursive: true });
+      }
+
+      const timestamp = new Date()
+        .toISOString()
+        .replace(/:/g, "-")
+        .split(".")[0];
+      const backupPath = path.join(backupDir, `backup_${timestamp}.db`);
+      const sourcePath = path.join(__dirname, "data", "kfz.db");
+
+      // Datenbank kopieren
+      fs.copyFileSync(sourcePath, backupPath);
+
+      // Einstellungen als JSON exportieren
+      const Einstellung = require("./models/einstellung");
+      const einstellungen = await Einstellung.findAll();
+      const settingsPath = path.join(backupDir, `settings_${timestamp}.json`);
+
+      const settingsData = {
+        created: new Date().toISOString(),
+        version: "1.0",
+        settings: einstellungen.reduce((acc, setting) => {
+          acc[setting.key] = setting.value;
+          return acc;
+        }, {}),
+      };
+
+      fs.writeFileSync(settingsPath, JSON.stringify(settingsData, null, 2));
+
+      res.json({
+        success: true,
+        backup: {
+          database: backupPath,
+          settings: settingsPath,
+          created: timestamp,
+        },
+      });
+    } catch (error) {
+      console.error("Backup-Fehler:", error);
+      res.status(500).json({ error: "Fehler beim Erstellen des Backups" });
     }
-
-    const timestamp = new Date().toISOString().replace(/:/g, "-").split(".")[0];
-    const backupPath = path.join(backupDir, `backup_${timestamp}.db`);
-    const sourcePath = path.join(__dirname, "data", "kfz.db");
-
-    // Datenbank kopieren
-    fs.copyFileSync(sourcePath, backupPath);
-
-    // Einstellungen als JSON exportieren
-    const Einstellung = require("./models/einstellung");
-    const einstellungen = await Einstellung.findAll();
-    const settingsPath = path.join(backupDir, `settings_${timestamp}.json`);
-
-    const settingsData = {
-      created: new Date().toISOString(),
-      version: "1.0",
-      settings: einstellungen.reduce((acc, setting) => {
-        acc[setting.key] = setting.value;
-        return acc;
-      }, {}),
-    };
-
-    fs.writeFileSync(settingsPath, JSON.stringify(settingsData, null, 2));
-
-    res.json({
-      success: true,
-      backup: {
-        database: backupPath,
-        settings: settingsPath,
-        created: timestamp,
-      },
-    });
-  } catch (error) {
-    console.error("Backup-Fehler:", error);
-    res.status(500).json({ error: "Fehler beim Erstellen des Backups" });
   }
-});
+);
 
 // Backup-Wiederherstellung (GESCHÜTZT)
-app.post("/api/backup/restore", requireAuth, async (req, res) => {
-  try {
-    const { backupFile } = req.body;
+app.post(
+  "/api/backup/restore",
+  requireAuth,
+  requireValidLicense,
+  async (req, res) => {
+    try {
+      const { backupFile } = req.body;
 
-    if (!backupFile || !fs.existsSync(backupFile)) {
-      return res.status(400).json({ error: "Backup-Datei nicht gefunden" });
+      if (!backupFile || !fs.existsSync(backupFile)) {
+        return res.status(400).json({ error: "Backup-Datei nicht gefunden" });
+      }
+
+      const sourcePath = path.join(__dirname, "data", "kfz.db");
+
+      // Aktuelles Backup erstellen vor Wiederherstellung
+      const emergencyBackup = `${sourcePath}.emergency_${Date.now()}`;
+      fs.copyFileSync(sourcePath, emergencyBackup);
+
+      // Backup wiederherstellen
+      fs.copyFileSync(backupFile, sourcePath);
+
+      res.json({
+        success: true,
+        message: "Backup erfolgreich wiederhergestellt",
+        emergencyBackup: emergencyBackup,
+      });
+    } catch (error) {
+      console.error("Restore-Fehler:", error);
+      res
+        .status(500)
+        .json({ error: "Fehler beim Wiederherstellen des Backups" });
     }
-
-    const sourcePath = path.join(__dirname, "data", "kfz.db");
-
-    // Aktuelles Backup erstellen vor Wiederherstellung
-    const emergencyBackup = `${sourcePath}.emergency_${Date.now()}`;
-    fs.copyFileSync(sourcePath, emergencyBackup);
-
-    // Backup wiederherstellen
-    fs.copyFileSync(backupFile, sourcePath);
-
-    res.json({
-      success: true,
-      message: "Backup erfolgreich wiederhergestellt",
-      emergencyBackup: emergencyBackup,
-    });
-  } catch (error) {
-    console.error("Restore-Fehler:", error);
-    res.status(500).json({ error: "Fehler beim Wiederherstellen des Backups" });
   }
-});
+);
 
 // Systemstatus-Endpunkt (GESCHÜTZT)
-app.get("/api/system/status", requireAuth, (req, res) => {
+app.get("/api/system/status", requireAuth, requireValidLicense, (req, res) => {
   const db = require("./db");
 
   db.get("SELECT COUNT(*) as count FROM einstellungen", (err, result) => {
@@ -379,11 +398,36 @@ app.get("/api/system/status", requireAuth, (req, res) => {
 });
 
 // ===== HAUPTANWENDUNGS-API-ROUTEN (ALLE GESCHÜTZT) =====
-app.use("/api/kunden", requireAuth, require("./routes/kunden"));
-app.use("/api/fahrzeuge", requireAuth, require("./routes/fahrzeuge"));
-app.use("/api/auftraege", requireAuth, require("./routes/auftraege"));
-app.use("/api/rechnungen", requireAuth, require("./routes/rechnungen"));
-app.use("/api/einstellungen", requireAuth, require("./routes/einstellungen"));
+app.use(
+  "/api/kunden",
+  requireAuth,
+  requireValidLicense,
+  require("./routes/kunden")
+);
+app.use(
+  "/api/fahrzeuge",
+  requireAuth,
+  requireValidLicense,
+  require("./routes/fahrzeuge")
+);
+app.use(
+  "/api/auftraege",
+  requireAuth,
+  requireValidLicense,
+  require("./routes/auftraege")
+);
+app.use(
+  "/api/rechnungen",
+  requireAuth,
+  requireValidLicense,
+  require("./routes/rechnungen")
+);
+app.use(
+  "/api/einstellungen",
+  requireAuth,
+  requireValidLicense,
+  require("./routes/einstellungen")
+);
 
 // Statische Dateien mit erweiterten Headers
 app.use(
@@ -395,7 +439,7 @@ app.use(
 );
 
 // ===== HAUPT-ROUTE (GESCHÜTZT) =====
-app.get("/", requireAuth, (req, res) => {
+app.get("/", requireAuth, requireValidLicense, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 

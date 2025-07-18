@@ -1,0 +1,120 @@
+/* Lizenzdialog: Darkmode/Theme-fähig */
+.license-modal-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.9);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.license-modal-content {
+  background: var(--clr-surface-a20, #282828);
+  padding: 30px;
+  border-radius: 15px;
+  max-width: 500px;
+  width: 90%;
+  color: var(--text-primary, #caf1cd);
+  border: 1px solid var(--border-color, #575757);
+  box-shadow: 0 4px 32px 0 rgba(0, 0, 0, 0.45);
+}
+
+.license-modal-content h2 {
+  color: var(--accent-primary, #afeab4);
+  margin-bottom: 20px;
+}
+
+.license-modal-content p,
+.license-modal-content label,
+.license-modal-content small {
+  color: var(--text-secondary, #a1e6a8);
+}
+
+.license-modal-content p {
+  color: #dadada;
+}
+
+.license-modal-content label {
+  font-weight: bold;
+}
+
+.license-modal-content input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #caf1cd;
+  border-radius: 8px;
+  font-size: 16px;
+  background: var(--clr-surface-a10, #282828);
+  color: var(--text-primary, #caf1cd);
+  margin-bottom: 16px;
+}
+
+.license-hint {
+  margin: 20px 0;
+  padding: 15px;
+  background: var(--clr-surface-a30, #575757);
+  border-radius: 8px;
+  border-left: 4px solid var(--accent-primary, #afeab4);
+}
+.license-hint h4 {
+  margin: 0 0 10px 0;
+  color: var(--accent-primary, #afeab4);
+}
+.license-hint p {
+  margin: 0;
+  color: var(--text-secondary, #a1e6a8);
+}
+
+.license-support {
+  margin: 20px 0;
+  padding: 15px;
+  background: var(--clr-surface-a30, #575757);
+  border-radius: 5px;
+}
+.license-support small {
+  color: #dadada;
+}
+.license-support code {
+  color: var(--accent-primary, #afeab4);
+}
+
+.license-modal-content button[type="submit"] {
+  background: var(--accent-primary, #afeab4);
+  color: var(--clr-dark-a0, #000);
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.license-modal-content button[type="submit"]:hover {
+  background: var(--accent-secondary, #bdedc0);
+}
+
+#license-status {
+  margin-top: 15px;
+}
+
+.license-status-message {
+  padding: 10px;
+  background: var(--clr-surface-a30, #575757);
+  border-radius: 5px;
+  margin-top: 0.5em;
+}
+
+.license-status-message.success {
+  color: var(--accent-success, #83de8f);
+}
+.license-status-message.error {
+  color: var(--accent-danger, #ef4444);
+}
+.license-status-message.info {
+  color: var(--accent-primary, #afeab4);
+}

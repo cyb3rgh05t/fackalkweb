@@ -1430,10 +1430,9 @@ SESSION_TIMEOUT=24
       const packageJson = JSON.parse(fs.readFileSync(packagePath, "utf8"));
 
       const additionalScripts = {
-        setup: "node scripts/complete-setup.js",
-        "setup-reset": "node scripts/complete-setup.js --reset",
+        setup: "node scripts/setup.js",
+        "setup-reset": "node scripts/setup.js --reset",
         backup: "node scripts/backup.js",
-        "debug-db": "node scripts/debug-db.js",
       };
 
       let scriptsAdded = false;
@@ -1481,7 +1480,7 @@ npm start
 - \`npm run setup\` - Setup erneut ausführen
 - \`npm run setup-reset\` - Datenbank zurücksetzen
 - \`npm run backup\` - Backup erstellen
-- \`npm run debug-db\` - Datenbank-Debug
+
 
 ## 📊 Enthaltene Demo-Daten
 - 5 Demo-Kunden
@@ -1583,7 +1582,6 @@ function showSummary() {
   log("• npm run setup          - Setup erneut ausführen", "white");
   log("• npm run setup-reset    - Datenbank zurücksetzen", "white");
   log("• npm run backup         - Backup erstellen", "white");
-  log("• npm run debug-db       - Datenbank-Debug", "white");
 
   log("\n📊 Datenbank-Inhalt:", "blue");
   log("• Authentifizierungs-Tabellen", "white");

@@ -772,54 +772,6 @@
         }
       }
 
-      // Notification-Funktion (falls nicht bereits vorhanden)
-      function showNotification(message, type = "info") {
-        // Simple Notification - Sie können dies durch Ihre bestehende Implementierung ersetzen
-        const notification = document.createElement("div");
-        notification.className = `notification notification-${type}`;
-        notification.textContent = message;
-
-        // Styling
-        Object.assign(notification.style, {
-          position: "fixed",
-          top: "20px",
-          right: "20px",
-          padding: "12px 20px",
-          borderRadius: "8px",
-          color: "white",
-          fontWeight: "500",
-          zIndex: "9999",
-          transform: "translateX(100%)",
-          transition: "transform 0.3s ease",
-        });
-
-        // Type-spezifische Farben
-        const colors = {
-          success: "#1ecb4f",
-          error: "#ef4444",
-          warning: "#f59e0b",
-          info: "#2cabe3",
-        };
-        notification.style.backgroundColor = colors[type] || colors.info;
-
-        document.body.appendChild(notification);
-
-        // Animation einblenden
-        setTimeout(() => {
-          notification.style.transform = "translateX(0)";
-        }, 100);
-
-        // Nach 3 Sekunden entfernen
-        setTimeout(() => {
-          notification.style.transform = "translateX(100%)";
-          setTimeout(() => {
-            if (notification.parentNode) {
-              notification.parentNode.removeChild(notification);
-            }
-          }, 300);
-        }, 3000);
-      }
-
       // Session-Überwachung
       function startSessionMonitoring() {
         // Alle 5 Minuten prüfen ob Session noch gültig ist
@@ -862,6 +814,7 @@
 
     <!-- Ihre bestehenden JavaScript-Dateien -->
     <script type="module" src="js/app.js"></script>
+    <script type="module" src="js/notifications.js"></script>
     <script type="module" src="js/utils.js"></script>
     <script type="module" src="js/dashboard.js"></script>
     <script type="module" src="js/einstellungen.js"></script>

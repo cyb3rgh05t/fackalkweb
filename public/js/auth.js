@@ -171,7 +171,7 @@ class AuthManager {
     }
 
     // Fallback: Eigene Notification erstellen
-    this.createNotification(message, type);
+    window.showNotification(message, type);
   }
 
   // Notification erstellen (Fallback)

@@ -31,23 +31,7 @@ export async function apiCall(url, method = "GET", data = null) {
 }
 
 export function showNotification(message, type = "info") {
-  const notification = document.createElement("div");
-  notification.className = `notification notification-${type}`;
-  notification.style.cssText = `
-        position: fixed; top: 20px; right: 20px; padding: 1rem 1.5rem;
-        border-radius: 8px; color: white; font-weight: 500; z-index: 10000;
-        animation: slideIn 0.3s ease-out; max-width: 400px; box-shadow: var(--shadow-lg);
-    `;
-  const colors = {
-    success: "#10b981",
-    error: "#ef4444",
-    warning: "#f59e0b",
-    info: "#3b82f6",
-  };
-  notification.style.background = colors[type] || colors.info;
-  notification.textContent = message;
-  document.body.appendChild(notification);
-  setTimeout(() => notification.remove(), 3000);
+  return window.showNotification(message, type);
 }
 
 export function formatDate(dateString) {

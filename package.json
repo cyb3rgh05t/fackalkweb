@@ -10,12 +10,12 @@
     "electron": "electron .",
     "electron-dev": "NODE_ENV=development electron .",
     "electron-dev-win": "set NODE_ENV=development && electron .",
-    "build-win": "electron-builder --win --dir",
-    "build-mac": "electron-builder --mac",
-    "build-linux": "electron-builder --linux",
-    "dist": "electron-builder",
+    "build-win": "node scripts/build.js",
+    "dist": "npm run rebuild && electron-builder",
     "rebuild": "electron-rebuild -f -w sqlite3",
     "setup": "node scripts/setup.js",
+    "startup": "node scripts/startup.js",
+    "test-installation": "node scripts/test-installation.js",
     "backup": "node scripts/backup.js",
     "reset-db": "node scripts/setup.js --reset",
     "setup-reset": "node scripts/setup.js --reset"
@@ -57,7 +57,8 @@
       "!.git/**/*",
       "!README.md",
       "!.gitignore",
-      "!*.log"
+      "!*.log",
+      "!node_modules/electron/dist/**/*"
     ],
     "extraFiles": [
       {
@@ -66,33 +67,53 @@
         "filter": [
           "**/*"
         ]
+      },
+      {
+        "from": "node_modules/sqlite3/lib/binding",
+        "to": "node_modules/sqlite3/lib/binding"
       }
     ],
     "win": {
-      "target": "nsis",
-      "icon": "public/favicon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
+      "icon": "public/favicon.ico",
       "verifyUpdateCodeSignature": false,
       "forceCodeSigning": false,
+      "registry": [
+        {
+          "key": "HKEY_CURRENT_USER\\Software\\KFZFacPro",
+          "name": "InstallPath",
+          "value": "${INSTALLDIR}"
+        }
+      ],
       "extraResources": [
         {
           "from": "public",
           "to": "public"
+        },
+        {
+          "from": "scripts",
+          "to": "scripts"
         }
       ]
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "public/favicon.png"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "public/favicon.png"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "runAfterFinish": false,
+      "allowElevation": true,
+      "installerIcon": "public/favicon.ico",
+      "uninstallerIcon": "public/favicon.ico",
+      "include": "installer/custom.nsh"
     }
   }
 }

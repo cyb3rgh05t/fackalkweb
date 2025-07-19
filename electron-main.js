@@ -2,6 +2,8 @@ const { app, BrowserWindow, Menu, shell, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const { spawn } = require("child_process");
+const os = require("os");
+const { execSync } = require("child_process");
 
 // Produktionsmodus erkennen
 const isDev = process.env.NODE_ENV === "development";
@@ -9,9 +11,9 @@ const PORT = process.env.PORT || 3000;
 
 let mainWindow;
 let serverProcess;
-let printWindows = new Set(); // Track print windows
+let printWindows = new Set();
 
-// Server-Prozess starten
+// VERBESSERT: Server-Prozess mit besserer Fehlerbehandlung
 function startServer() {
   return new Promise((resolve, reject) => {
     console.log("🚀 Starte Express Server...");
@@ -19,11 +21,20 @@ function startServer() {
     serverProcess = spawn("node", ["server.js"], {
       cwd: __dirname,
       env: { ...process.env, NODE_ENV: isDev ? "development" : "production" },
+      stdio: ["pipe", "pipe", "pipe"],
     });
 
+    let serverReady = false;
+    let timeout;
+
     serverProcess.stdout.on("data", (data) => {
-      console.log(`Server: ${data}`);
-      if (data.toString().includes("Server läuft")) {
+      const output = data.toString();
+      console.log(`Server: ${output}`);
+
+      if (output.includes("Server läuft") && !serverReady) {
+        serverReady = true;
+        clearTimeout(timeout);
+        console.log("✅ Server erfolgreich gestartet");
         resolve();
       }
     });
@@ -32,45 +43,115 @@ function startServer() {
       console.error(`Server Error: ${data}`);
     });
 
+    serverProcess.on("error", (error) => {
+      console.error("Server Prozess Fehler:", error);
+      if (!serverReady) {
+        clearTimeout(timeout);
+        reject(error);
+      }
+    });
+
     serverProcess.on("close", (code) => {
       console.log(`Server beendet mit Code ${code}`);
     });
 
-    // Timeout für Server-Start
-    setTimeout(() => {
-      resolve(); // Auch bei Timeout weitermachen
-    }, 5000);
+    // VERBESSERT: Timeout mit besserer Fehlerbehandlung
+    timeout = setTimeout(() => {
+      if (!serverReady) {
+        console.warn("⚠️ Server-Start Timeout - versuche trotzdem zu starten");
+        resolve(); // Auch bei Timeout weitermachen
+      }
+    }, 8000); // Längerer Timeout für Win10
   });
 }
 
-// Print-Fenster erstellen
-function createPrintWindow() {
-  const printWindow = new BrowserWindow({
-    width: 1024,
-    height: 768,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      enableRemoteModule: false,
-      webSecurity: false, // Für lokale Inhalte erlauben
-      allowRunningInsecureContent: true,
-    },
-    show: false,
-    autoHideMenuBar: true,
-    parent: mainWindow,
-    modal: false,
-  });
+// Windows-Version erkennen
+function getWindowsVersion() {
+  try {
+    const version = os.release();
+    const major = parseInt(version.split(".")[0]);
+    const minor = parseInt(version.split(".")[1]);
 
-  printWindows.add(printWindow);
-
-  printWindow.on("closed", () => {
-    printWindows.delete(printWindow);
-  });
-
-  return printWindow;
+    if (major === 10) {
+      if (minor >= 22000) {
+        return "Windows 11";
+      } else {
+        return "Windows 10";
+      }
+    }
+    return `Windows ${major}.${minor}`;
+  } catch (error) {
+    return "Windows Unknown";
+  }
 }
 
-// Hauptfenster erstellen
+// Prozess-Priorität für bessere Performance auf älteren Systemen
+function optimizeForSystem() {
+  const windowsVersion = getWindowsVersion();
+  console.log(`🖥️ Erkannte Version: ${windowsVersion}`);
+
+  if (windowsVersion.includes("Windows 10")) {
+    try {
+      // Niedrigere Priorität für bessere Stabilität auf Win10
+      process.priority = -5;
+      console.log("⚡ Prozess-Priorität optimiert für Windows 10");
+    } catch (error) {
+      console.warn("⚠️ Priorität konnte nicht gesetzt werden:", error.message);
+    }
+  }
+}
+
+function ensureDataDirectory() {
+  const dataPath = path.join(__dirname, "data");
+
+  try {
+    if (!fs.existsSync(dataPath)) {
+      fs.mkdirSync(dataPath, { recursive: true });
+      console.log("📁 Data-Verzeichnis erstellt");
+    }
+
+    // Teste Schreibberechtigung
+    const testFile = path.join(dataPath, "test.tmp");
+    fs.writeFileSync(testFile, "test");
+    fs.unlinkSync(testFile);
+    console.log("✅ Schreibberechtigung bestätigt");
+  } catch (error) {
+    console.error("❌ Problem mit Data-Verzeichnis:", error);
+
+    // Fallback: Benutzer-Verzeichnis verwenden
+    const userDataPath = path.join(os.homedir(), ".kfzfacpro");
+    try {
+      if (!fs.existsSync(userDataPath)) {
+        fs.mkdirSync(userDataPath, { recursive: true });
+      }
+      console.log("📁 Fallback-Pfad verwendet:", userDataPath);
+      return userDataPath;
+    } catch (fallbackError) {
+      console.error("❌ Auch Fallback-Pfad fehlgeschlagen:", fallbackError);
+    }
+  }
+
+  return dataPath;
+}
+
+// VERBESSERT: Server-Verfügbarkeit prüfen
+async function waitForServer(retries = 10) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const response = await fetch(`http://localhost:${PORT}/api/health`);
+      if (response.ok) {
+        console.log("✅ Server ist verfügbar");
+        return true;
+      }
+    } catch (error) {
+      console.log(`🔄 Warte auf Server... (Versuch ${i + 1}/${retries})`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+  }
+  return false;
+}
+
+// VERBESSERT: Hauptfenster mit besserer Initialisierung
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -82,6 +163,8 @@ function createWindow() {
       contextIsolation: true,
       enableRemoteModule: false,
       webSecurity: true,
+      // WICHTIG: Partition für Session-Isolation
+      partition: "persist:main",
     },
     icon: path.join(__dirname, "public", "favicon.ico"),
     show: false,
@@ -91,24 +174,63 @@ function createWindow() {
   // Menü erstellen
   createMenu();
 
-  // Warten bis Server läuft, dann Fenster laden
-  startServer().then(() => {
-    mainWindow.loadURL(`http://localhost:${PORT}`);
+  // VERBESSERT: Sequenzielle Server-Initialisierung
+  initializeApp();
+}
 
-    mainWindow.once("ready-to-show", () => {
+// NEUE FUNKTION: Bessere App-Initialisierung
+async function initializeApp() {
+  try {
+    console.log("🔄 Starte Initialisierung...");
+
+    optimizeForSystem(); // Diese Zeile hinzufügen
+    ensureDataDirectory(); // Diese Zeile hinzufügen
+
+    // 1. Server starten
+    await startServer();
+
+    // 2. Warten bis Server verfügbar ist
+    const serverAvailable = await waitForServer();
+    if (!serverAvailable) {
+      throw new Error("Server ist nicht verfügbar");
+    }
+
+    // 3. WICHTIG: Immer zur Login-Seite weiterleiten
+    console.log("🔄 Lade Login-Seite...");
+    await mainWindow.loadURL(`http://localhost:${PORT}/login`);
+
+    // 4. Fenster anzeigen
+    mainWindow.show();
+
+    // 5. DevTools nur im Development
+    if (isDev) {
+      mainWindow.webContents.openDevTools();
+    }
+
+    console.log("✅ App erfolgreich initialisiert");
+  } catch (error) {
+    console.error("❌ Fehler bei der Initialisierung:", error);
+
+    // Fallback: Versuche direkt zu laden
+    try {
+      await mainWindow.loadURL(`http://localhost:${PORT}/login`);
       mainWindow.show();
-      if (isDev) {
-        mainWindow.webContents.openDevTools();
-      }
-    });
-  });
+    } catch (fallbackError) {
+      console.error("❌ Auch Fallback fehlgeschlagen:", fallbackError);
 
-  // FIXED: Bessere Handhabung von window.open für Print-Fenster
+      // Letzter Versuch: Offline-Seite
+      mainWindow.loadFile(path.join(__dirname, "public", "offline.html"));
+      mainWindow.show();
+    }
+  }
+}
+
+// VERBESSERT: Window open handler
+function setupWindowHandlers() {
   mainWindow.webContents.setWindowOpenHandler(
     ({ url, frameName, features }) => {
       console.log("Window open requested:", { url, frameName, features });
 
-      // Erlaube leere URLs (für Print-Fenster)
       if (!url || url === "about:blank" || url === "") {
         return {
           action: "allow",
@@ -118,7 +240,7 @@ function createWindow() {
             webPreferences: {
               nodeIntegration: false,
               contextIsolation: true,
-              webSecurity: false, // Für lokale Inhalte
+              webSecurity: false,
               allowRunningInsecureContent: true,
             },
             show: true,
@@ -129,98 +251,35 @@ function createWindow() {
         };
       }
 
-      // Für alle anderen URLs - im externen Browser öffnen
       shell.openExternal(url);
       return { action: "deny" };
     }
   );
 
-  // IPC für Print-Funktionen
-  const { ipcMain } = require("electron");
-
-  ipcMain.handle("create-print-window", async (event, htmlContent, title) => {
-    const printWindow = createPrintWindow();
-
-    await printWindow.loadURL(
-      "data:text/html;charset=UTF-8," +
-        encodeURIComponent(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${title || "Drucken"}</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 2cm; 
-              color: #333;
-            }
-            @media print { 
-              body { margin: 1cm; }
-              .no-print { display: none; }
-            }
-            @page {
-              margin: 1cm;
-            }
-            .print-controls {
-              position: fixed;
-              top: 10px;
-              right: 10px;
-              background: white;
-              padding: 10px;
-              border: 1px solid #ccc;
-              border-radius: 5px;
-              box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-              z-index: 1000;
-            }
-            .print-controls button {
-              margin-right: 5px;
-              padding: 8px 16px;
-              border: none;
-              border-radius: 3px;
-              cursor: pointer;
-            }
-            .print-btn {
-              background: #007bff;
-              color: white;
-            }
-            .close-btn {
-              background: #6c757d;
-              color: white;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="print-controls no-print">
-            <button class="print-btn" onclick="window.print()">🖨️ Drucken</button>
-            <button class="close-btn" onclick="window.close()">❌ Schließen</button>
-          </div>
-          ${htmlContent}
-          <script>
-            // Auto-focus und Keyboard-Shortcuts
-            window.addEventListener('keydown', (e) => {
-              if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-                e.preventDefault();
-                window.print();
-              }
-              if (e.key === 'Escape') {
-                window.close();
-              }
-            });
-          </script>
-        </body>
-      </html>
-    `)
-    );
-
-    printWindow.show();
-    printWindow.focus();
-
-    return true;
+  // VERBESSERT: Bessere Navigation-Handhabung
+  mainWindow.webContents.on("did-navigate", (event, url) => {
+    console.log("Navigiert zu:", url);
   });
+
+  mainWindow.webContents.on(
+    "did-fail-load",
+    (event, errorCode, errorDescription, validatedURL) => {
+      console.error("Ladefehler:", {
+        errorCode,
+        errorDescription,
+        validatedURL,
+      });
+
+      // Bei Ladefehler zur Offline-Seite
+      if (errorCode !== -3) {
+        // -3 ist "abgebrochen"
+        mainWindow.loadFile(path.join(__dirname, "public", "offline.html"));
+      }
+    }
+  );
 
   mainWindow.on("closed", () => {
     mainWindow = null;
-    // Alle Print-Fenster schließen
     printWindows.forEach((win) => {
       if (!win.isDestroyed()) {
         win.close();
@@ -353,7 +412,10 @@ function createMenu() {
 }
 
 // App-Events
-app.whenReady().then(createWindow);
+app.whenReady().then(() => {
+  createWindow();
+  setupWindowHandlers();
+});
 
 app.on("window-all-closed", () => {
   if (serverProcess) {
@@ -376,7 +438,7 @@ app.on("before-quit", () => {
   }
 });
 
-// Unbehandelte Exceptions abfangen
+// Bessere Fehlerbehandlung
 process.on("uncaughtException", (error) => {
   console.error("Unbehandelte Exception:", error);
 });

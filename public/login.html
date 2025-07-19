@@ -165,20 +165,18 @@
             src="assets/logo/logo.png"
             alt="Meine Firma Logo"
             class="company-logo"
+            onerror="this.style.display='none'"
           />
           <h1>Meine Firma</h1>
         </div>
         <p>Rechnungs- und Auftragssystem</p>
       </div>
 
-      <form class="login-form" id="loginForm">
+      <form class="login-form" id="login-form">
+        <!-- Fallback Alert Messages (falls Notifications nicht verfügbar) -->
+        <div id="error-alert" style="display: none" class="error-message"></div>
         <div
-          id="errorMessage"
-          style="display: none"
-          class="error-message"
-        ></div>
-        <div
-          id="successMessage"
+          id="success-alert"
           style="display: none"
           class="success-message"
         ></div>
@@ -215,9 +213,9 @@
           </div>
         </div>
 
-        <button type="submit" class="btn-login" id="loginButton">
-          <div class="spinner" id="loginSpinner"></div>
-          <span id="loginButtonText">Anmelden</span>
+        <button type="submit" class="btn-login" id="login-button">
+          <div class="spinner" id="login-spinner" style="display: none"></div>
+          <span id="login-button-text">Anmelden</span>
         </button>
       </form>
 
@@ -226,311 +224,431 @@
 
     <div class="version-info">v2.0 + Auth</div>
 
+    <!-- WICHTIG: Dein bestehendes Notification-System einbinden -->
+    <script type="module" src="js/notifications.js"></script>
+
     <script>
-      // Notification System für Login-Seite
-      class NotificationManager {
-        constructor() {
-          this.container = null;
-          this.notifications = new Map();
-          this.init();
-        }
-
-        init() {
-          this.container = document.querySelector(".notification-container");
-          if (!this.container) {
-            this.container = document.createElement("div");
-            this.container.className = "notification-container";
-            document.body.appendChild(this.container);
-          }
-        }
-
-        show(message, type = "info", options = {}) {
-          const config = {
-            duration: 4000,
-            closable: true,
-            persistent: false,
-            showProgress: true,
-            ...options,
-          };
-
-          const id =
-            "notification-" +
-            Date.now() +
-            "-" +
-            Math.random().toString(36).substr(2, 9);
-          const notification = this.createElement(message, type, config, id);
-
-          this.init();
-          this.container.appendChild(notification);
-          this.notifications.set(id, notification);
-
-          requestAnimationFrame(() => {
-            notification.classList.add("show");
-          });
-
-          if (config.showProgress && !config.persistent) {
-            const progressBar = notification.querySelector(
-              ".notification-progress"
-            );
-            if (progressBar) {
-              progressBar.style.width = "100%";
-              setTimeout(() => {
-                progressBar.style.width = "0%";
-                progressBar.style.transition = `width ${config.duration}ms linear`;
-              }, 50);
-            }
-          }
-
-          if (!config.persistent) {
-            setTimeout(() => {
-              this.hide(id);
-            }, config.duration);
-          }
-
-          return id;
-        }
-
-        createElement(message, type, config, id) {
-          const notification = document.createElement("div");
-          notification.className = `notification notification-${type}`;
-          notification.setAttribute("data-id", id);
-
-          let html = `<div class="notification-content">${message}</div>`;
-
-          if (config.closable) {
-            html += `<button class="notification-close" aria-label="Schließen">&times;</button>`;
-          }
-
-          if (config.showProgress && !config.persistent) {
-            html += `<div class="notification-progress"></div>`;
-          }
-
-          notification.innerHTML = html;
-
-          if (config.closable) {
-            const closeBtn = notification.querySelector(".notification-close");
-            closeBtn.addEventListener("click", () => {
-              this.hide(id);
-            });
-          }
-
-          notification.addEventListener("mouseenter", () => {
-            const progressBar = notification.querySelector(
-              ".notification-progress"
-            );
-            if (progressBar) {
-              progressBar.style.animationPlayState = "paused";
-            }
-          });
-
-          notification.addEventListener("mouseleave", () => {
-            const progressBar = notification.querySelector(
-              ".notification-progress"
-            );
-            if (progressBar) {
-              progressBar.style.animationPlayState = "running";
-            }
-          });
-
-          return notification;
-        }
-
-        hide(id) {
-          const notification = this.notifications.get(id);
-          if (!notification) return;
-
-          notification.classList.remove("show");
-          notification.classList.add("hide");
-
-          setTimeout(() => {
-            if (notification.parentNode) {
-              notification.parentNode.removeChild(notification);
-            }
-            this.notifications.delete(id);
-          }, 300);
-        }
-
-        success(message, options = {}) {
-          return this.show(message, "success", options);
-        }
-
-        error(message, options = {}) {
-          return this.show(message, "error", { duration: 6000, ...options });
-        }
-
-        warning(message, options = {}) {
-          return this.show(message, "warning", options);
-        }
-
-        info(message, options = {}) {
-          return this.show(message, "info", options);
-        }
-      }
-
-      // Globale Notification-Instanz
-      const notificationManager = new NotificationManager();
-
-      // Globale showNotification Funktion
-      function showNotification(message, type = "info", options = {}) {
-        return notificationManager.show(message, type, options);
-      }
-
       class LoginManager {
         constructor() {
-          this.form = document.getElementById("loginForm");
-          this.errorDiv = document.getElementById("errorMessage");
-          this.successDiv = document.getElementById("successMessage");
-          this.loginButton = document.getElementById("loginButton");
-          this.loginSpinner = document.getElementById("loginSpinner");
-          this.loginButtonText = document.getElementById("loginButtonText");
-
+          this.form = null;
+          this.isInitialized = false;
+          this.notificationSystemReady = false;
           this.init();
         }
 
         init() {
-          this.form.addEventListener("submit", (e) => this.handleLogin(e));
-
-          document.addEventListener("keypress", (e) => {
-            if (e.key === "Enter" && !this.loginButton.disabled) {
-              this.form.dispatchEvent(new Event("submit"));
-            }
-          });
-
-          document.getElementById("username").focus();
-          this.checkAuthStatus();
-
-          // Logo Fallback
-          this.setupLogoFallback();
-        }
-
-        setupLogoFallback() {
-          const logo = document.querySelector(".company-logo");
-          if (logo) {
-            logo.addEventListener("error", () => {
-              // Fallback zu Font Awesome Icon wenn Logo nicht gefunden wird
-              const companyInfo = document.querySelector(".company-info");
-              logo.style.display = "none";
-
-              if (!companyInfo.querySelector(".fa-car")) {
-                const icon = document.createElement("i");
-                icon.className = "fas fa-car";
-                icon.style.fontSize = "2rem";
-                icon.style.marginRight = "0.75rem";
-                icon.style.color = "rgba(255, 255, 255, 0.9)";
-                companyInfo.insertBefore(icon, companyInfo.querySelector("h1"));
-              }
-            });
+          // Warten bis DOM vollständig geladen ist
+          if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", () =>
+              this.setupForm()
+            );
+          } else {
+            this.setupForm();
           }
         }
 
-        async checkAuthStatus() {
+        setupForm() {
           try {
-            const response = await fetch("/api/auth/status");
-            const data = await response.json();
+            // DOM-Elemente holen
+            this.form = document.getElementById("login-form");
+            this.usernameInput = document.getElementById("username");
+            this.passwordInput = document.getElementById("password");
+            this.loginButton = document.getElementById("login-button");
+            this.loginSpinner = document.getElementById("login-spinner");
+            this.loginButtonText = document.getElementById("login-button-text");
+            this.errorDiv = document.getElementById("error-alert");
+            this.successDiv = document.getElementById("success-alert");
 
-            if (data.authenticated) {
-              showNotification(
-                "Sie sind bereits angemeldet. Weiterleitung...",
-                "info"
-              );
-              setTimeout(() => {
-                window.location.href = "/";
-              }, 1500);
+            // Debug: Element-Status prüfen
+            console.log("🔍 Element-Status:", {
+              form: !!this.form,
+              usernameInput: !!this.usernameInput,
+              passwordInput: !!this.passwordInput,
+              loginButton: !!this.loginButton,
+              loginSpinner: !!this.loginSpinner,
+              loginButtonText: !!this.loginButtonText,
+              errorDiv: !!this.errorDiv,
+              successDiv: !!this.successDiv,
+            });
+
+            if (!this.form) {
+              throw new Error("Login-Form nicht gefunden");
             }
+
+            if (
+              !this.usernameInput ||
+              !this.passwordInput ||
+              !this.loginButton
+            ) {
+              throw new Error("Kritische Form-Elemente nicht gefunden");
+            }
+
+            // Warten auf Notification-System
+            this.waitForNotificationSystem();
+
+            // Form zurücksetzen
+            this.resetForm();
+
+            // Event-Listener hinzufügen
+            this.setupEventListeners();
+
+            // Als initialisiert markieren
+            this.isInitialized = true;
+            console.log("✅ LoginManager erfolgreich initialisiert");
+
+            // Focus setzen
+            setTimeout(() => {
+              if (this.usernameInput) {
+                this.usernameInput.focus();
+              }
+            }, 100);
           } catch (error) {
-            console.log("Auth-Status-Prüfung fehlgeschlagen:", error);
+            console.error(
+              "❌ Fehler beim Initialisieren des LoginManagers:",
+              error
+            );
+            this.showFallbackError(
+              "Initialisierungsfehler. Bitte laden Sie die Seite neu."
+            );
           }
         }
 
-        async handleLogin(e) {
-          e.preventDefault();
-
-          const formData = new FormData(this.form);
-          const loginData = {
-            username: formData.get("username").trim(),
-            password: formData.get("password"),
+        // Warten auf dein Notification-System
+        waitForNotificationSystem() {
+          const checkNotificationSystem = () => {
+            if (typeof window.showNotification === "function") {
+              this.notificationSystemReady = true;
+              console.log("✅ Notification-System verfügbar");
+              return true;
+            }
+            return false;
           };
 
-          if (!loginData.username || !loginData.password) {
-            showNotification("Bitte alle Felder ausfüllen", "warning");
-            this.showError("Bitte alle Felder ausfüllen");
+          // Sofort prüfen
+          if (checkNotificationSystem()) {
             return;
           }
 
-          this.setLoading(true);
+          // Falls nicht sofort verfügbar, alle 100ms prüfen für max 5 Sekunden
+          let attempts = 0;
+          const maxAttempts = 50;
+
+          const interval = setInterval(() => {
+            attempts++;
+
+            if (checkNotificationSystem()) {
+              clearInterval(interval);
+            } else if (attempts >= maxAttempts) {
+              clearInterval(interval);
+              console.warn(
+                "⚠️ Notification-System nicht gefunden, verwende Fallback"
+              );
+            }
+          }, 100);
+        }
+
+        setupEventListeners() {
+          // Event-Listener entfernen falls vorhanden
+          this.removeAllEventListeners();
+
+          // Form-Submit Handler
+          this.formSubmitHandler = (e) => this.handleFormSubmit(e);
+          this.form.addEventListener("submit", this.formSubmitHandler);
+
+          // Input-Handler für Fehler-Reset
+          this.inputHandler = () => this.hideMessages();
+          if (this.usernameInput) {
+            this.usernameInput.addEventListener("input", this.inputHandler);
+          }
+          if (this.passwordInput) {
+            this.passwordInput.addEventListener("input", this.inputHandler);
+          }
+
+          // Keyboard-Handler
+          this.keyboardHandler = (e) => this.handleKeyboard(e);
+          document.addEventListener("keydown", this.keyboardHandler);
+
+          console.log("✅ Event-Listener erfolgreich eingerichtet");
+        }
+
+        removeAllEventListeners() {
+          if (this.form && this.formSubmitHandler) {
+            this.form.removeEventListener("submit", this.formSubmitHandler);
+          }
+          if (this.usernameInput && this.inputHandler) {
+            this.usernameInput.removeEventListener("input", this.inputHandler);
+          }
+          if (this.passwordInput && this.inputHandler) {
+            this.passwordInput.removeEventListener("input", this.inputHandler);
+          }
+          if (this.keyboardHandler) {
+            document.removeEventListener("keydown", this.keyboardHandler);
+          }
+        }
+
+        resetForm() {
+          if (this.form) {
+            this.form.reset();
+          }
+
+          if (this.usernameInput) {
+            this.usernameInput.disabled = false;
+            this.usernameInput.classList.remove("error");
+            this.usernameInput.value = "";
+          }
+
+          if (this.passwordInput) {
+            this.passwordInput.disabled = false;
+            this.passwordInput.classList.remove("error");
+            this.passwordInput.value = "";
+          }
+
+          this.setLoading(false);
           this.hideMessages();
 
+          console.log("✅ Form zurückgesetzt");
+        }
+
+        handleKeyboard(event) {
+          if (event.key === "Enter" && !event.shiftKey) {
+            const activeElement = document.activeElement;
+            if (
+              activeElement === this.usernameInput ||
+              activeElement === this.passwordInput
+            ) {
+              event.preventDefault();
+              this.handleFormSubmit(event);
+            }
+          }
+
+          if (event.key === "Escape") {
+            this.hideMessages();
+          }
+        }
+
+        async handleFormSubmit(event) {
+          event.preventDefault();
+
+          if (!this.isInitialized) {
+            console.warn("⚠️ LoginManager noch nicht initialisiert");
+            return;
+          }
+
+          const username = this.usernameInput.value.trim();
+          const password = this.passwordInput.value;
+
+          // Validation
+          if (!username) {
+            this.showError("Bitte geben Sie einen Benutzernamen ein.");
+            if (this.usernameInput) {
+              this.usernameInput.classList.add("error");
+              this.usernameInput.focus();
+            }
+            return;
+          }
+
+          if (!password) {
+            this.showError("Bitte geben Sie ein Passwort ein.");
+            if (this.passwordInput) {
+              this.passwordInput.classList.add("error");
+              this.passwordInput.focus();
+            }
+            return;
+          }
+
           try {
+            this.setLoading(true);
+            this.hideMessages();
+
+            console.log("🔄 Sende Login-Anfrage...");
+
             const response = await fetch("/api/auth/login", {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
               },
-              body: JSON.stringify(loginData),
+              body: JSON.stringify({ username, password }),
             });
 
             const data = await response.json();
 
             if (response.ok && data.success) {
-              showNotification(
-                "Login erfolgreich! Weiterleitung...",
-                "success"
-              );
+              console.log("✅ Login erfolgreich");
               this.showSuccess("Login erfolgreich! Weiterleitung...");
+
               setTimeout(() => {
                 window.location.href = "/";
               }, 1000);
             } else {
               const errorMessage = data.error || "Login fehlgeschlagen";
-              showNotification(errorMessage, "error");
+              console.warn("⚠️ Login fehlgeschlagen:", errorMessage);
               this.showError(errorMessage);
+
+              if (this.usernameInput) {
+                this.usernameInput.classList.add("error");
+              }
+              if (this.passwordInput) {
+                this.passwordInput.classList.add("error");
+              }
+
+              if (this.usernameInput) {
+                this.usernameInput.focus();
+                this.usernameInput.select();
+              }
             }
           } catch (error) {
-            console.error("Login-Fehler:", error);
+            console.error("❌ Login-Fehler:", error);
             const errorMessage =
               "Verbindungsfehler. Bitte versuchen Sie es erneut.";
-            showNotification(errorMessage, "error");
             this.showError(errorMessage);
+            this.resetForm();
           } finally {
             this.setLoading(false);
           }
         }
 
         setLoading(loading) {
-          this.loginButton.disabled = loading;
+          if (this.loginButton) {
+            this.loginButton.disabled = loading;
+          }
 
-          if (loading) {
-            this.loginSpinner.style.display = "inline-block";
-            this.loginButtonText.textContent = "Anmelden...";
-          } else {
-            this.loginSpinner.style.display = "none";
-            this.loginButtonText.textContent = "Anmelden";
+          if (this.usernameInput) {
+            this.usernameInput.disabled = loading;
+          }
+
+          if (this.passwordInput) {
+            this.passwordInput.disabled = loading;
+          }
+
+          if (this.loginSpinner && this.loginButtonText) {
+            if (loading) {
+              this.loginSpinner.style.display = "inline-block";
+              this.loginButtonText.textContent = "Anmelden...";
+              if (this.loginButton) {
+                this.loginButton.style.opacity = "0.8";
+              }
+            } else {
+              this.loginSpinner.style.display = "none";
+              this.loginButtonText.textContent = "Anmelden";
+              if (this.loginButton) {
+                this.loginButton.style.opacity = "1";
+              }
+            }
           }
         }
 
+        // HAUPTMETHODE: Dein Notification-System verwenden
         showError(message) {
-          this.errorDiv.textContent = message;
-          this.errorDiv.style.display = "block";
-          this.successDiv.style.display = "none";
+          // 1. Priorität: Dein Notification-System
+          if (
+            this.notificationSystemReady &&
+            typeof window.showNotification === "function"
+          ) {
+            window.showNotification(message, "error");
+          }
+          // 2. Fallback: Inline-Message
+          else {
+            this.showFallbackError(message);
+          }
+
+          console.warn("⚠️ Login-Fehler angezeigt:", message);
         }
 
         showSuccess(message) {
-          this.successDiv.textContent = message;
-          this.successDiv.style.display = "block";
-          this.errorDiv.style.display = "none";
+          // 1. Priorität: Dein Notification-System
+          if (
+            this.notificationSystemReady &&
+            typeof window.showNotification === "function"
+          ) {
+            window.showNotification(message, "success");
+          }
+          // 2. Fallback: Inline-Message
+          else {
+            this.showFallbackSuccess(message);
+          }
+
+          console.log("✅ Erfolg angezeigt:", message);
+        }
+
+        // Fallback-Methoden für den Fall dass dein System nicht verfügbar ist
+        showFallbackError(message) {
+          if (this.errorDiv) {
+            this.errorDiv.textContent = message;
+            this.errorDiv.style.display = "block";
+          }
+          if (this.successDiv) {
+            this.successDiv.style.display = "none";
+          }
+        }
+
+        showFallbackSuccess(message) {
+          if (this.successDiv) {
+            this.successDiv.textContent = message;
+            this.successDiv.style.display = "block";
+          }
+          if (this.errorDiv) {
+            this.errorDiv.style.display = "none";
+          }
         }
 
         hideMessages() {
-          this.errorDiv.style.display = "none";
-          this.successDiv.style.display = "none";
+          if (this.errorDiv) {
+            this.errorDiv.style.display = "none";
+          }
+          if (this.successDiv) {
+            this.successDiv.style.display = "none";
+          }
+
+          if (this.usernameInput) {
+            this.usernameInput.classList.remove("error");
+          }
+          if (this.passwordInput) {
+            this.passwordInput.classList.remove("error");
+          }
+        }
+
+        destroy() {
+          this.removeAllEventListeners();
+          this.isInitialized = false;
+          console.log("🧹 LoginManager aufgeräumt");
         }
       }
 
-      // Login-Manager initialisieren wenn DOM geladen ist
-      document.addEventListener("DOMContentLoaded", () => {
-        new LoginManager();
+      // Globale LoginManager-Instanz
+      let loginManager = null;
+
+      function initializeLogin() {
+        if (loginManager) {
+          loginManager.destroy();
+        }
+
+        loginManager = new LoginManager();
+        console.log("🔄 Login-Seite initialisiert");
+      }
+
+      // Initialisierung
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", initializeLogin);
+      } else {
+        initializeLogin();
+      }
+
+      // Cleanup bei Navigation
+      window.addEventListener("beforeunload", () => {
+        if (loginManager) {
+          loginManager.destroy();
+        }
       });
+
+      // Fallback nach 2 Sekunden
+      setTimeout(() => {
+        if (!loginManager || !loginManager.isInitialized) {
+          console.warn("⚠️ Fallback-Initialisierung wird ausgeführt");
+          initializeLogin();
+        }
+      }, 2000);
     </script>
-    <script type="module" src="/js/license.js"></script>
+
+    <script type="module" src="js/license.js"></script>
   </body>
 </html>

@@ -13,6 +13,8 @@ const SQLiteStore = require("connect-sqlite3")(session);
 const { requireAuth, attachUser } = require("./middleware/auth");
 const { requireValidLicense } = require("./middleware/licenseauth");
 
+const DB_PATH = process.env.DB_PATH || path.join(__dirname, "data", "kfz.db");
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 

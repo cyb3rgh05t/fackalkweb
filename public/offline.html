@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>KFZFacPRO - Verbindungsfehler</title>
+    <style>
+      body {
+        font-family: "Inter", sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        margin: 0;
+        padding: 0;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        color: white;
+      }
+
+      .container {
+        text-align: center;
+        background: rgba(255, 255, 255, 0.1);
+        padding: 3rem;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        max-width: 500px;
+      }
+
+      .icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+        opacity: 0.8;
+      }
+
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        font-weight: 600;
+      }
+
+      p {
+        font-size: 1.1rem;
+        margin-bottom: 2rem;
+        opacity: 0.9;
+        line-height: 1.6;
+      }
+
+      .actions {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 0.8rem 1.5rem;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        text-decoration: none;
+        font-weight: 500;
+      }
+
+      .btn:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-2px);
+      }
+
+      .btn-primary {
+        background: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.5);
+      }
+
+      .status {
+        margin-top: 2rem;
+        padding: 1rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        font-size: 0.9rem;
+      }
+
+      .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 0.5rem;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="icon">⚠️</div>
+      <h1>Verbindungsfehler</h1>
+      <p>
+        Der Server konnte nicht gestartet werden oder ist nicht erreichbar. Dies
+        kann bei der ersten Installation oder auf langsameren Systemen
+        vorkommen.
+      </p>
+
+      <div class="actions">
+        <button class="btn btn-primary" onclick="retryConnection()">
+          <span id="retry-text">🔄 Erneut versuchen</span>
+        </button>
+        <button class="btn" onclick="restartApp()">🔄 App neu starten</button>
+      </div>
+
+      <div class="status" id="status">
+        <strong>Status:</strong> Warte auf Server-Verbindung...
+      </div>
+    </div>
+
+    <script>
+      let retryCount = 0;
+      let maxRetries = 20;
+
+      function updateStatus(message, isError = false) {
+        const statusEl = document.getElementById("status");
+        statusEl.innerHTML = `<strong>Status:</strong> ${message}`;
+        statusEl.style.color = isError ? "#ffcdd2" : "white";
+      }
+
+      async function checkServer() {
+        try {
+          const response = await fetch("http://localhost:3000/api/health");
+          if (response.ok) {
+            updateStatus("✅ Server verfügbar - Weiterleitung...");
+            setTimeout(() => {
+              window.location.href = "http://localhost:3000/login";
+            }, 1000);
+            return true;
+          }
+        } catch (error) {
+          console.log("Server noch nicht verfügbar:", error.message);
+        }
+        return false;
+      }
+
+      async function retryConnection() {
+        const retryBtn = document.getElementById("retry-text");
+        retryBtn.innerHTML = '<span class="loading"></span>Verbinde...';
+
+        retryCount = 0;
+
+        const interval = setInterval(async () => {
+          retryCount++;
+          updateStatus(`🔄 Verbindungsversuch ${retryCount}/${maxRetries}...`);
+
+          const connected = await checkServer();
+          if (connected) {
+            clearInterval(interval);
+            return;
+          }
+
+          if (retryCount >= maxRetries) {
+            clearInterval(interval);
+            retryBtn.innerHTML = "🔄 Erneut versuchen";
+            updateStatus(
+              "❌ Verbindung fehlgeschlagen. Versuchen Sie die App neu zu starten.",
+              true
+            );
+          }
+        }, 2000);
+      }
+
+      function restartApp() {
+        if (
+          typeof window !== "undefined" &&
+          window.process &&
+          window.process.type
+        ) {
+          // Electron-Umgebung
+          const { remote } = require("electron");
+          remote.app.relaunch();
+          remote.app.exit();
+        } else {
+          // Fallback für Browser
+          location.reload();
+        }
+      }
+
+      // Automatische Verbindungsversuche beim Laden
+      window.addEventListener("load", () => {
+        setTimeout(retryConnection, 2000);
+      });
+
+      // Regelmäßige Überprüfung
+      setInterval(checkServer, 5000);
+    </script>
+  </body>
+</html>

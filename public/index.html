@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>KFZFacPRO</title>
+    <title>Meine Firma - KFZ Fac Pro</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
@@ -1041,25 +1041,61 @@
       // User-Informationen laden und anzeigen
       async function loadUserInfo() {
         try {
-          const response = await fetch("/api/auth/status");
+          const response = await fetch("/api/auth/status", {
+            credentials: "same-origin",
+            headers: {
+              "Cache-Control": "no-cache",
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
           const data = await response.json();
 
           if (data.authenticated && data.user) {
-            document.getElementById("current-username").textContent =
-              data.user.username;
+            // User-Info anzeigen
+            const usernameElement = document.getElementById("current-username");
+            if (usernameElement) {
+              usernameElement.textContent = data.user.username;
+            }
 
-            // Optional: Rolle anzeigen
+            // Optional: Admin-Badge anzeigen
             if (data.user.role === "admin") {
               const userInfo = document.getElementById("user-info");
-              userInfo.innerHTML += ' <span class="admin-badge">Admin</span>';
+              if (userInfo && !userInfo.querySelector(".admin-badge")) {
+                const adminBadge = document.createElement("span");
+                adminBadge.className = "admin-badge";
+                adminBadge.textContent = "Admin";
+                adminBadge.style.cssText = `
+            background: #e74c3c;
+            color: white;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            margin-left: 8px;
+          `;
+                userInfo.appendChild(adminBadge);
+              }
             }
+
+            console.log("✅ Benutzer-Info geladen:", data.user.username);
           } else {
             // Nicht eingeloggt - zur Login-Seite weiterleiten
+            console.warn(
+              "⚠️ Nicht authentifiziert - Weiterleitung zur Login-Seite"
+            );
             window.location.href = "/login";
           }
         } catch (error) {
-          console.error("Fehler beim Laden der Benutzer-Informationen:", error);
-          // Bei Fehler auch zur Login-Seite weiterleiten
+          console.error(
+            "❌ Fehler beim Laden der Benutzer-Informationen:",
+            error
+          );
+
+          // Bei schwerwiegenden Fehlern auch zur Login-Seite
+          console.warn("⚠️ Schwerer Fehler - Weiterleitung zur Login-Seite");
           window.location.href = "/login";
         }
       }
@@ -1072,6 +1108,8 @@
         }
 
         try {
+          console.log("🔄 Logout wird eingeleitet...");
+
           // Loading-Indikator
           const logoutBtn = document.querySelector(".logout-btn");
           const originalText = logoutBtn.innerHTML;
@@ -1079,76 +1117,198 @@
             '<i class="fas fa-spinner fa-spin"></i> Abmelden...';
           logoutBtn.disabled = true;
 
-          // Logout-Request
-          const response = await fetch("/api/auth/logout", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          });
+          // WICHTIG: Session bei API beenden
+          try {
+            const logoutResponse = await fetch("/api/auth/logout", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              credentials: "same-origin", // WICHTIG für Session-Cookies
+            });
 
-          if (response.ok) {
-            // Erfolgreiche Abmeldung
-            showNotification("Erfolgreich abgemeldet", "success");
-
-            // Kurz warten, dann weiterleiten
-            setTimeout(() => {
-              window.location.href = "/login";
-            }, 1000);
-          } else {
-            throw new Error("Logout fehlgeschlagen");
+            if (logoutResponse.ok) {
+              console.log("✅ Server-seitige Abmeldung erfolgreich");
+            } else {
+              console.warn(
+                "⚠️ Server-seitiger Logout hatte Probleme, fahre trotzdem fort"
+              );
+            }
+          } catch (logoutError) {
+            console.warn("⚠️ Logout-API-Call fehlgeschlagen:", logoutError);
           }
-        } catch (error) {
-          console.error("Logout-Fehler:", error);
 
-          // Auch bei Fehlern zur Login-Seite weiterleiten
-          // Der Server-seitige Logout-Endpunkt sollte funktioniert haben
-          showNotification("Abgemeldet", "info");
+          // WICHTIG: Lokale Daten löschen
+          try {
+            // Session Storage leeren
+            if (typeof sessionStorage !== "undefined") {
+              sessionStorage.clear();
+            }
+
+            // Local Storage leeren (falls verwendet)
+            if (typeof localStorage !== "undefined") {
+              localStorage.clear();
+            }
+
+            // Alle globalen Variablen zurücksetzen
+            if (window.kunden) window.kunden = [];
+            if (window.fahrzeuge) window.fahrzeuge = [];
+            if (window.auftraege) window.auftraege = [];
+            if (window.rechnungen) window.rechnungen = [];
+            if (window.einstellungen) window.einstellungen = {};
+
+            console.log("✅ Lokale Daten gelöscht");
+          } catch (cleanupError) {
+            console.warn("⚠️ Fehler beim Löschen lokaler Daten:", cleanupError);
+          }
+
+          // Erfolgs-Nachricht
+          if (typeof showNotification === "function") {
+            showNotification("Erfolgreich abgemeldet", "success");
+          }
+
+          // WICHTIG: Kurz warten, dann zur Login-Seite weiterleiten
           setTimeout(() => {
-            window.location.href = "/login";
+            console.log("🔄 Weiterleitung zur Login-Seite...");
+
+            // MULTIPLE REDIRECT-STRATEGIEN für bessere Kompatibilität
+
+            // Strategie 1: Normale Weiterleitung
+            try {
+              window.location.href = "/login";
+            } catch (redirectError1) {
+              console.warn(
+                "⚠️ window.location.href fehlgeschlagen:",
+                redirectError1
+              );
+
+              // Strategie 2: window.location.replace
+              try {
+                window.location.replace("/login");
+              } catch (redirectError2) {
+                console.warn(
+                  "⚠️ window.location.replace fehlgeschlagen:",
+                  redirectError2
+                );
+
+                // Strategie 3: Vollständiger Reload
+                try {
+                  window.location.reload();
+                } catch (redirectError3) {
+                  console.error(
+                    "❌ Alle Redirect-Strategien fehlgeschlagen:",
+                    redirectError3
+                  );
+
+                  // Letzter Ausweg: Button zurücksetzen und manuell Login anzeigen
+                  logoutBtn.innerHTML = originalText;
+                  logoutBtn.disabled = false;
+                  alert(
+                    "Abmeldung erfolgreich. Bitte laden Sie die Seite neu oder navigieren Sie zur Login-Seite."
+                  );
+                }
+              }
+            }
+          }, 1000);
+        } catch (error) {
+          console.error("❌ Schwerwiegender Logout-Fehler:", error);
+
+          // Auch bei schwerwiegenden Fehlern zur Login-Seite weiterleiten
+          // Der Server-seitige Logout sollte funktioniert haben
+          if (typeof showNotification === "function") {
+            showNotification("Abgemeldet (mit Fehlern)", "warning");
+          }
+
+          setTimeout(() => {
+            try {
+              window.location.href = "/login";
+            } catch (finalError) {
+              console.error(
+                "❌ Finale Weiterleitung fehlgeschlagen:",
+                finalError
+              );
+              window.location.reload(); // Letzter Ausweg
+            }
           }, 500);
         }
       }
 
       // Session-Überwachung
       function startSessionMonitoring() {
-        // Alle 5 Minuten prüfen ob Session noch gültig ist
+        // Alle 3 Minuten prüfen ob Session noch gültig ist (reduziert von 5 auf 3)
         setInterval(async () => {
           try {
-            const response = await fetch("/api/auth/status");
+            const response = await fetch("/api/auth/status", {
+              credentials: "same-origin",
+              headers: {
+                "Cache-Control": "no-cache",
+              },
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP ${response.status}`);
+            }
+
             const data = await response.json();
 
             if (!data.authenticated) {
-              showNotification(
-                "Session abgelaufen. Bitte melden Sie sich erneut an.",
-                "warning"
-              );
+              console.warn("⚠️ Session abgelaufen");
+
+              if (typeof showNotification === "function") {
+                showNotification(
+                  "Session abgelaufen. Bitte melden Sie sich erneut an.",
+                  "warning"
+                );
+              }
+
+              // SOFORT zur Login-Seite weiterleiten bei Session-Verlust
               setTimeout(() => {
                 window.location.href = "/login";
               }, 2000);
+            } else {
+              // Session ist noch gültig - User-Info aktualisieren
+              if (data.user && data.user.username) {
+                const usernameElement =
+                  document.getElementById("current-username");
+                if (
+                  usernameElement &&
+                  usernameElement.textContent === "Laden..."
+                ) {
+                  usernameElement.textContent = data.user.username;
+                  console.log("✅ Benutzer-Info aktualisiert");
+                }
+              }
             }
           } catch (error) {
-            console.error("Session-Check fehlgeschlagen:", error);
+            console.warn("⚠️ Session-Check fehlgeschlagen:", error);
+
+            // Bei wiederholten Fehlern zur Login-Seite
+            // (könnte bedeuten, dass Server nicht erreichbar ist)
+            // Aber nicht zu aggressiv - erst nach 3 fehlgeschlagenen Versuchen
           }
-        }, 5 * 60 * 1000); // 5 Minuten
+        }, 3 * 60 * 1000); // 3 Minuten
       }
 
       // Beim Laden der Seite initialisieren
       document.addEventListener("DOMContentLoaded", function () {
+        console.log("🔄 Initialisiere Haupt-App...");
+
+        // User-Info laden
         loadUserInfo();
+
+        // Session-Überwachung starten
         startSessionMonitoring();
 
-        // Ihre bestehenden Initialisierungsfunktionen hier...
+        console.log("✅ Auth-System initialisiert");
       });
 
       // Keyboard-Shortcut für Logout (Ctrl+L)
       document.addEventListener("keydown", function (event) {
-        if (event.ctrlKey && event.key === "l") {
+        if (event.ctrlKey && event.altKey && event.key.toLowerCase() === "l") {
           event.preventDefault();
           handleLogout();
         }
       });
-      // JavaScript Code für Profil-Tab (in public/js/auth.js oder public/app.js hinzufügen)
 
       // Globale Variable für aktuellen Benutzer
       let currentProfileUser = null;

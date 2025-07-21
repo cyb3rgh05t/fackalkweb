@@ -1,0 +1,53 @@
+:root {
+  /** Base colors */
+  --clr-dark-a0: #000000;
+  --clr-light-a0: #ffffff;
+
+  /** Theme primary colors */
+  --clr-primary-a0: #abb415;
+  --clr-primary-a10: #b6bc3b;
+  --clr-primary-a20: #c0c457;
+  --clr-primary-a30: #cacc70;
+  --clr-primary-a40: #d4d588;
+  --clr-primary-a50: #dddd9f;
+
+  /** Theme surface colors */
+  --clr-surface-a0: #121212;
+  --clr-surface-a10: #282828;
+  --clr-surface-a20: #3f3f3f;
+  --clr-surface-a30: #575757;
+  --clr-surface-a40: #717171;
+  --clr-surface-a50: #8b8b8b;
+
+  /** Theme tonal surface colors */
+  --clr-surface-tonal-a0: #202016;
+  --clr-surface-tonal-a10: #35352b;
+  --clr-surface-tonal-a20: #4b4b42;
+  --clr-surface-tonal-a30: #62625a;
+  --clr-surface-tonal-a40: #7a7a73;
+  --clr-surface-tonal-a50: #93938d;
+
+  /* Custom mappings for existing classes */
+  --text-primary: var(--clr-primary-a50);
+  --text-secondary: var(--clr-primary-a20);
+  --text-muted: var(--clr-surface-a40);
+
+  --accent-primary: var(--clr-primary-a30);
+  --accent-secondary: var(--clr-primary-a40);
+  --accent-success: var(--clr-primary-a0);
+  --accent-warning: #f59e0b;
+  --accent-danger: #ef4444;
+
+  --border-color: var(--clr-surface-a30);
+  --shadow: 0 4px 16px 0 rgba(131, 222, 143, 0.03);
+  --shadow-lg: 0 10px 15px -3px rgba(131, 222, 143, 0.15);
+
+  --button-bg: var(--clr-primary-a20);
+  --button-bg-hover: var(--clr-primary-a10);
+  --button-text: var(--clr-dark-a0);
+  --button-text-hover: var(--clr-dark-a0);
+
+  --modal-bg-color: var(--clr-surface-a30);
+  --modal-header-color: var(--clr-surface-a20);
+  --modal-footer-color: var(--clr-surface-a20);
+}

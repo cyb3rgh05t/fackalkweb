@@ -1,44 +1,3 @@
-:root {
-  /** Base colors */
-  --clr-dark-a0: #000000;
-  --clr-light-a0: #ffffff;
-
-  /** Theme primary colors */
-  --clr-primary-a0: #83de8f;
-  --clr-primary-a10: #92e29b;
-  --clr-primary-a20: #a1e6a8;
-  --clr-primary-a30: #afeab4;
-  --clr-primary-a40: #bdedc0;
-  --clr-primary-a50: #caf1cd;
-
-  /** Theme surface colors */
-  --clr-surface-a0: #121212;
-  --clr-surface-a10: #282828;
-  --clr-surface-a20: #3f3f3f;
-  --clr-surface-a30: #575757;
-  --clr-surface-a40: #717171;
-  --clr-surface-a50: #8b8b8b;
-
-  /** Theme tonal surface colors */
-  --clr-surface-tonal-a0: #1d231d;
-  --clr-surface-tonal-a10: #323832;
-  --clr-surface-tonal-a20: #484d48;
-  --clr-surface-tonal-a30: #606460;
-  --clr-surface-tonal-a40: #787c78;
-  --clr-surface-tonal-a50: #929591;
-
-  --text-primary: var(--clr-primary-a50);
-  --text-secondary: var(--clr-primary-a20);
-  --text-muted: var(--clr-surface-a40);
-
-  --accent-primary: var(--clr-primary-a30);
-  --accent-secondary: var(--clr-primary-a40);
-  --accent-success: var(--clr-primary-a0);
-  --accent-warning: #f59e0b;
-  --accent-danger: #ef4444;
-  --border-color: var(--clr-surface-a30);
-}
-
 * {
   margin: 0;
   padding: 0;
@@ -242,12 +201,6 @@ body {
   .login-header h1 {
     font-size: 1.5rem;
   }
-}
-
-/* Zugänglichkeits-Verbesserungen */
-.form-input:focus {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 2px;
 }
 
 .btn-login:focus {

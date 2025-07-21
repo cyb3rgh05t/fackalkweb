@@ -1455,53 +1455,6 @@ SESSION_TIMEOUT=24
   } catch (err) {
     warning("Konnte package.json nicht erweitern");
   }
-
-  // README erstellen
-  const readmePath = path.join(__dirname, "..", "SETUP_README.md");
-  const readmeContent = `# KFZFacPRO - Setup erfolgreich abgeschlossen
-
-## 🔐 Standard-Anmeldedaten
-- **Benutzername:** admin
-- **Passwort:** admin123
-
-⚠️ **WICHTIG:** Passwort nach dem ersten Login ändern!
-
-## 🚀 Server starten
-\`\`\`bash
-npm start
-\`\`\`
-
-## 📱 Zugriff
-- **URL:** http://localhost:3000
-- **Login:** http://localhost:3000/login
-
-## 🛠️ Verfügbare Befehle
-- \`npm start\` - Server starten
-- \`npm run setup\` - Setup erneut ausführen
-- \`npm run setup-reset\` - Datenbank zurücksetzen
-- \`npm run backup\` - Backup erstellen
-
-
-## 📊 Enthaltene Demo-Daten
-- 5 Demo-Kunden
-- 7 Demo-Fahrzeuge  
-- 4 Arbeits-Templates
-- 60+ Einstellungen
-- Admin-Benutzer für Authentifizierung
-
-## ✨ System-Features
-- Vollständige Authentifizierung
-- Kunden- und Fahrzeugverwaltung
-- Auftrags- und Rechnungssystem
-- Template-System
-- Layout-Editor
-- Backup-System
-- User-Management (Admin)
-
-Viel Erfolg mit KFZFacPRO!
-`;
-  fs.writeFileSync(readmePath, readmeContent);
-  success("SETUP_README.md erstellt");
 }
 
 // Interaktiver Setup-Modus

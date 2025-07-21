@@ -1,7 +1,3 @@
-/* Layout-Editor CSS-Styles */
-/* Erweitert die bestehenden Styles um Layout-Editor Funktionalität */
-
-/* Layout-Tab-Navigation */
 .layout-tabs {
   display: flex;
   gap: 0.5rem;

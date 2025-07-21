@@ -12,9 +12,10 @@
       href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
       rel="stylesheet"
     />
+    <link rel="stylesheet" href="css/theme.css" />
     <link rel="stylesheet" href="css/style.css" />
-    <!-- NEUE CSS-Datei für Layout-Editor -->
     <link rel="stylesheet" href="css/layout-editor.css" />
+    <link rel="stylesheet" href="css/modal.css" />
   </head>
   <body>
     <header class="header">
@@ -40,7 +41,7 @@
               <i class="fas fa-cog"></i> Einstellungen
             </button>
           </nav>
-          <!-- User-Bereich mit Logout -->
+
           <div class="user-area">
             <div class="user-info" id="user-info">
               <i class="fas fa-user"></i>
@@ -296,7 +297,6 @@
 
           <!-- Tab-Navigation -->
           <div class="settings-tabs">
-            <!-- NEUER PROFIL-TAB -->
             <button
               class="settings-tab active"
               data-tab="profil"
@@ -922,7 +922,6 @@
                         <i class="fas fa-eye"></i>
                       </button>
                     </div>
-                    <!-- Passwort-Stärke Anzeige -->
                     <div
                       id="settings-password-strength"
                       style="display: none; margin-top: 0.5rem"
@@ -1036,7 +1035,7 @@
         </section>
       </div>
     </main>
-
+    <div id="modal-container"></div>
     <script>
       // User-Informationen laden und anzeigen
       async function loadUserInfo() {
@@ -1061,7 +1060,6 @@
               usernameElement.textContent = data.user.username;
             }
 
-            // Optional: Admin-Badge anzeigen
             if (data.user.role === "admin") {
               const userInfo = document.getElementById("user-info");
               if (userInfo && !userInfo.querySelector(".admin-badge")) {
@@ -1082,7 +1080,6 @@
 
             console.log("✅ Benutzer-Info geladen:", data.user.username);
           } else {
-            // Nicht eingeloggt - zur Login-Seite weiterleiten
             console.warn(
               "⚠️ Nicht authentifiziert - Weiterleitung zur Login-Seite"
             );
@@ -1094,7 +1091,6 @@
             error
           );
 
-          // Bei schwerwiegenden Fehlern auch zur Login-Seite
           console.warn("⚠️ Schwerer Fehler - Weiterleitung zur Login-Seite");
           window.location.href = "/login";
         }
@@ -1117,7 +1113,6 @@
             '<i class="fas fa-spinner fa-spin"></i> Abmelden...';
           logoutBtn.disabled = true;
 
-          // WICHTIG: Session bei API beenden
           try {
             const logoutResponse = await fetch("/api/auth/logout", {
               method: "POST",
@@ -1138,7 +1133,6 @@
             console.warn("⚠️ Logout-API-Call fehlgeschlagen:", logoutError);
           }
 
-          // WICHTIG: Lokale Daten löschen
           try {
             // Session Storage leeren
             if (typeof sessionStorage !== "undefined") {
@@ -1167,13 +1161,9 @@
             showNotification("Erfolgreich abgemeldet", "success");
           }
 
-          // WICHTIG: Kurz warten, dann zur Login-Seite weiterleiten
           setTimeout(() => {
             console.log("🔄 Weiterleitung zur Login-Seite...");
 
-            // MULTIPLE REDIRECT-STRATEGIEN für bessere Kompatibilität
-
-            // Strategie 1: Normale Weiterleitung
             try {
               window.location.href = "/login";
             } catch (redirectError1) {
@@ -1182,7 +1172,6 @@
                 redirectError1
               );
 
-              // Strategie 2: window.location.replace
               try {
                 window.location.replace("/login");
               } catch (redirectError2) {
@@ -1191,7 +1180,6 @@
                   redirectError2
                 );
 
-                // Strategie 3: Vollständiger Reload
                 try {
                   window.location.reload();
                 } catch (redirectError3) {
@@ -1200,7 +1188,6 @@
                     redirectError3
                   );
 
-                  // Letzter Ausweg: Button zurücksetzen und manuell Login anzeigen
                   logoutBtn.innerHTML = originalText;
                   logoutBtn.disabled = false;
                   alert(
@@ -1213,8 +1200,6 @@
         } catch (error) {
           console.error("❌ Schwerwiegender Logout-Fehler:", error);
 
-          // Auch bei schwerwiegenden Fehlern zur Login-Seite weiterleiten
-          // Der Server-seitige Logout sollte funktioniert haben
           if (typeof showNotification === "function") {
             showNotification("Abgemeldet (mit Fehlern)", "warning");
           }
@@ -1227,7 +1212,7 @@
                 "❌ Finale Weiterleitung fehlgeschlagen:",
                 finalError
               );
-              window.location.reload(); // Letzter Ausweg
+              window.location.reload();
             }
           }, 500);
         }
@@ -1235,7 +1220,6 @@
 
       // Session-Überwachung
       function startSessionMonitoring() {
-        // Alle 3 Minuten prüfen ob Session noch gültig ist (reduziert von 5 auf 3)
         setInterval(async () => {
           try {
             const response = await fetch("/api/auth/status", {
@@ -1261,12 +1245,10 @@
                 );
               }
 
-              // SOFORT zur Login-Seite weiterleiten bei Session-Verlust
               setTimeout(() => {
                 window.location.href = "/login";
               }, 2000);
             } else {
-              // Session ist noch gültig - User-Info aktualisieren
               if (data.user && data.user.username) {
                 const usernameElement =
                   document.getElementById("current-username");
@@ -1281,10 +1263,6 @@
             }
           } catch (error) {
             console.warn("⚠️ Session-Check fehlgeschlagen:", error);
-
-            // Bei wiederholten Fehlern zur Login-Seite
-            // (könnte bedeuten, dass Server nicht erreichbar ist)
-            // Aber nicht zu aggressiv - erst nach 3 fehlgeschlagenen Versuchen
           }
         }, 3 * 60 * 1000); // 3 Minuten
       }
@@ -1334,7 +1312,6 @@
           return currentProfileUser;
         }
 
-        // Fallback: Direkt von API abrufen
         return null;
       }
 
@@ -1827,7 +1804,6 @@ Protokoll: ${window.location.protocol}
         }
       });
 
-      // showSettingsTab Funktion erweitern (falls nicht vorhanden)
       if (typeof window.showSettingsTab === "undefined") {
         window.showSettingsTab = function (tabName) {
           // Alle Tabs und Content verstecken
@@ -1864,9 +1840,8 @@ Protokoll: ${window.location.protocol}
       }
     </script>
 
-    <!-- Ihre bestehenden JavaScript-Dateien -->
-
     <script type="module" src="js/app.js"></script>
+    <script type="module" src="js/modals.js"></script>
     <script type="module" src="js/notifications.js"></script>
     <script type="module" src="js/utils.js"></script>
     <script type="module" src="js/dashboard.js"></script>

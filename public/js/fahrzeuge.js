@@ -41,6 +41,14 @@ export async function loadFahrzeuge() {
             }
           </td>
           <td>
+            <div>${f.vin || ""}</div>
+            ${
+              f.vin
+                ? `<small style="color: var(--text-muted);">VIN</small>`
+                : ""
+            }
+          </td>
+          <td>
             <div>${f.farbe || "-"}</div>
             ${
               f.farbcode

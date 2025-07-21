@@ -1119,7 +1119,7 @@
               headers: {
                 "Content-Type": "application/json",
               },
-              credentials: "same-origin", // WICHTIG für Session-Cookies
+              credentials: "same-origin",
             });
 
             if (logoutResponse.ok) {
@@ -1133,18 +1133,16 @@
             console.warn("⚠️ Logout-API-Call fehlgeschlagen:", logoutError);
           }
 
+          // Lokale Daten löschen
           try {
-            // Session Storage leeren
             if (typeof sessionStorage !== "undefined") {
               sessionStorage.clear();
             }
-
-            // Local Storage leeren (falls verwendet)
             if (typeof localStorage !== "undefined") {
               localStorage.clear();
             }
 
-            // Alle globalen Variablen zurücksetzen
+            // Globale Variablen zurücksetzen
             if (window.kunden) window.kunden = [];
             if (window.fahrzeuge) window.fahrzeuge = [];
             if (window.auftraege) window.auftraege = [];
@@ -1161,40 +1159,40 @@
             showNotification("Erfolgreich abgemeldet", "success");
           }
 
+          // LÖSUNG FÜR ELECTRON: Force reload statt einfache Navigation
           setTimeout(() => {
             console.log("🔄 Weiterleitung zur Login-Seite...");
 
-            try {
-              window.location.href = "/login";
-            } catch (redirectError1) {
-              console.warn(
-                "⚠️ window.location.href fehlgeschlagen:",
-                redirectError1
+            // Überprüfe ob wir in Electron laufen
+            const isElectron =
+              typeof window !== "undefined" &&
+              window.process &&
+              window.process.type === "renderer";
+
+            if (isElectron) {
+              // In Electron: Verwende window.location.replace mit Cache-Clearing
+              console.log(
+                "🔧 Electron erkannt - verwende optimierte Navigation"
               );
 
-              try {
-                window.location.replace("/login");
-              } catch (redirectError2) {
-                console.warn(
-                  "⚠️ window.location.replace fehlgeschlagen:",
-                  redirectError2
-                );
-
-                try {
-                  window.location.reload();
-                } catch (redirectError3) {
-                  console.error(
-                    "❌ Alle Redirect-Strategien fehlgeschlagen:",
-                    redirectError3
-                  );
-
-                  logoutBtn.innerHTML = originalText;
-                  logoutBtn.disabled = false;
-                  alert(
-                    "Abmeldung erfolgreich. Bitte laden Sie die Seite neu oder navigieren Sie zur Login-Seite."
-                  );
-                }
+              // Erst den Cache für die aktuelle Seite leeren
+              if (window.webContents && window.webContents.session) {
+                window.webContents.session.clearCache();
               }
+
+              // Dann zur Login-Seite navigieren mit Cache-Buster
+              const timestamp = Date.now();
+              window.location.replace(`/login?t=${timestamp}`);
+
+              // Fallback: Komplette Seite neu laden falls nötig
+              setTimeout(() => {
+                console.log("🔄 Fallback: Vollständiger Reload");
+                window.location.reload(true); // Force reload from server
+              }, 2000);
+            } else {
+              // Im Browser: Standard-Navigation
+              console.log("🌐 Browser erkannt - verwende Standard-Navigation");
+              window.location.href = "/login";
             }
           }, 1000);
         } catch (error) {
@@ -1204,16 +1202,10 @@
             showNotification("Abgemeldet (mit Fehlern)", "warning");
           }
 
+          // Notfall-Lösung: Kompletter Reload
           setTimeout(() => {
-            try {
-              window.location.href = "/login";
-            } catch (finalError) {
-              console.error(
-                "❌ Finale Weiterleitung fehlgeschlagen:",
-                finalError
-              );
-              window.location.reload();
-            }
+            console.log("🆘 Notfall-Reload wird ausgeführt");
+            window.location.reload(true);
           }, 500);
         }
       }

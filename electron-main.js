@@ -256,17 +256,38 @@ function setupWindowHandlers() {
 }
 
 // Anwendungsmenü erstellen
+// Anwendungsmenü erstellen - Einfache funktionierende Version
 function createMenu() {
   const template = [
+    // DATEI-MENÜ
     {
       label: "Datei",
       submenu: [
         {
-          label: "Neu",
+          label: "Neue Rechnung",
           accelerator: "CmdOrCtrl+N",
           click: () => {
             if (mainWindow && !mainWindow.isDestroyed()) {
-              mainWindow.webContents.send("menu-new");
+              mainWindow.loadURL(`http://localhost:${PORT}/rechnungen`);
+            }
+          },
+        },
+        {
+          label: "Neuer Auftrag",
+          accelerator: "CmdOrCtrl+Shift+N",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.loadURL(`http://localhost:${PORT}/auftraege`);
+            }
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Drucken",
+          accelerator: "CmdOrCtrl+P",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.print();
             }
           },
         },
@@ -278,6 +299,8 @@ function createMenu() {
         },
       ],
     },
+
+    // BEARBEITEN-MENÜ
     {
       label: "Bearbeiten",
       submenu: [
@@ -287,17 +310,246 @@ function createMenu() {
         { role: "cut", label: "Ausschneiden" },
         { role: "copy", label: "Kopieren" },
         { role: "paste", label: "Einfügen" },
+        { type: "separator" },
+        { role: "selectall", label: "Alles auswählen" },
+        { type: "separator" },
+        {
+          label: "Suchen",
+          accelerator: "CmdOrCtrl+F",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              // Öffnet die Browser-eigene Suchfunktion
+              mainWindow.webContents.executeJavaScript(`
+                if (document.querySelector('input[type="search"], input[placeholder*="such"], .search-input')) {
+                  const searchInput = document.querySelector('input[type="search"], input[placeholder*="such"], .search-input');
+                  searchInput.focus();
+                  searchInput.select();
+                } else {
+                  // Browser-eigene Suche
+                  document.execCommand('find');
+                }
+              `);
+            }
+          },
+        },
       ],
     },
+
+    // NAVIGATION-MENÜ
     {
-      label: "Entwicklung",
+      label: "Navigation",
+      submenu: [
+        {
+          label: "Dashboard",
+          accelerator: "CmdOrCtrl+1",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.loadURL(`http://localhost:${PORT}/dashboard`);
+            }
+          },
+        },
+        {
+          label: "Rechnungen",
+          accelerator: "CmdOrCtrl+2",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.loadURL(`http://localhost:${PORT}/rechnungen`);
+            }
+          },
+        },
+        {
+          label: "Aufträge",
+          accelerator: "CmdOrCtrl+3",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.loadURL(`http://localhost:${PORT}/auftraege`);
+            }
+          },
+        },
+        {
+          label: "Kunden",
+          accelerator: "CmdOrCtrl+4",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.loadURL(`http://localhost:${PORT}/kunden`);
+            }
+          },
+        },
+        {
+          label: "Fahrzeuge",
+          accelerator: "CmdOrCtrl+5",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.loadURL(`/fahrzeuge`);
+            }
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Einstellungen",
+          accelerator: "CmdOrCtrl+,",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.loadURL(`http://localhost:3000/api/einstellungen`);
+            }
+          },
+        },
+      ],
+    },
+
+    // ANSICHT-MENÜ
+    {
+      label: "Ansicht",
       submenu: [
         { role: "reload", label: "Neu laden" },
         { role: "forceReload", label: "Erzwungen neu laden" },
         { role: "toggleDevTools", label: "Entwicklertools" },
+        { type: "separator" },
+        { role: "resetzoom", label: "Zoom zurücksetzen" },
+        { role: "zoomin", label: "Vergrößern" },
+        { role: "zoomout", label: "Verkleinern" },
+        { type: "separator" },
+        {
+          label: "Vollbild",
+          accelerator: process.platform === "darwin" ? "Cmd+Ctrl+F" : "F11",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.setFullScreen(!mainWindow.isFullScreen());
+            }
+          },
+        },
+      ],
+    },
+
+    // FENSTER-MENÜ
+    {
+      label: "Fenster",
+      submenu: [
+        { role: "minimize", label: "Minimieren" },
+        { role: "close", label: "Schließen" },
+      ],
+    },
+
+    // HILFE-MENÜ
+    {
+      label: "Hilfe",
+      submenu: [
+        {
+          label: "Bedienungsanleitung",
+          click: () => {
+            // Öffnet eine lokale Hilfe-Seite oder externe URL
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.loadURL(`https://github.com/cyb3rgh05t`);
+            }
+          },
+        },
+        {
+          label: "Tastenkürzel",
+          click: () => {
+            // Zeigt Tastenkürzel an
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              dialog.showMessageBox(mainWindow, {
+                type: "info",
+                title: "Tastenkürzel",
+                message: "Verfügbare Tastenkürzel:",
+                detail: `
+Strg+N - Neue Rechnung
+Strg+Shift+N - Neuer Auftrag
+Strg+P - Drucken
+Strg+F - Suchen
+Strg+1 - Dashboard
+Strg+2 - Rechnungen  
+Strg+3 - Aufträge
+Strg+4 - Kunden
+Strg+5 - Fahrzeuge
+Strg+, - Einstellungen
+F11 - Vollbild
+F5 - Neu laden
+F12 - Entwicklertools
+                `.trim(),
+                buttons: ["OK"],
+              });
+            }
+          },
+        },
+        { type: "separator" },
+        {
+          label: "Systeminfo",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              const os = require("os");
+              dialog.showMessageBox(mainWindow, {
+                type: "info",
+                title: "Systeminformationen",
+                message: "KFZ-Verwaltungssystem",
+                detail: `
+Version: 1.0.0
+Electron: ${process.versions.electron}
+Chrome: ${process.versions.chrome}
+Node.js: ${process.versions.node}
+Betriebssystem: ${os.platform()} ${os.release()}
+Architektur: ${os.arch()}
+                `.trim(),
+                buttons: ["OK"],
+              });
+            }
+          },
+        },
+        {
+          label: "Über KFZ-Verwaltung",
+          click: () => {
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              dialog.showMessageBox(mainWindow, {
+                type: "info",
+                title: "Über KFZ-Verwaltung",
+                message: "KFZ-Verwaltungssystem",
+                detail: `
+Version 1.0.0
+
+Ein professionelles System zur Verwaltung von:
+• Rechnungen
+• Aufträgen  
+• Kunden
+• Fahrzeugen
+
+Entwickelt für KFZ-Betriebe
+© ${new Date().getFullYear()} Ihre Firma
+                `.trim(),
+                buttons: ["OK"],
+              });
+            }
+          },
+        },
       ],
     },
   ];
+
+  // macOS spezifische Anpassungen
+  if (process.platform === "darwin") {
+    template.unshift({
+      label: app.getName(),
+      submenu: [
+        { role: "about", label: `Über ${app.getName()}` },
+        { type: "separator" },
+        { role: "services", label: "Dienste" },
+        { type: "separator" },
+        { role: "hide", label: `${app.getName()} ausblenden` },
+        { role: "hideothers", label: "Andere ausblenden" },
+        { role: "unhide", label: "Alle anzeigen" },
+        { type: "separator" },
+        { role: "quit", label: `${app.getName()} beenden` },
+      ],
+    });
+
+    // Fenster-Menü für macOS erweitern
+    template[5].submenu = [
+      { role: "close", label: "Schließen" },
+      { role: "minimize", label: "Minimieren" },
+      { role: "zoom", label: "Zoom" },
+      { type: "separator" },
+      { role: "front", label: "Alle nach vorne" },
+    ];
+  }
 
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);

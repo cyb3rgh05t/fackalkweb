@@ -289,18 +289,14 @@ function createMenu() {
         { role: "paste", label: "Einfügen" },
       ],
     },
-    ...(isDev
-      ? [
-          {
-            label: "Entwicklung",
-            submenu: [
-              { role: "reload", label: "Neu laden" },
-              { role: "forceReload", label: "Erzwungen neu laden" },
-              { role: "toggleDevTools", label: "Entwicklertools" },
-            ],
-          },
-        ]
-      : []),
+    {
+      label: "Entwicklung",
+      submenu: [
+        { role: "reload", label: "Neu laden" },
+        { role: "forceReload", label: "Erzwungen neu laden" },
+        { role: "toggleDevTools", label: "Entwicklertools" },
+      ],
+    },
   ];
 
   const menu = Menu.buildFromTemplate(template);

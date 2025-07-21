@@ -5,275 +5,464 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🔐 KFZ-App Lizenz-Verwaltung</title>
+    <link rel="stylesheet" href="../style.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        /* Erweiterte Styles für das Admin-Dashboard */
+        :root {
+            /* Neue Dark Mode Variablen integrieren */
+            --clr-dark-a0: #000000;
+            --clr-light-a0: #ffffff;
+
+            /* Aktualisierte Theme primary colors */
+            --clr-primary-a0: #83de8f;
+            --clr-primary-a10: #92e29b;
+            --clr-primary-a20: #a1e6a8;
+            --clr-primary-a30: #afeab4;
+            --clr-primary-a40: #bdedc0;
+            --clr-primary-a50: #caf1cd;
+
+            /* Aktualisierte Theme surface colors */
+            --clr-surface-a0: #121212;
+            --clr-surface-a10: #282828;
+            --clr-surface-a20: #3f3f3f;
+            --clr-surface-a30: #575757;
+            --clr-surface-a40: #717171;
+            --clr-surface-a50: #8b8b8b;
+
+            /* Aktualisierte Theme tonal surface colors */
+            --clr-surface-tonal-a0: #1d231d;
+            --clr-surface-tonal-a10: #323832;
+            --clr-surface-tonal-a20: #484d48;
+            --clr-surface-tonal-a30: #606460;
+            --clr-surface-tonal-a40: #787c78;
+            --clr-surface-tonal-a50: #929591;
         }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: #f5f5f5;
-            color: #333;
-            line-height: 1.6;
-        }
-
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            margin-bottom: 30px;
+        /* Dashboard-spezifische Anpassungen */
+        .admin-header {
+            background: linear-gradient(135deg, var(--clr-primary-a0) 0%, var(--clr-primary-a20) 100%);
+            color: var(--clr-dark-a0);
+            padding: 2rem;
+            border-radius: 16px;
+            margin-bottom: 2rem;
             text-align: center;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--shadow-lg);
+            position: relative;
+            overflow: hidden;
         }
 
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
+        .admin-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+            animation: shimmer 3s infinite;
         }
 
-        .stats {
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .admin-header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 700;
+            position: relative;
+            z-index: 1;
+        }
+
+        .admin-header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+
+        .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin: 30px 0;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
         }
 
         .stat-card {
-            background: white;
-            padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(135deg, var(--clr-surface-a10) 0%, var(--clr-surface-a20) 100%);
+            padding: 2rem;
+            border-radius: 16px;
             text-align: center;
-            transition: transform 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border: 1px solid var(--border-color);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--clr-primary-a0), var(--clr-primary-a30));
         }
 
         .stat-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-8px);
+            box-shadow: var(--shadow-lg);
+            border-color: var(--accent-primary);
         }
 
         .stat-number {
-            font-size: 3em;
-            font-weight: bold;
-            color: #667eea;
-            margin-bottom: 10px;
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--accent-primary);
+            margin-bottom: 0.5rem;
+            line-height: 1;
         }
 
         .stat-label {
-            color: #666;
+            color: var(--text-secondary);
             text-transform: uppercase;
-            font-size: 0.9em;
+            font-size: 0.875rem;
             letter-spacing: 1px;
+            font-weight: 600;
         }
 
-        .section {
-            background: white;
-            margin: 30px 0;
-            border-radius: 15px;
+        .admin-section {
+            background: var(--clr-surface-a10);
+            border-radius: 16px;
             overflow: hidden;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border-color);
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .admin-section:hover {
+            box-shadow: var(--shadow-lg);
         }
 
         .section-header {
-            background: #f8f9fa;
-            padding: 20px 30px;
-            border-bottom: 1px solid #e9ecef;
+            background: var(--clr-surface-a20);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
+        }
+
+        .section-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, var(--clr-primary-a0), transparent);
         }
 
         .section-header h2 {
-            color: #333;
-            font-size: 1.5em;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin: 0;
         }
 
         .section-content {
-            padding: 30px;
+            padding: 2rem;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 20px 0;
-        }
-
-        th,
-        td {
-            padding: 15px;
-            text-align: left;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        th {
-            background: #f8f9fa;
-            font-weight: 600;
-            color: #555;
-            position: sticky;
-            top: 0;
-        }
-
-        tr:hover {
-            background: #f8f9fa;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 0.9em;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            display: inline-block;
-            margin: 3px;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-        }
-
-        .btn-danger {
-            background: #ff6b6b;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #ff5252;
-            transform: translateY(-2px);
-        }
-
-        .btn-success {
-            background: #51cf66;
-            color: white;
-        }
-
-        .btn-success:hover {
-            background: #40c057;
-            transform: translateY(-2px);
+        .admin-form {
+            background: var(--clr-surface-a20);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            margin-top: 1rem;
         }
 
         .form-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin: 20px 0;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
         }
 
         .form-group {
-            margin: 15px 0;
+            margin-bottom: 1.5rem;
         }
 
         .form-group label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #555;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 0.95rem;
         }
 
         .form-group input,
         .form-group select,
         .form-group textarea {
             width: 100%;
-            padding: 12px;
-            border: 2px solid #e9ecef;
+            padding: 0.875rem 1rem;
+            background: var(--clr-surface-a30);
+            border: 1px solid var(--border-color);
             border-radius: 8px;
-            font-size: 1em;
-            transition: border-color 0.3s ease;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
         }
 
         .form-group input:focus,
         .form-group select:focus,
         .form-group textarea:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(131, 222, 143, 0.18);
+            background: var(--clr-surface-a20);
+        }
+
+        .admin-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--clr-surface-a20);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .admin-table th,
+        .admin-table td {
+            padding: 1rem 1.5rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .admin-table th {
+            background: var(--clr-surface-a10);
+            font-weight: 600;
+            color: var(--text-primary);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .admin-table tbody tr {
+            transition: all 0.2s ease;
+        }
+
+        .admin-table tbody tr:hover {
+            background: var(--clr-surface-a10);
+            transform: scale(1.01);
+        }
+
+        .license-key-display {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            background: var(--clr-surface-tonal-a20);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            border: 1px solid var(--clr-surface-tonal-a30);
+            color: var(--clr-primary-a30);
+            font-weight: 500;
+        }
+
+        .hardware-id-display {
+            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+            color: var(--text-muted);
+            font-size: 0.85rem;
         }
 
         .status-badge {
-            padding: 6px 12px;
+            padding: 0.4rem 0.8rem;
             border-radius: 20px;
-            font-size: 0.8em;
-            font-weight: 500;
+            font-size: 0.8rem;
+            font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
 
         .status-active {
-            background: #d4edda;
-            color: #155724;
+            background: rgba(131, 222, 143, 0.2);
+            color: var(--accent-success);
+            border: 1px solid rgba(131, 222, 143, 0.3);
         }
 
         .status-expired {
-            background: #f8d7da;
-            color: #721c24;
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--accent-danger);
+            border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
         .status-suspended {
-            background: #fff3cd;
-            color: #856404;
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--accent-warning);
+            border: 1px solid rgba(245, 158, 11, 0.3);
         }
 
-        .license-key {
-            font-family: 'Courier New', monospace;
-            background: #f8f9fa;
-            padding: 8px;
-            border-radius: 4px;
-            font-size: 0.9em;
-            border: 1px solid #e9ecef;
+        .customer-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
         }
 
-        .hardware-id {
-            font-family: 'Courier New', monospace;
-            color: #6c757d;
-            font-size: 0.85em;
+        .customer-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .customer-email {
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .activation-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+        }
+
+        .activation-current {
+            color: var(--accent-primary);
+        }
+
+        .activation-max {
+            color: var(--text-muted);
+        }
+
+        .expiry-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .expiry-date {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .expiry-unlimited {
+            color: var(--accent-success);
+            font-style: italic;
+        }
+
+        .expiry-soon {
+            color: var(--accent-warning);
+        }
+
+        .expiry-overdue {
+            color: var(--accent-danger);
+        }
+
+        .actions-group {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .checkbox-group {
+            display: flex;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .checkbox-item:hover {
+            color: var(--accent-primary);
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+            accent-color: var(--accent-primary);
+        }
+
+        .features-section {
+            background: var(--clr-surface-tonal-a20);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--clr-surface-tonal-a30);
         }
 
         .alert {
-            padding: 15px;
-            margin: 20px 0;
+            padding: 1rem 1.5rem;
+            margin: 1.5rem 0;
             border-radius: 8px;
-            border: 1px solid transparent;
+            border: 1px solid;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }
 
         .alert-success {
-            color: #155724;
-            background: #d4edda;
-            border-color: #c3e6cb;
+            background: rgba(131, 222, 143, 0.1);
+            border-color: rgba(131, 222, 143, 0.3);
+            color: var(--accent-success);
         }
 
         .alert-danger {
-            color: #721c24;
-            background: #f8d7da;
-            border-color: #f5c6cb;
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: var(--accent-danger);
         }
 
         .alert-info {
-            color: #0c5460;
-            background: #d1ecf1;
-            border-color: #bee5eb;
+            background: rgba(131, 222, 143, 0.1);
+            border-color: rgba(131, 222, 143, 0.3);
+            color: var(--accent-primary);
         }
 
+        .toggle-button {
+            background: var(--clr-surface-a30);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+
+        .toggle-button:hover {
+            background: var(--accent-primary);
+            color: var(--button-text-hover);
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+        }
+
+        .collapsible-content {
+            display: none;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .collapsible-content.active {
+            display: block;
+        }
+
+        /* Responsive Design */
         @media (max-width: 768px) {
-            .container {
-                padding: 10px;
+            .admin-header h1 {
+                font-size: 2rem;
             }
 
-            .stats {
+            .stats-grid {
                 grid-template-columns: 1fr;
             }
 
@@ -281,8 +470,63 @@
                 grid-template-columns: 1fr;
             }
 
+            .section-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+
+            .actions-group {
+                justify-content: center;
+            }
+
+            .admin-table {
+                font-size: 0.875rem;
+            }
+
+            .admin-table th,
+            .admin-table td {
+                padding: 0.75rem 0.5rem;
+            }
+        }
+
+        @media (max-width: 480px) {
             .section-content {
-                padding: 20px;
+                padding: 1rem;
+            }
+
+            .admin-form {
+                padding: 1rem;
+            }
+
+            .checkbox-group {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+        }
+
+        /* Dark Mode Print Styles */
+        @media print {
+
+            .admin-header,
+            .toggle-button,
+            .btn,
+            .actions-group {
+                display: none !important;
+            }
+
+            body {
+                background: white !important;
+                color: black !important;
+            }
+
+            .admin-section,
+            .admin-table,
+            .stat-card {
+                background: white !important;
+                color: black !important;
+                box-shadow: none !important;
+                border: 1px solid #ccc !important;
             }
         }
     </style>
@@ -290,9 +534,9 @@
 
 <body>
     <div class="container">
-        <div class="header">
+        <div class="admin-header">
             <h1>🔐 KFZ-App Lizenz-Verwaltung</h1>
-            <p>Zentrale Verwaltung aller App-Lizenzen</p>
+            <p>Zentrale Verwaltung aller App-Lizenzen im neuen Dark Mode Design</p>
         </div>
 
         <?php
@@ -318,7 +562,7 @@
         $stats['expired_licenses'] = $stmt->fetch()['count'];
         ?>
 
-        <div class="stats">
+        <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-number"><?php echo $stats['active_licenses']; ?></div>
                 <div class="stat-label">Aktive Lizenzen</div>
@@ -338,73 +582,81 @@
         </div>
 
         <!-- Neue Lizenz erstellen -->
-        <div class="section">
+        <div class="admin-section">
             <div class="section-header">
                 <h2>🆕 Neue Lizenz erstellen</h2>
-                <button class="btn btn-primary" onclick="toggleSection('create-license')">
+                <button class="toggle-button" onclick="toggleSection('create-license')">
                     Lizenz erstellen
                 </button>
             </div>
-            <div class="section-content" id="create-license" style="display:none;">
-                <form method="POST" action="create_license.php">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Kundenname:</label>
-                            <input type="text" name="customer_name" required placeholder="Max Mustermann">
-                        </div>
-                        <div class="form-group">
-                            <label>E-Mail:</label>
-                            <input type="email" name="customer_email" required placeholder="max@example.com">
-                        </div>
-                        <div class="form-group">
-                            <label>Firma (optional):</label>
-                            <input type="text" name="company" placeholder="Musterfirma GmbH">
-                        </div>
-                        <div class="form-group">
-                            <label>Lizenz-Typ:</label>
-                            <select name="license_type" required>
-                                <option value="basic">Basic (1 PC)</option>
-                                <option value="professional">Professional (2 PCs)</option>
-                                <option value="enterprise">Enterprise (5 PCs)</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Max. Aktivierungen:</label>
-                            <input type="number" name="max_activations" value="1" min="1" max="10" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Ablaufdatum (optional):</label>
-                            <input type="date" name="expires_at" min="<?php echo date('Y-m-d'); ?>">
-                        </div>
+            <div class="section-content">
+                <div class="collapsible-content" id="create-license">
+                    <div class="admin-form">
+                        <form method="POST" action="create_license.php">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label>Kundenname:</label>
+                                    <input type="text" name="customer_name" required placeholder="Max Mustermann">
+                                </div>
+                                <div class="form-group">
+                                    <label>E-Mail:</label>
+                                    <input type="email" name="customer_email" required placeholder="max@example.com">
+                                </div>
+                                <div class="form-group">
+                                    <label>Firma (optional):</label>
+                                    <input type="text" name="company" placeholder="Musterfirma GmbH">
+                                </div>
+                                <div class="form-group">
+                                    <label>Lizenz-Typ:</label>
+                                    <select name="license_type" required>
+                                        <option value="basic">Basic (1 PC)</option>
+                                        <option value="professional">Professional (2 PCs)</option>
+                                        <option value="enterprise">Enterprise (5 PCs)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Max. Aktivierungen:</label>
+                                    <input type="number" name="max_activations" value="1" min="1" max="10" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Ablaufdatum (optional):</label>
+                                    <input type="date" name="expires_at" min="<?php echo date('Y-m-d'); ?>">
+                                </div>
+                            </div>
+
+                            <div class="features-section">
+                                <div class="form-group">
+                                    <label>Features:</label>
+                                    <div class="checkbox-group">
+                                        <div class="checkbox-item">
+                                            <input type="checkbox" name="features[]" value="basic" checked id="feat-basic">
+                                            <label for="feat-basic">Basic Features</label>
+                                        </div>
+                                        <div class="checkbox-item">
+                                            <input type="checkbox" name="features[]" value="backup" id="feat-backup">
+                                            <label for="feat-backup">Backup-Funktion</label>
+                                        </div>
+                                        <div class="checkbox-item">
+                                            <input type="checkbox" name="features[]" value="export" id="feat-export">
+                                            <label for="feat-export">Export-Funktion</label>
+                                        </div>
+                                        <div class="checkbox-item">
+                                            <input type="checkbox" name="features[]" value="premium" id="feat-premium">
+                                            <label for="feat-premium">Premium Features</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success">🎯 Lizenz erstellen</button>
+                        </form>
                     </div>
-                    <div class="form-group">
-                        <label>Features:</label>
-                        <div style="display: flex; gap: 20px; flex-wrap: wrap;">
-                            <label style="display: flex; align-items: center; gap: 5px;">
-                                <input type="checkbox" name="features[]" value="basic" checked>
-                                Basic Features
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 5px;">
-                                <input type="checkbox" name="features[]" value="backup">
-                                Backup-Funktion
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 5px;">
-                                <input type="checkbox" name="features[]" value="export">
-                                Export-Funktion
-                            </label>
-                            <label style="display: flex; align-items: center; gap: 5px;">
-                                <input type="checkbox" name="features[]" value="premium">
-                                Premium Features
-                            </label>
-                        </div>
-                    </div>
-                    <button type="submit" class="btn btn-success">🎯 Lizenz erstellen</button>
-                </form>
+                </div>
             </div>
         </div>
 
         <!-- Lizenz-Liste -->
-        <div class="section">
+        <div class="admin-section">
             <div class="section-header">
                 <h2>📋 Lizenz-Übersicht</h2>
                 <button class="btn btn-primary" onclick="location.reload()">
@@ -412,83 +664,113 @@
                 </button>
             </div>
             <div class="section-content">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Lizenzschlüssel</th>
-                            <th>Kunde</th>
-                            <th>Typ</th>
-                            <th>Aktivierungen</th>
-                            <th>Ablauf</th>
-                            <th>Status</th>
-                            <th>Erstellt</th>
-                            <th>Aktionen</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        $stmt = $pdo->query("
-                            SELECT l.*, c.name as customer_name, c.email as customer_email,
-                                   COUNT(la.id) as activation_count
-                            FROM licenses l 
-                            JOIN customers c ON l.customer_id = c.id 
-                            LEFT JOIN license_activations la ON l.license_key = la.license_key AND la.status = 'active'
-                            GROUP BY l.id 
-                            ORDER BY l.created_at DESC
-                        ");
-
-                        while ($license = $stmt->fetch()):
-                            $status_class = 'status-active';
-                            $status_text = 'Aktiv';
-
-                            if ($license['expires_at'] && strtotime($license['expires_at']) < time()) {
-                                $status_class = 'status-expired';
-                                $status_text = 'Abgelaufen';
-                            } elseif ($license['status'] === 'suspended') {
-                                $status_class = 'status-suspended';
-                                $status_text = 'Gesperrt';
-                            }
-                        ?>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
                             <tr>
-                                <td><span class="license-key"><?php echo $license['license_key']; ?></span></td>
-                                <td>
-                                    <strong><?php echo htmlspecialchars($license['customer_name']); ?></strong><br>
-                                    <small style="color: #666;"><?php echo htmlspecialchars($license['customer_email']); ?></small>
-                                </td>
-                                <td><?php echo ucfirst($license['license_type']); ?></td>
-                                <td><?php echo $license['activation_count']; ?>/<?php echo $license['max_activations']; ?></td>
-                                <td>
-                                    <?php if ($license['expires_at']): ?>
-                                        <?php echo date('d.m.Y', strtotime($license['expires_at'])); ?>
-                                    <?php else: ?>
-                                        <span style="color: #666;">Unbegrenzt</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td><span class="status-badge <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
-                                <td><?php echo date('d.m.Y H:i', strtotime($license['created_at'])); ?></td>
-                                <td>
-                                    <a href="license_details.php?key=<?php echo $license['license_key']; ?>" class="btn btn-primary">
-                                        📊 Details
-                                    </a>
-                                    <?php if ($license['status'] === 'active'): ?>
-                                        <button class="btn btn-danger" onclick="suspendLicense('<?php echo $license['license_key']; ?>')">
-                                            🚫 Sperren
-                                        </button>
-                                    <?php else: ?>
-                                        <button class="btn btn-success" onclick="activateLicense('<?php echo $license['license_key']; ?>')">
-                                            ✅ Aktivieren
-                                        </button>
-                                    <?php endif; ?>
-                                </td>
+                                <th>Lizenzschlüssel</th>
+                                <th>Kunde</th>
+                                <th>Typ</th>
+                                <th>Aktivierungen</th>
+                                <th>Ablauf</th>
+                                <th>Status</th>
+                                <th>Erstellt</th>
+                                <th>Aktionen</th>
                             </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $stmt = $pdo->query("
+                                SELECT l.*, c.name as customer_name, c.email as customer_email,
+                                       COUNT(la.id) as activation_count
+                                FROM licenses l 
+                                JOIN customers c ON l.customer_id = c.id 
+                                LEFT JOIN license_activations la ON l.license_key = la.license_key AND la.status = 'active'
+                                GROUP BY l.id 
+                                ORDER BY l.created_at DESC
+                            ");
+
+                            while ($license = $stmt->fetch()):
+                                $status_class = 'status-active';
+                                $status_text = 'Aktiv';
+
+                                if ($license['expires_at'] && strtotime($license['expires_at']) < time()) {
+                                    $status_class = 'status-expired';
+                                    $status_text = 'Abgelaufen';
+                                } elseif ($license['status'] === 'suspended') {
+                                    $status_class = 'status-suspended';
+                                    $status_text = 'Gesperrt';
+                                }
+                            ?>
+                                <tr>
+                                    <td><span class="license-key-display"><?php echo $license['license_key']; ?></span></td>
+                                    <td>
+                                        <div class="customer-info">
+                                            <span class="customer-name"><?php echo htmlspecialchars($license['customer_name']); ?></span>
+                                            <span class="customer-email"><?php echo htmlspecialchars($license['customer_email']); ?></span>
+                                        </div>
+                                    </td>
+                                    <td><?php echo ucfirst($license['license_type']); ?></td>
+                                    <td>
+                                        <div class="activation-info">
+                                            <span class="activation-current"><?php echo $license['activation_count']; ?></span>
+                                            <span>/</span>
+                                            <span class="activation-max"><?php echo $license['max_activations']; ?></span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="expiry-info">
+                                            <?php if ($license['expires_at']): ?>
+                                                <?php
+                                                $expires = strtotime($license['expires_at']);
+                                                $now = time();
+                                                $days_left = ($expires - $now) / (24 * 60 * 60);
+                                                $expiry_class = '';
+
+                                                if ($expires < $now) {
+                                                    $expiry_class = 'expiry-overdue';
+                                                } elseif ($days_left < 30) {
+                                                    $expiry_class = 'expiry-soon';
+                                                } else {
+                                                    $expiry_class = 'expiry-date';
+                                                }
+                                                ?>
+                                                <span class="<?php echo $expiry_class; ?>">
+                                                    <?php echo date('d.m.Y', $expires); ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="expiry-unlimited">Unbegrenzt</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                    <td><span class="status-badge <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
+                                    <td><?php echo date('d.m.Y H:i', strtotime($license['created_at'])); ?></td>
+                                    <td>
+                                        <div class="actions-group">
+                                            <a href="license_details.php?key=<?php echo $license['license_key']; ?>" class="btn btn-sm btn-primary">
+                                                📊 Details
+                                            </a>
+                                            <?php if ($license['status'] === 'active'): ?>
+                                                <button class="btn btn-sm btn-danger" onclick="suspendLicense('<?php echo $license['license_key']; ?>')">
+                                                    🚫 Sperren
+                                                </button>
+                                            <?php else: ?>
+                                                <button class="btn btn-sm btn-success" onclick="activateLicense('<?php echo $license['license_key']; ?>')">
+                                                    ✅ Aktivieren
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
         <!-- Aktivierungs-Log -->
-        <div class="section">
+        <div class="admin-section">
             <div class="section-header">
                 <h2>📱 Aktuelle Aktivierungen</h2>
                 <select onchange="filterActivations(this.value)" class="btn btn-primary">
@@ -499,52 +781,54 @@
                 </select>
             </div>
             <div class="section-content">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Lizenz</th>
-                            <th>Kunde</th>
-                            <th>Hardware-ID</th>
-                            <th>Erste Aktivierung</th>
-                            <th>Letzte Validierung</th>
-                            <th>App-Version</th>
-                            <th>Validierungen</th>
-                            <th>IP-Adresse</th>
-                            <th>Aktionen</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php
-                        $stmt = $pdo->query("
-                            SELECT la.*, l.license_key, c.name as customer_name
-                            FROM license_activations la
-                            JOIN licenses l ON la.license_key = l.license_key
-                            JOIN customers c ON l.customer_id = c.id
-                            WHERE la.status = 'active'
-                            ORDER BY la.last_validation DESC
-                            LIMIT 50
-                        ");
-
-                        while ($activation = $stmt->fetch()):
-                        ?>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
                             <tr>
-                                <td><span class="license-key"><?php echo substr($activation['license_key'], 0, 10); ?>...</span></td>
-                                <td><?php echo htmlspecialchars($activation['customer_name']); ?></td>
-                                <td><span class="hardware-id"><?php echo substr($activation['hardware_id'], 0, 12); ?>...</span></td>
-                                <td><?php echo date('d.m.Y H:i', strtotime($activation['first_activation'])); ?></td>
-                                <td><?php echo date('d.m.Y H:i', strtotime($activation['last_validation'])); ?></td>
-                                <td><?php echo $activation['app_version']; ?></td>
-                                <td><?php echo $activation['validation_count']; ?></td>
-                                <td><?php echo $activation['last_ip']; ?></td>
-                                <td>
-                                    <button class="btn btn-danger" onclick="deactivateHardware('<?php echo $activation['license_key']; ?>', '<?php echo $activation['hardware_id']; ?>')">
-                                        🗑️ Deaktivieren
-                                    </button>
-                                </td>
+                                <th>Lizenz</th>
+                                <th>Kunde</th>
+                                <th>Hardware-ID</th>
+                                <th>Erste Aktivierung</th>
+                                <th>Letzte Validierung</th>
+                                <th>App-Version</th>
+                                <th>Validierungen</th>
+                                <th>IP-Adresse</th>
+                                <th>Aktionen</th>
                             </tr>
-                        <?php endwhile; ?>
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            <?php
+                            $stmt = $pdo->query("
+                                SELECT la.*, l.license_key, c.name as customer_name
+                                FROM license_activations la
+                                JOIN licenses l ON la.license_key = l.license_key
+                                JOIN customers c ON l.customer_id = c.id
+                                WHERE la.status = 'active'
+                                ORDER BY la.last_validation DESC
+                                LIMIT 50
+                            ");
+
+                            while ($activation = $stmt->fetch()):
+                            ?>
+                                <tr>
+                                    <td><span class="license-key-display"><?php echo substr($activation['license_key'], 0, 10); ?>...</span></td>
+                                    <td><?php echo htmlspecialchars($activation['customer_name']); ?></td>
+                                    <td><span class="hardware-id-display"><?php echo substr($activation['hardware_id'], 0, 12); ?>...</span></td>
+                                    <td><?php echo date('d.m.Y H:i', strtotime($activation['first_activation'])); ?></td>
+                                    <td><?php echo date('d.m.Y H:i', strtotime($activation['last_validation'])); ?></td>
+                                    <td><?php echo $activation['app_version']; ?></td>
+                                    <td><?php echo $activation['validation_count']; ?></td>
+                                    <td><?php echo $activation['last_ip']; ?></td>
+                                    <td>
+                                        <button class="btn btn-sm btn-danger" onclick="deactivateHardware('<?php echo $activation['license_key']; ?>', '<?php echo $activation['hardware_id']; ?>')">
+                                            🗑️ Deaktivieren
+                                        </button>
+                                    </td>
+                                </tr>
+                            <?php endwhile; ?>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -552,7 +836,17 @@
     <script>
         function toggleSection(id) {
             const section = document.getElementById(id);
-            section.style.display = section.style.display === 'none' ? 'block' : 'none';
+            const isActive = section.classList.contains('active');
+
+            // Alle anderen Sektionen schließen
+            document.querySelectorAll('.collapsible-content').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            // Aktuelle Sektion umschalten
+            if (!isActive) {
+                section.classList.add('active');
+            }
         }
 
         function suspendLicense(licenseKey) {
@@ -570,13 +864,13 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            alert('Lizenz erfolgreich gesperrt');
-                            location.reload();
+                            showNotification('success', 'Lizenz erfolgreich gesperrt');
+                            setTimeout(() => location.reload(), 1500);
                         } else {
-                            alert('Fehler: ' + data.error);
+                            showNotification('error', 'Fehler: ' + data.error);
                         }
                     })
-                    .catch(error => alert('Fehler: ' + error));
+                    .catch(error => showNotification('error', 'Fehler: ' + error));
             }
         }
 
@@ -595,13 +889,13 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            alert('Lizenz erfolgreich aktiviert');
-                            location.reload();
+                            showNotification('success', 'Lizenz erfolgreich aktiviert');
+                            setTimeout(() => location.reload(), 1500);
                         } else {
-                            alert('Fehler: ' + data.error);
+                            showNotification('error', 'Fehler: ' + data.error);
                         }
                     })
-                    .catch(error => alert('Fehler: ' + error));
+                    .catch(error => showNotification('error', 'Fehler: ' + error));
             }
         }
 
@@ -621,20 +915,73 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            alert('Hardware-Aktivierung erfolgreich entfernt');
-                            location.reload();
+                            showNotification('success', 'Hardware-Aktivierung erfolgreich entfernt');
+                            setTimeout(() => location.reload(), 1500);
                         } else {
-                            alert('Fehler: ' + data.error);
+                            showNotification('error', 'Fehler: ' + data.error);
                         }
                     })
-                    .catch(error => alert('Fehler: ' + error));
+                    .catch(error => showNotification('error', 'Fehler: ' + error));
             }
+        }
+
+        function filterActivations(filter) {
+            // Hier könnte eine AJAX-Implementierung für das Filtern stehen
+            console.log('Filter:', filter);
+            // Für jetzt einfach neu laden
+            location.reload();
+        }
+
+        function showNotification(type, message) {
+            // Erstelle Notification-Container falls nicht vorhanden
+            let container = document.querySelector('.notification-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'notification-container';
+                document.body.appendChild(container);
+            }
+
+            // Erstelle Notification
+            const notification = document.createElement('div');
+            notification.className = `notification notification-${type}`;
+            notification.innerHTML = `
+                <span>${message}</span>
+                <button class="notification-close" onclick="this.parentElement.remove()">×</button>
+            `;
+
+            container.appendChild(notification);
+
+            // Animation
+            setTimeout(() => notification.classList.add('show'), 100);
+
+            // Auto-Remove nach 5 Sekunden
+            setTimeout(() => {
+                notification.classList.add('hide');
+                setTimeout(() => notification.remove(), 300);
+            }, 5000);
         }
 
         // Auto-refresh alle 30 Sekunden
         setInterval(() => {
-            location.reload();
+            // Nur refreshen wenn keine Modals oder Forms offen sind
+            if (!document.querySelector('.collapsible-content.active')) {
+                location.reload();
+            }
         }, 30000);
+
+        // Smooth scrolling für bessere UX
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
     </script>
 </body>
 

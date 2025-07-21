@@ -497,64 +497,111 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Server starten
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server läuft auf Port ${PORT}`);
-  console.log(`📱 Öffnen Sie http://localhost:${PORT} in Ihrem Browser`);
-  console.log(`💾 Datenbank: ${path.join(__dirname, "data", "kfz.db")}`);
-  console.log(`📁 Statische Dateien: ${path.join(__dirname, "public")}`);
-  console.log(`🛡️  Sicherheitsfeatures aktiviert`);
-  console.log(`🔐 Login-System aktiviert`);
-  console.log(`📊 System-Status: http://localhost:${PORT}/api/system/status`);
-  console.log(`🔑 Login-Seite: http://localhost:${PORT}/login`);
-
-  if (process.send) {
-    process.send("server-ready");
-  }
-});
-
-// Graceful Shutdown mit erweiterten Aufräumarbeiten (ORIGINAL BEIBEHALTEN)
-const gracefulShutdown = (signal) => {
-  console.log(`\n🛑 ${signal} erhalten. Server wird heruntergefahren...`);
-
-  server.close((err) => {
-    if (err) {
-      console.error("❌ Fehler beim Schließen des Servers:", err);
-      process.exit(1);
-    }
-
-    console.log("✅ HTTP-Server geschlossen");
-
-    // Datenbank schließen
-    const db = require("./db");
-    db.close((dbErr) => {
-      if (dbErr) {
-        console.error("❌ Fehler beim Schließen der Datenbank:", dbErr.message);
-        process.exit(1);
-      } else {
-        console.log("✅ Datenbankverbindung geschlossen");
+// Server-Start-Funktion (statt sofort starten)
+function startServer(port = PORT) {
+  return new Promise((resolve, reject) => {
+    const server = app.listen(port, (err) => {
+      if (err) {
+        reject(err);
+        return;
       }
 
-      // Cleanup-Operationen
-      cleanup()
-        .then(() => {
-          console.log("✅ Cleanup abgeschlossen");
-          console.log("👋 Server erfolgreich heruntergefahren");
-          process.exit(0);
-        })
-        .catch((cleanupErr) => {
-          console.error("❌ Fehler beim Cleanup:", cleanupErr);
-          process.exit(1);
-        });
+      console.log(`🚀 Server läuft auf Port ${port}`);
+      console.log(`📱 Öffnen Sie http://localhost:${port} in Ihrem Browser`);
+      console.log(`💾 Datenbank: ${path.join(__dirname, "data", "kfz.db")}`);
+      console.log(`📁 Statische Dateien: ${path.join(__dirname, "public")}`);
+      console.log(`🛡️  Sicherheitsfeatures aktiviert`);
+      console.log(`🔐 Login-System aktiviert`);
+      console.log(
+        `📊 System-Status: http://localhost:${port}/api/system/status`
+      );
+      console.log(`🔑 Login-Seite: http://localhost:${port}/login`);
+
+      if (process.send) {
+        process.send("server-ready");
+      }
+
+      resolve(server);
+    });
+
+    server.on("error", (err) => {
+      console.error("Server-Start-Fehler:", err);
+      reject(err);
     });
   });
+}
 
-  // Fallback: Nach 10 Sekunden erzwungen beenden
-  setTimeout(() => {
-    console.error("⚠️  Erzwungenes Herunterfahren nach Timeout");
-    process.exit(1);
-  }, 10000);
-};
+// Wenn direkt ausgeführt (nicht als Modul geladen)
+if (require.main === module) {
+  // Nur starten wenn direkt aufgerufen (npm start)
+  startServer()
+    .then((server) => {
+      // Graceful Shutdown Setup
+      const gracefulShutdown = (signal) => {
+        console.log(`\n🛑 ${signal} erhalten. Server wird heruntergefahren...`);
+
+        server.close((err) => {
+          if (err) {
+            console.error("❌ Fehler beim Schließen des Servers:", err);
+            process.exit(1);
+          }
+
+          console.log("✅ HTTP-Server geschlossen");
+
+          // Datenbank schließen
+          const db = require("./db");
+          db.close((dbErr) => {
+            if (dbErr) {
+              console.error(
+                "❌ Fehler beim Schließen der Datenbank:",
+                dbErr.message
+              );
+              process.exit(1);
+            } else {
+              console.log("✅ Datenbankverbindung geschlossen");
+            }
+
+            cleanup()
+              .then(() => {
+                console.log("✅ Cleanup abgeschlossen");
+                console.log("👋 Server erfolgreich heruntergefahren");
+                process.exit(0);
+              })
+              .catch((cleanupErr) => {
+                console.error("❌ Fehler beim Cleanup:", cleanupErr);
+                process.exit(1);
+              });
+          });
+        });
+
+        // Fallback: Nach 10 Sekunden erzwungen beenden
+        setTimeout(() => {
+          console.error("⚠️  Erzwungenes Herunterfahren nach Timeout");
+          process.exit(1);
+        }, 10000);
+      };
+
+      // Signal-Handler
+      process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+      process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+
+      // Unbehandelte Promise-Rejections
+      process.on("unhandledRejection", (reason, promise) => {
+        console.error("❌ Unbehandelte Promise-Rejection:", reason);
+        console.error("Promise:", promise);
+      });
+
+      // Unbehandelte Exceptions
+      process.on("uncaughtException", (error) => {
+        console.error("❌ Unbehandelte Exception:", error);
+        gracefulShutdown("UNCAUGHT_EXCEPTION");
+      });
+    })
+    .catch((error) => {
+      console.error("❌ Server-Start fehlgeschlagen:", error);
+      process.exit(1);
+    });
+}
 
 async function cleanup() {
   // Temporäre Dateien aufräumen
@@ -594,29 +641,13 @@ async function cleanup() {
   );
 }
 
-// Signal-Handler (ORIGINAL BEIBEHALTEN)
-process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
-
-// Unbehandelte Promise-Rejections (ORIGINAL BEIBEHALTEN)
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("❌ Unbehandelte Promise-Rejection:", reason);
-  console.error("Promise:", promise);
-  // Server nicht automatisch beenden, aber Fehler loggen
-});
-
-// Unbehandelte Exceptions (ORIGINAL BEIBEHALTEN)
-process.on("uncaughtException", (error) => {
-  console.error("❌ Unbehandelte Exception:", error);
-  gracefulShutdown("UNCAUGHT_EXCEPTION");
-});
-
-// Module Exports (ORIGINAL BEIBEHALTEN)
+// Module Exports - FÜR ELECTRON BUILD
 module.exports = {
+  app, // Express App
+  startServer, // Server-Start-Funktion
   generalLimiter,
   settingsLimiter,
   uploadLimiter,
   exportLimiter,
   smartLimiter,
-  app,
 };

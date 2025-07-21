@@ -1,144 +1,58 @@
 const { app, BrowserWindow, Menu, shell, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const { spawn } = require("child_process");
 const os = require("os");
-const { execSync } = require("child_process");
+
+// Server-Referenz
+let server;
+let mainWindow;
+let printWindows = new Set();
 
 // Produktionsmodus erkennen
 const isDev = process.env.NODE_ENV === "development";
+const isPackaged = app.isPackaged;
 const PORT = process.env.PORT || 3000;
 
-let mainWindow;
-let serverProcess;
-let printWindows = new Set();
-
-// VERBESSERT: Server-Prozess mit besserer Fehlerbehandlung
+// KORRIGIERT: Server richtig starten
 function startServer() {
   return new Promise((resolve, reject) => {
     console.log("🚀 Starte Express Server...");
 
-    serverProcess = spawn("node", ["server.js"], {
-      cwd: __dirname,
-      env: { ...process.env, NODE_ENV: isDev ? "development" : "production" },
-      stdio: ["pipe", "pipe", "pipe"],
-    });
+    try {
+      // Cache leeren für Neustart
+      delete require.cache[require.resolve("./server.js")];
 
-    let serverReady = false;
-    let timeout;
+      // Server-Modul laden
+      const serverModule = require("./server.js");
 
-    serverProcess.stdout.on("data", (data) => {
-      const output = data.toString();
-      console.log(`Server: ${output}`);
-
-      if (output.includes("Server läuft") && !serverReady) {
-        serverReady = true;
-        clearTimeout(timeout);
-        console.log("✅ Server erfolgreich gestartet");
-        resolve();
+      // Die startServer Funktion aus dem Modul verwenden
+      if (typeof serverModule.startServer === "function") {
+        serverModule
+          .startServer(PORT)
+          .then((serverInstance) => {
+            server = serverInstance; // Korrekte Server-Instanz speichern
+            console.log("✅ Server erfolgreich gestartet");
+            resolve();
+          })
+          .catch((error) => {
+            console.error("❌ Server-Start-Fehler:", error);
+            reject(error);
+          });
+      } else {
+        throw new Error("startServer Funktion nicht gefunden in server.js");
       }
-    });
-
-    serverProcess.stderr.on("data", (data) => {
-      console.error(`Server Error: ${data}`);
-    });
-
-    serverProcess.on("error", (error) => {
-      console.error("Server Prozess Fehler:", error);
-      if (!serverReady) {
-        clearTimeout(timeout);
-        reject(error);
-      }
-    });
-
-    serverProcess.on("close", (code) => {
-      console.log(`Server beendet mit Code ${code}`);
-    });
-
-    // VERBESSERT: Timeout mit besserer Fehlerbehandlung
-    timeout = setTimeout(() => {
-      if (!serverReady) {
-        console.warn("⚠️ Server-Start Timeout - versuche trotzdem zu starten");
-        resolve(); // Auch bei Timeout weitermachen
-      }
-    }, 8000); // Längerer Timeout für Win10
+    } catch (error) {
+      console.error("❌ Server-Modul-Fehler:", error);
+      reject(error);
+    }
   });
 }
 
-// Windows-Version erkennen
-function getWindowsVersion() {
-  try {
-    const version = os.release();
-    const major = parseInt(version.split(".")[0]);
-    const minor = parseInt(version.split(".")[1]);
-
-    if (major === 10) {
-      if (minor >= 22000) {
-        return "Windows 11";
-      } else {
-        return "Windows 10";
-      }
-    }
-    return `Windows ${major}.${minor}`;
-  } catch (error) {
-    return "Windows Unknown";
-  }
-}
-
-// Prozess-Priorität für bessere Performance auf älteren Systemen
-function optimizeForSystem() {
-  const windowsVersion = getWindowsVersion();
-  console.log(`🖥️ Erkannte Version: ${windowsVersion}`);
-
-  if (windowsVersion.includes("Windows 10")) {
-    try {
-      // Niedrigere Priorität für bessere Stabilität auf Win10
-      process.priority = -5;
-      console.log("⚡ Prozess-Priorität optimiert für Windows 10");
-    } catch (error) {
-      console.warn("⚠️ Priorität konnte nicht gesetzt werden:", error.message);
-    }
-  }
-}
-
-function ensureDataDirectory() {
-  const dataPath = path.join(__dirname, "data");
-
-  try {
-    if (!fs.existsSync(dataPath)) {
-      fs.mkdirSync(dataPath, { recursive: true });
-      console.log("📁 Data-Verzeichnis erstellt");
-    }
-
-    // Teste Schreibberechtigung
-    const testFile = path.join(dataPath, "test.tmp");
-    fs.writeFileSync(testFile, "test");
-    fs.unlinkSync(testFile);
-    console.log("✅ Schreibberechtigung bestätigt");
-  } catch (error) {
-    console.error("❌ Problem mit Data-Verzeichnis:", error);
-
-    // Fallback: Benutzer-Verzeichnis verwenden
-    const userDataPath = path.join(os.homedir(), ".kfzfacpro");
-    try {
-      if (!fs.existsSync(userDataPath)) {
-        fs.mkdirSync(userDataPath, { recursive: true });
-      }
-      console.log("📁 Fallback-Pfad verwendet:", userDataPath);
-      return userDataPath;
-    } catch (fallbackError) {
-      console.error("❌ Auch Fallback-Pfad fehlgeschlagen:", fallbackError);
-    }
-  }
-
-  return dataPath;
-}
-
-// VERBESSERT: Server-Verfügbarkeit prüfen
+// Server auf Verfügbarkeit prüfen
 async function waitForServer(retries = 10) {
   for (let i = 0; i < retries; i++) {
     try {
-      const response = await fetch(`http://localhost:${PORT}/api/health`);
+      const response = await fetch(`http://localhost:${PORT}/login`);
       if (response.ok) {
         console.log("✅ Server ist verfügbar");
         return true;
@@ -151,7 +65,30 @@ async function waitForServer(retries = 10) {
   return false;
 }
 
-// VERBESSERT: Hauptfenster mit besserer Initialisierung
+// Ressourcen-Pfade für gepackte App korrigieren
+function getResourcePath(relativePath) {
+  if (isPackaged) {
+    return path.join(process.resourcesPath, relativePath);
+  }
+  return path.join(__dirname, relativePath);
+}
+
+// Data-Verzeichnis sicherstellen
+function ensureDataDirectory() {
+  const dataDir = isPackaged
+    ? path.join(path.dirname(process.execPath), "data")
+    : path.join(__dirname, "data");
+
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log(`📁 Data-Verzeichnis erstellt: ${dataDir}`);
+  }
+
+  // Umgebungsvariable setzen für SQLite
+  process.env.DB_PATH = path.join(dataDir, "kfz.db");
+}
+
+// Hauptfenster erstellen
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1400,
@@ -163,46 +100,42 @@ function createWindow() {
       contextIsolation: true,
       enableRemoteModule: false,
       webSecurity: true,
-      // WICHTIG: Partition für Session-Isolation
       partition: "persist:main",
     },
-    icon: path.join(__dirname, "public", "favicon.ico"),
+    icon: getResourcePath(path.join("public", "favicon.ico")),
     show: false,
     titleBarStyle: "default",
   });
 
-  // Menü erstellen
   createMenu();
-
-  // VERBESSERT: Sequenzielle Server-Initialisierung
+  setupWindowHandlers();
   initializeApp();
 }
 
-// NEUE FUNKTION: Bessere App-Initialisierung
+// App-Initialisierung
 async function initializeApp() {
   try {
     console.log("🔄 Starte Initialisierung...");
 
-    optimizeForSystem(); // Diese Zeile hinzufügen
-    ensureDataDirectory(); // Diese Zeile hinzufügen
+    ensureDataDirectory();
 
-    // 1. Server starten
+    // Server starten
     await startServer();
 
-    // 2. Warten bis Server verfügbar ist
+    // Warten bis Server verfügbar ist
     const serverAvailable = await waitForServer();
     if (!serverAvailable) {
       throw new Error("Server ist nicht verfügbar");
     }
 
-    // 3. WICHTIG: Immer zur Login-Seite weiterleiten
+    // Login-Seite laden
     console.log("🔄 Lade Login-Seite...");
     await mainWindow.loadURL(`http://localhost:${PORT}/login`);
 
-    // 4. Fenster anzeigen
+    // Fenster anzeigen
     mainWindow.show();
 
-    // 5. DevTools nur im Development
+    // DevTools nur im Development
     if (isDev) {
       mainWindow.webContents.openDevTools();
     }
@@ -211,21 +144,41 @@ async function initializeApp() {
   } catch (error) {
     console.error("❌ Fehler bei der Initialisierung:", error);
 
-    // Fallback: Versuche direkt zu laden
+    // Fallback: Offline-Seite
     try {
-      await mainWindow.loadURL(`http://localhost:${PORT}/login`);
+      const offlinePage = getResourcePath(path.join("public", "offline.html"));
+      if (fs.existsSync(offlinePage)) {
+        await mainWindow.loadFile(offlinePage);
+      } else {
+        // Simple Error-HTML erstellen wenn offline.html nicht existiert
+        const errorHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head><title>KFZ Fac Pro - Fehler</title></head>
+          <body>
+            <h1>Fehler beim Starten der Anwendung</h1>
+            <p>Die Anwendung konnte nicht gestartet werden.</p>
+            <p>Fehler: ${error.message}</p>
+          </body>
+          </html>
+        `;
+        await mainWindow.loadURL(
+          `data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`
+        );
+      }
       mainWindow.show();
     } catch (fallbackError) {
       console.error("❌ Auch Fallback fehlgeschlagen:", fallbackError);
-
-      // Letzter Versuch: Offline-Seite
-      mainWindow.loadFile(path.join(__dirname, "public", "offline.html"));
-      mainWindow.show();
+      dialog.showErrorBox(
+        "Startfehler",
+        `Die Anwendung konnte nicht gestartet werden: ${error.message}`
+      );
+      app.quit();
     }
   }
 }
 
-// VERBESSERT: Window open handler
+// Window-Handler einrichten
 function setupWindowHandlers() {
   mainWindow.webContents.setWindowOpenHandler(
     ({ url, frameName, features }) => {
@@ -256,7 +209,6 @@ function setupWindowHandlers() {
     }
   );
 
-  // VERBESSERT: Bessere Navigation-Handhabung
   mainWindow.webContents.on("did-navigate", (event, url) => {
     console.log("Navigiert zu:", url);
   });
@@ -270,10 +222,24 @@ function setupWindowHandlers() {
         validatedURL,
       });
 
-      // Bei Ladefehler zur Offline-Seite
       if (errorCode !== -3) {
         // -3 ist "abgebrochen"
-        mainWindow.loadFile(path.join(__dirname, "public", "offline.html"));
+        const errorHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head><title>Verbindungsfehler</title></head>
+        <body>
+          <h1>Verbindungsfehler</h1>
+          <p>Die Seite konnte nicht geladen werden.</p>
+          <p>Fehlercode: ${errorCode}</p>
+          <p>Beschreibung: ${errorDescription}</p>
+          <button onclick="location.reload()">Erneut versuchen</button>
+        </body>
+        </html>
+      `;
+        mainWindow.loadURL(
+          `data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`
+        );
       }
     }
   );
@@ -296,52 +262,11 @@ function createMenu() {
       label: "Datei",
       submenu: [
         {
-          label: "Neuer Auftrag",
+          label: "Neu",
           accelerator: "CmdOrCtrl+N",
           click: () => {
-            mainWindow.webContents.executeJavaScript(`
-              if (typeof showSection === 'function') {
-                showSection('auftrag-erstellen');
-              }
-            `);
-          },
-        },
-        {
-          label: "Neue Rechnung",
-          accelerator: "CmdOrCtrl+R",
-          click: () => {
-            mainWindow.webContents.executeJavaScript(`
-              if (typeof showSection === 'function') {
-                showSection('rechnung-erstellen');
-              }
-            `);
-          },
-        },
-        { type: "separator" },
-        {
-          label: "Backup erstellen",
-          click: async () => {
-            const result = await dialog.showSaveDialog(mainWindow, {
-              title: "Backup speichern",
-              defaultPath: `backup-${
-                new Date().toISOString().split("T")[0]
-              }.db`,
-              filters: [{ name: "Datenbank", extensions: ["db"] }],
-            });
-
-            if (!result.canceled) {
-              mainWindow.webContents.executeJavaScript(`
-                fetch('/api/backup/create', { method: 'POST' })
-                  .then(response => response.json())
-                  .then(data => {
-                    if (data.success) {
-                      alert('Backup erfolgreich erstellt!');
-                    } else {
-                      alert('Fehler beim Backup: ' + data.error);
-                    }
-                  })
-                  .catch(err => alert('Backup-Fehler: ' + err.message));
-              `);
+            if (mainWindow && !mainWindow.isDestroyed()) {
+              mainWindow.webContents.send("menu-new");
             }
           },
         },
@@ -349,100 +274,81 @@ function createMenu() {
         {
           label: "Beenden",
           accelerator: process.platform === "darwin" ? "Cmd+Q" : "Ctrl+Q",
-          click: () => {
-            app.quit();
-          },
+          click: () => app.quit(),
         },
       ],
     },
     {
       label: "Bearbeiten",
       submenu: [
-        { label: "Rückgängig", accelerator: "CmdOrCtrl+Z", role: "undo" },
-        {
-          label: "Wiederholen",
-          accelerator: "Shift+CmdOrCtrl+Z",
-          role: "redo",
-        },
+        { role: "undo", label: "Rückgängig" },
+        { role: "redo", label: "Wiederholen" },
         { type: "separator" },
-        { label: "Ausschneiden", accelerator: "CmdOrCtrl+X", role: "cut" },
-        { label: "Kopieren", accelerator: "CmdOrCtrl+C", role: "copy" },
-        { label: "Einfügen", accelerator: "CmdOrCtrl+V", role: "paste" },
+        { role: "cut", label: "Ausschneiden" },
+        { role: "copy", label: "Kopieren" },
+        { role: "paste", label: "Einfügen" },
       ],
     },
-    {
-      label: "Ansicht",
-      submenu: [
-        { label: "Neu laden", accelerator: "CmdOrCtrl+R", role: "reload" },
-        {
-          label: "Force Reload",
-          accelerator: "CmdOrCtrl+Shift+R",
-          role: "forceReload",
-        },
-        {
-          label: "Entwicklertools",
-          accelerator: "F12",
-          role: "toggleDevTools",
-        },
-        { type: "separator" },
-        { label: "Vollbild", accelerator: "F11", role: "togglefullscreen" },
-      ],
-    },
-    {
-      label: "Hilfe",
-      submenu: [
-        {
-          label: "Über",
-          click: () => {
-            dialog.showMessageBox(mainWindow, {
-              type: "info",
-              title: "Über Meine Firma - Rechnungssystem",
-              message: "Meine Firma - Rechnungssystem",
-              detail:
-                "Version 2.0\nEin modernes Rechnungs- und Auftragssystem\nEntwickelt mit Electron und Node.js",
-            });
+    ...(isDev
+      ? [
+          {
+            label: "Entwicklung",
+            submenu: [
+              { role: "reload", label: "Neu laden" },
+              { role: "forceReload", label: "Erzwungen neu laden" },
+              { role: "toggleDevTools", label: "Entwicklertools" },
+            ],
           },
-        },
-      ],
-    },
+        ]
+      : []),
   ];
 
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
 }
 
-// App-Events
-app.whenReady().then(() => {
-  createWindow();
-  setupWindowHandlers();
-});
+// KORRIGIERT: Server ordnungsgemäß schließen
+function closeServer() {
+  return new Promise((resolve) => {
+    if (server && typeof server.close === "function") {
+      console.log("🛑 Schließe Server...");
+      server.close((err) => {
+        if (err) {
+          console.error("❌ Server-Schließung-Fehler:", err);
+        } else {
+          console.log("✅ Server erfolgreich geschlossen");
+        }
+        resolve();
+      });
+    } else {
+      console.log("⚠️ Kein Server zum Schließen gefunden");
+      resolve();
+    }
+  });
+}
 
-app.on("window-all-closed", () => {
-  if (serverProcess) {
-    serverProcess.kill();
-  }
+// App-Events
+app.whenReady().then(createWindow);
+
+app.on("window-all-closed", async () => {
+  await closeServer();
   if (process.platform !== "darwin") {
     app.quit();
   }
 });
 
 app.on("activate", () => {
-  if (mainWindow === null) {
+  if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
   }
 });
 
-app.on("before-quit", () => {
-  if (serverProcess) {
-    serverProcess.kill();
-  }
-});
+// Cleanup beim Beenden
+app.on("before-quit", async (event) => {
+  event.preventDefault(); // Erstmal stoppen
 
-// Bessere Fehlerbehandlung
-process.on("uncaughtException", (error) => {
-  console.error("Unbehandelte Exception:", error);
-});
+  console.log("🛑 App wird beendet...");
+  await closeServer();
 
-process.on("unhandledRejection", (reason, promise) => {
-  console.error("Unbehandelte Promise Rejection:", reason);
+  app.exit(0); // Dann wirklich beenden
 });

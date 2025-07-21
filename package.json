@@ -57,8 +57,7 @@
       "!.git/**/*",
       "!README.md",
       "!.gitignore",
-      "!*.log",
-      "!node_modules/electron/dist/**/*"
+      "!*.log"
     ],
     "extraFiles": [
       {
@@ -67,40 +66,21 @@
         "filter": [
           "**/*"
         ]
-      },
-      {
-        "from": "node_modules/sqlite3/lib/binding",
-        "to": "node_modules/sqlite3/lib/binding"
       }
     ],
     "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64",
-            "ia32"
-          ]
-        }
-      ],
+      "target": {
+        "target": "nsis",
+        "arch": [
+          "x64"
+        ]
+      },
       "icon": "public/favicon.ico",
-      "verifyUpdateCodeSignature": false,
-      "forceCodeSigning": false,
-      "registry": [
-        {
-          "key": "HKEY_CURRENT_USER\\Software\\KFZFacPro",
-          "name": "InstallPath",
-          "value": "${INSTALLDIR}"
-        }
-      ],
+      "requestedExecutionLevel": "asInvoker",
       "extraResources": [
         {
-          "from": "public",
-          "to": "public"
-        },
-        {
-          "from": "scripts",
-          "to": "scripts"
+          "from": "node_modules/sqlite3/lib/binding",
+          "to": "node_modules/sqlite3/lib/binding"
         }
       ]
     },
@@ -109,11 +89,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "runAfterFinish": false,
-      "allowElevation": true,
+      "runAfterFinish": true,
+      "allowElevation": false,
       "installerIcon": "public/favicon.ico",
-      "uninstallerIcon": "public/favicon.ico",
-      "include": "installer/custom.nsh"
+      "uninstallerIcon": "public/favicon.ico"
     }
   }
 }

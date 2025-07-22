@@ -443,6 +443,7 @@
                   </div>
                 </div>
 
+                <!-- Ersetzen Sie die bestehende Logo-Sektion in public/index.html -->
                 <h3 style="margin: 2rem 0 1rem 0">Firmenlogo</h3>
                 <div class="form-group">
                   <label class="form-label">Logo hochladen</label>
@@ -455,6 +456,17 @@
                     style="margin-bottom: 1rem"
                   >
                     Logo auswählen
+                  </button>
+
+                  <button
+                    type="button"
+                    class="btn btn-danger btn-sm"
+                    onclick="removeLogo()"
+                    title="Logo entfernen"
+                    id="remove-logo-btn"
+                    style="display: none"
+                  >
+                    <i class="fas fa-trash"></i> Logo entfernen
                   </button>
 
                   <!-- Hidden Input für Formular -->

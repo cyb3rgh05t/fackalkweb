@@ -48,18 +48,20 @@ export function formatCurrency(amount) {
   }).format(amount);
 }
 
-export function showSection(sectionId) {
+export function showSection(sectionId, fromDashboardCard = false) {
   document
     .querySelectorAll(".section")
     .forEach((s) => s.classList.remove("active"));
   document
     .querySelectorAll(".nav-item")
     .forEach((i) => i.classList.remove("active"));
+
   const section = document.getElementById(sectionId);
   if (section) {
     section.classList.add("active");
     section.classList.add("fade-in");
   }
+
   const navItem = Array.from(document.querySelectorAll(".nav-item")).find(
     (item) => item.onclick && item.onclick.toString().includes(sectionId)
   );

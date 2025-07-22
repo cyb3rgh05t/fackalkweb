@@ -1,5 +1,6 @@
 import { apiCall, formatCurrency, formatDate } from "./utils.js";
 import { getSetting } from "./einstellungen.js";
+import { showSection } from "./utils.js"; // Fügen Sie diese Zeile hinzu
 
 export async function loadDashboard() {
   try {
@@ -90,8 +91,109 @@ function updateStatistics(auftraege, rechnungen, kunden) {
   document.getElementById("stat-umsatz").textContent =
     formatCurrency(monthlyRevenue);
 
+  // Cards klickbar machen
+  makeCardsClickable();
+
   // Zusätzliche Statistiken hinzufügen
   addExtendedStatistics(auftraege, rechnungen);
+}
+
+// Neue Funktion: Cards klickbar machen
+function makeCardsClickable() {
+  // Alle stat-cards finden und Click-Handler hinzufügen
+  const cards = document.querySelectorAll(".stat-card");
+
+  cards.forEach((card, index) => {
+    // Card-Styles für bessere Hover-Effekte
+    card.style.cursor = "pointer";
+    card.style.transition = "all 0.3s ease";
+    card.style.userSelect = "none";
+
+    // Hover-Effekte
+    card.addEventListener("mouseenter", function () {
+      this.style.transform = "translateY(-5px) scale(1.02)";
+      this.style.boxShadow = "0 10px 25px rgba(0,0,0,0.15)";
+    });
+
+    card.addEventListener("mouseleave", function () {
+      this.style.transform = "translateY(0) scale(1)";
+      this.style.boxShadow = "var(--shadow)";
+    });
+
+    // Click-Handler basierend auf Card-Position
+    card.addEventListener("click", function () {
+      // Visual Feedback
+      this.style.transform = "translateY(-2px) scale(0.98)";
+      setTimeout(() => {
+        this.style.transform = "translateY(-5px) scale(1.02)";
+      }, 150);
+
+      // Navigation basierend auf Index
+      switch (index) {
+        case 0: // Offene Aufträge
+          showSection("auftraege", true);
+          // Optional: Filter auf offene Aufträge setzen
+          setTimeout(() => filterAuftraege("offen"), 300);
+          break;
+        case 1: // Offene Rechnungen
+          showSection("rechnungen", true);
+          // Optional: Filter auf offene Rechnungen setzen
+          setTimeout(() => filterRechnungen("offen"), 300);
+          break;
+        case 2: // Kunden
+          showSection("kunden", true);
+          break;
+        case 3: // Monatsumsatz
+          showSection("rechnungen", true);
+          // Optional: Filter auf bezahlte Rechnungen des aktuellen Monats
+          setTimeout(() => filterRechnungenByMonth(), 300);
+          break;
+        default:
+          console.log("Unbekannte Card geklickt");
+      }
+    });
+
+    // Tooltip für bessere UX hinzufügen
+    const tooltips = [
+      "Klicken um zu Aufträgen zu gelangen",
+      "Klicken um zu Rechnungen zu gelangen",
+      "Klicken um zu Kunden zu gelangen",
+      "Klicken um zu Rechnungen zu gelangen",
+    ];
+
+    card.title = tooltips[index] || "Klicken für Details";
+  });
+
+  console.log("✅ Dashboard Cards sind jetzt klickbar");
+}
+
+// Hilfsfunktionen für Filterung (optional)
+function filterAuftraege(status) {
+  const searchInput = document.getElementById("auftraege-search");
+  if (searchInput && status) {
+    // Einfacher Ansatz: Status in Suchfeld setzen
+    searchInput.value = status;
+    searchInput.dispatchEvent(new Event("input"));
+  }
+}
+
+function filterRechnungen(status) {
+  const searchInput = document.getElementById("rechnungen-search");
+  if (searchInput && status) {
+    searchInput.value = status;
+    searchInput.dispatchEvent(new Event("input"));
+  }
+}
+
+function filterRechnungenByMonth() {
+  const searchInput = document.getElementById("rechnungen-search");
+  if (searchInput) {
+    const currentMonth = new Date().toLocaleDateString("de-DE", {
+      month: "long",
+    });
+    searchInput.value = currentMonth;
+    searchInput.dispatchEvent(new Event("input"));
+  }
 }
 
 function addExtendedStatistics(auftraege, rechnungen) {

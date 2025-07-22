@@ -551,18 +551,19 @@
     generateHeader(type, data) {
       const firmenname = getSetting("firmenname", "Meine Firma");
       const logoData = getSetting("firmen_logo", "");
+      const logoPosition = getSetting("layout_logo_position", "top-left");
 
       // Debug-Ausgabe für Logo
       console.log("Logo Debug:", {
         hasLogo: !!logoData,
         logoLength: logoData ? logoData.length : 0,
-        logoStart: logoData ? logoData.substring(0, 50) + "..." : "Kein Logo",
-        isDataUrl: logoData.startsWith("data:"),
+        logoPosition: logoPosition,
+        showLogo: logoPosition !== "none" && !!logoData,
       });
 
-      // Logo mit verbesserter Behandlung
+      // Logo nur generieren wenn Position nicht "none" ist und Logo vorhanden
       let logoHtml = "";
-      if (logoData && logoData.length > 0) {
+      if (logoPosition !== "none" && logoData && logoData.length > 0) {
         let logoSrc = "";
 
         // Prüfen ob bereits ein Data-URL

@@ -262,11 +262,14 @@ function createLayoutContent() {
               <div class="form-group">
                 <label class="form-label">Logo-Position</label>
                 <select class="form-input" name="layout_logo_position">
-                  <option value="top-left">Oben Links</option>
-                  <option value="top-center">Oben Mitte</option>
-                  <option value="top-right">Oben Rechts</option>
-                  <option value="center">Zentriert</option>
-                </select>
+  <option value="none">Kein Logo anzeigen</option>
+  <option value="top-left">Oben Links</option>
+  <option value="top-center">Oben Mitte</option>
+  <option value="top-right">Oben Rechts</option>
+  <option value="center">Zentriert</option>
+  <option value="bottom-left">Unten Links</option>
+  <option value="bottom-right">Unten Rechts</option>
+</select>
               </div>
               <div class="form-group">
                 <label class="form-label">Logo Max-Breite</label>

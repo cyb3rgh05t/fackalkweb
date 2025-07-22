@@ -41,6 +41,8 @@ export async function loadEinstellungen() {
       }
     }
 
+    updateLogoButtonVisibility();
+
     // Event für andere Module senden
     window.dispatchEvent(
       new CustomEvent("settingsLoaded", {
@@ -266,6 +268,18 @@ function setupLiveSave() {
   });
 }
 
+function updateLogoButtonVisibility() {
+  const removeBtnElement = document.getElementById("remove-logo-btn");
+  const logoPreview = document.getElementById("logo-preview");
+  const hasLogo =
+    window.einstellungen?.firmen_logo &&
+    window.einstellungen.firmen_logo.length > 0;
+
+  if (removeBtnElement) {
+    removeBtnElement.style.display = hasLogo ? "inline-flex" : "none";
+  }
+}
+
 // Logo-Upload Funktionalität
 window.uploadLogo = async function () {
   const fileInput = document.createElement("input");
@@ -301,6 +315,9 @@ window.uploadLogo = async function () {
           logoPreview.innerHTML = `<img src="${base64Data}" alt="Firmenlogo" style="max-width: 200px; max-height: 100px;">`;
         }
 
+        // Button-Sichtbarkeit aktualisieren
+        updateLogoButtonVisibility();
+
         showNotification("Logo erfolgreich hochgeladen", "success");
 
         // Event senden
@@ -335,6 +352,9 @@ window.removeLogo = async function () {
       logoPreview.innerHTML =
         '<div class="no-logo">Kein Logo hochgeladen</div>';
     }
+
+    // Button-Sichtbarkeit aktualisieren
+    updateLogoButtonVisibility();
 
     showNotification("Logo entfernt", "success");
 

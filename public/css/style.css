@@ -487,17 +487,180 @@ body {
   background: var(--clr-surface-a20);
   min-height: 120px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
+
+#logo-preview:hover {
+  border-color: var(--accent-primary);
+  background: var(--clr-surface-a10);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+}
+
+#logo-preview.drag-over {
+  border-color: var(--accent-primary);
+  background: var(--clr-surface-a10);
+  border-style: solid;
+}
+
 #logo-preview img {
   border-radius: 8px;
   box-shadow: var(--shadow);
+  max-width: 100%;
+  max-height: 100px;
+  object-fit: contain;
+  transition: transform 0.3s ease;
 }
-#logo-preview:empty::before {
-  content: "Kein Logo hochgeladen";
+
+#logo-preview img:hover {
+  transform: scale(1.05);
+}
+
+#logo-preview .no-logo {
   color: var(--text-muted);
   font-style: italic;
+  padding: 2rem;
+  text-align: center;
+  line-height: 1.5;
+}
+
+#logo-preview .loading {
+  color: var(--accent-primary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+#logo-preview .loading::before {
+  content: "";
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--clr-surface-a20);
+  border-top: 2px solid var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+/* Button Styling für Logo-Aktionen */
+.btn-small {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  border-radius: 6px;
+  margin: 0.25rem;
+}
+
+.btn-secondary {
+  background: var(--clr-surface-a30);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background: var(--clr-surface-a40);
+  color: var(--text-primary);
+  border-color: var(--accent-primary);
+}
+
+/* File Input Styling */
+input[type="file"] {
+  padding: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  background: var(--clr-surface-a20);
+  color: var(--text-primary);
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+input[type="file"]:hover {
+  border-color: var(--accent-primary);
+  background: var(--clr-surface-a10);
+}
+
+input[type="file"]:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(var(--accent-primary-rgb), 0.1);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  #logo-preview {
+    min-height: 100px;
+    padding: 0.75rem;
+  }
+
+  #logo-preview img {
+    max-height: 80px;
+  }
+
+  .btn-small {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Animation für Loading */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Hover-Effekte für bessere UX */
+.form-group:hover #logo-preview {
+  border-color: var(--accent-primary);
+}
+
+/* Drag & Drop Visual Feedback */
+.logo-drop-zone {
+  position: relative;
+}
+
+.logo-drop-zone::before {
+  content: "📤 Datei hier ablegen";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--accent-primary);
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 8px;
+  font-weight: 500;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+.logo-drop-zone.drag-over::before {
+  opacity: 1;
+}
+
+/* Error States */
+.form-group.error #logo-preview {
+  border-color: var(--error-color, #ef4444);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+/* Success States */
+.form-group.success #logo-preview {
+  border-color: var(--success-color, #10b981);
+  background: rgba(16, 185, 129, 0.1);
 }
 
 /* Form-Verbesserungen für Einstellungen */

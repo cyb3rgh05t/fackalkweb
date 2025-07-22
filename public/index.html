@@ -446,18 +446,58 @@
                 <h3 style="margin: 2rem 0 1rem 0">Firmenlogo</h3>
                 <div class="form-group">
                   <label class="form-label">Logo hochladen</label>
-                  <input
-                    type="file"
+
+                  <!-- Alternativer Upload-Button -->
+                  <button
+                    type="button"
+                    onclick="uploadLogo()"
                     class="form-input"
-                    accept="image/*"
-                    onchange="handleLogoUpload(event)"
-                  />
-                  <input type="hidden" name="firmen_logo" />
-                  <div id="logo-preview" style="margin-top: 1rem"></div>
-                  <small class="text-muted"
-                    >Maximale Dateigröße: 2MB. Empfohlene Formate: PNG,
-                    JPG</small
+                    style="margin-bottom: 1rem"
                   >
+                    Logo auswählen
+                  </button>
+
+                  <!-- Hidden Input für Formular -->
+                  <input type="hidden" name="firmen_logo" />
+
+                  <!-- Logo-Vorschau Bereich mit verbessertem Styling -->
+                  <div
+                    id="logo-preview"
+                    style="
+                      margin-top: 1rem;
+                      border: 2px dashed var(--border-color);
+                      border-radius: 8px;
+                      padding: 1rem;
+                      text-align: center;
+                      background: var(--clr-surface-a20);
+                      min-height: 120px;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      transition: all 0.3s ease;
+                      cursor: pointer;
+                    "
+                    onclick="uploadLogo()"
+                    title="Klicken oder Datei hierher ziehen"
+                  >
+                    <div
+                      class="no-logo"
+                      style="color: var(--text-muted); font-style: italic"
+                    >
+                      Kein Logo hochgeladen - Klicken oder Datei hierher ziehen
+                    </div>
+                  </div>
+
+                  <small
+                    class="text-muted"
+                    style="display: block; margin-top: 0.5rem"
+                  >
+                    Maximale Dateigröße: 2MB. Unterstützte Formate: JPG, PNG,
+                    GIF, SVG.
+                    <br />Sie können auch Dateien direkt in den Vorschaubereich
+                    ziehen.
+                  </small>
                 </div>
 
                 <button type="submit" class="btn btn-primary">

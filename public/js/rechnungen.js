@@ -573,7 +573,12 @@ async function viewRechnung(id) {
         </div>
         <div style="text-align: right;">
           <h2 style="color: var(--accent-primary); margin-bottom: 1rem;">RECHNUNG</h2>
-          <div><strong>Rechnung-Nr.:</strong> ${rechnung.rechnung_nr}</div>
+          <div><strong>Rechnung-Nr.:</strong> ${rechnung.rechnung_nr}<br>
+${
+  rechnung.auftrag_nr
+    ? `<strong>Auftrag:</strong> ${rechnung.auftrag_nr}<br>`
+    : ""
+}</div>
           <div><strong>Datum:</strong> ${formatDate(
             rechnung.rechnungsdatum
           )}</div>
@@ -591,7 +596,11 @@ async function viewRechnung(id) {
       <div style="margin-bottom: 2rem;">
         <h3>Rechnungsempfänger:</h3>
         <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-          <strong>${rechnung.kunde_name}</strong><br>
+          <strong>${rechnung.kunde_name}</strong>${
+      rechnung.kunden_nr
+        ? ` <small>(Kd.-Nr.: ${rechnung.kunden_nr})</small>`
+        : ""
+    }<br>
           ${rechnung.strasse || ""}<br>
           ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
           ${rechnung.telefon ? `Tel: ${rechnung.telefon}` : ""}
@@ -605,7 +614,14 @@ async function viewRechnung(id) {
           <strong>${rechnung.kennzeichen} - ${rechnung.marke} ${
       rechnung.modell
     }</strong><br>
-          ${rechnung.vin ? `VIN: ${rechnung.vin}` : ""}
+${rechnung.vin ? `VIN: ${rechnung.vin}` : ""}
+${
+  rechnung.farbe || rechnung.farbcode
+    ? `<br>Farbe: ${rechnung.farbe || ""} ${
+        rechnung.farbcode ? `(${rechnung.farbcode})` : ""
+      }`
+    : ""
+}
         </div>
       </div>
 
@@ -731,16 +747,8 @@ async function viewRechnung(id) {
 
 async function printRechnung(id) {
   try {
-    // Prüfen ob bereits ein Modal mit Rechnungsinhalt geöffnet ist
-    const modalContent = document.querySelector(".modal-body");
-
-    if (modalContent && modalContent.innerHTML.includes("RECHNUNG")) {
-      // Modal ist bereits geöffnet - direkt drucken
-      printModalContent(modalContent);
-    } else {
-      // Kein Modal geöffnet - Rechnung laden und drucken
-      await printRechnungDirect(id);
-    }
+    // IMMER printRechnungDirect verwenden - nicht das Modal
+    await printRechnungDirect(id);
   } catch (error) {
     console.error("Print error:", error);
     showNotification("Fehler beim Drucken der Rechnung", "error");
@@ -797,11 +805,177 @@ async function printRechnungDirect(id) {
     const firmenOrt = getSetting("firmen_ort", "");
     const firmenTelefon = getSetting("firmen_telefon", "");
     const firmenEmail = getSetting("firmen_email", "");
+    const firmenLogo =
+      getSetting("firmen_logo", "") || getSetting("layout_logo", "");
     const steuernummer = getSetting("steuernummer", "");
     const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
     const bankName = getSetting("bank_name", "");
     const bankIban = getSetting("bank_iban", "");
     const bankBic = getSetting("bank_bic", "");
+
+    // LAYOUT-EINSTELLUNGEN LADEN
+    const layoutSettings = {
+      // Farben
+      primaryColor: getSetting("layout_color_primary", "#007bff"),
+      textColor: getSetting("layout_color_text", "#333333"),
+      borderColor: getSetting("layout_color_border", "#ddd"),
+      backgroundLight: getSetting("layout_color_background_light", "#f8f9fa"),
+
+      // Schriften
+      fontFamily: getSetting("layout_font_family", "Arial, sans-serif"),
+      fontSize: getSetting("layout_font_size", "14px"),
+      fontSizeSmall: getSetting("layout_font_size_small", "12px"),
+      fontSizeLarge: getSetting("layout_font_size_large", "18px"),
+
+      // Abstände
+      margin: getSetting("layout_margin", "2cm"),
+      padding: getSetting("layout_padding", "1rem"),
+      sectionSpacing: getSetting("layout_section_spacing", "2rem"),
+
+      // Kopfbereich
+      headerEnabled: getSetting("layout_header_enabled", "true"),
+      headerBorder: getSetting("layout_header_border_bottom", "true"),
+
+      // Logo
+      logoEnabled: getSetting("layout_logo_enabled", "true"),
+      logoHeight: getSetting("layout_logo_height", "80px"),
+      logoWidth: getSetting("layout_logo_width", "auto"),
+      logoPosition: getSetting("layout_logo_position", "left"),
+
+      // Tabellen
+      tableHeaderBg: getSetting("layout_table_header_bg", "#f5f5f5"),
+      tablePadding: getSetting("layout_table_padding", "12px 8px"),
+      tableBorder: getSetting("layout_table_border", "1px solid #ddd"),
+    };
+
+    // Dynamisches CSS basierend auf Layout-Einstellungen generieren
+    const layoutCSS = `
+      body { 
+        font-family: ${layoutSettings.fontFamily}; 
+        margin: ${layoutSettings.margin}; 
+        color: ${layoutSettings.textColor};
+        font-size: ${layoutSettings.fontSize};
+      }
+      
+      .header-section {
+        display: flex; 
+        justify-content: space-between; 
+        align-items: start; 
+        margin-bottom: ${layoutSettings.sectionSpacing}; 
+        padding-bottom: ${layoutSettings.padding}; 
+        ${
+          layoutSettings.headerBorder === "true"
+            ? `border-bottom: 2px solid ${layoutSettings.primaryColor};`
+            : ""
+        }
+      }
+      
+      .company-logo {
+        height: ${layoutSettings.logoHeight};
+        width: ${layoutSettings.logoWidth};
+        max-height: ${layoutSettings.logoHeight};
+        object-fit: contain;
+        margin-bottom: 1rem;
+      }
+      
+      .company-title {
+        color: ${layoutSettings.primaryColor}; 
+        margin-bottom: 0.5rem; 
+        font-size: 24px;
+        font-weight: bold;
+      }
+      
+      .company-details {
+        color: #666; 
+        line-height: 1.4; 
+        font-size: ${layoutSettings.fontSize};
+      }
+      
+      .document-title {
+        color: ${layoutSettings.primaryColor}; 
+        margin-bottom: 1rem; 
+        font-size: 20px;
+        font-weight: bold;
+      }
+      
+      .info-section {
+        margin-bottom: ${layoutSettings.sectionSpacing};
+      }
+      
+      .info-box {
+        background: ${layoutSettings.backgroundLight}; 
+        padding: ${layoutSettings.padding}; 
+        border-radius: 8px; 
+        font-size: ${layoutSettings.fontSize};
+      }
+      
+      .section-title {
+        font-size: 16px; 
+        margin-bottom: 0.5rem;
+        color: ${layoutSettings.textColor};
+        font-weight: bold;
+      }
+      
+      .data-table {
+        width: 100%; 
+        border-collapse: collapse; 
+        margin-bottom: ${layoutSettings.sectionSpacing}; 
+        font-size: ${layoutSettings.fontSize};
+      }
+      
+      .table-header {
+        background-color: ${layoutSettings.tableHeaderBg};
+      }
+      
+      .table-cell {
+        padding: ${layoutSettings.tablePadding}; 
+        border-bottom: ${layoutSettings.tableBorder}; 
+        font-weight: normal;
+      }
+      
+      .table-header-cell {
+        padding: ${layoutSettings.tablePadding}; 
+        text-align: left; 
+        border-bottom: ${layoutSettings.tableBorder}; 
+        font-weight: bold;
+      }
+      
+      .summary-section {
+        margin: ${layoutSettings.sectionSpacing} 0; 
+        padding: ${layoutSettings.padding}; 
+        background: ${layoutSettings.backgroundLight}; 
+        border-radius: 8px; 
+        font-size: ${layoutSettings.fontSize};
+      }
+      
+      .total-row {
+        display: flex; 
+        justify-content: space-between; 
+        padding-top: 1rem; 
+        border-top: 2px solid ${layoutSettings.primaryColor}; 
+        margin-top: 1rem; 
+        font-size: ${layoutSettings.fontSizeLarge};
+        font-weight: bold;
+      }
+      
+      .footer-info {
+        margin-top: ${layoutSettings.sectionSpacing}; 
+        padding-top: 1rem; 
+        border-top: 1px solid ${layoutSettings.borderColor}; 
+        text-align: center; 
+        color: #666; 
+        font-size: ${layoutSettings.fontSizeSmall};
+      }
+      
+      @media print { 
+        body { margin: 1cm; }
+        button { display: none; }
+      }
+      
+      @page {
+        margin: 1cm;
+      }
+    `;
 
     // HTML für Rechnung generieren
     const positionenHtml =
@@ -809,85 +983,119 @@ async function printRechnungDirect(id) {
         ?.map(
           (pos) => `
         <tr>
-          <td>${pos.beschreibung}</td>
-          <td>${pos.menge} ${pos.einheit}</td>
-          <td style="text-align: right;">${formatCurrency(pos.einzelpreis)}</td>
-          <td style="text-align: center;">${pos.mwst_prozent}%</td>
-          <td style="text-align: right;">${formatCurrency(pos.gesamt)}</td>
+          <td class="table-cell">${pos.beschreibung}</td>
+          <td class="table-cell">${pos.menge} ${pos.einheit}</td>
+          <td class="table-cell" style="text-align: right;">${formatCurrency(
+            pos.einzelpreis
+          )}</td>
+          <td class="table-cell" style="text-align: center;">${
+            pos.mwst_prozent
+          }%</td>
+          <td class="table-cell" style="text-align: right;">${formatCurrency(
+            pos.gesamt
+          )}</td>
         </tr>
       `
         )
-        .join("") || '<tr><td colspan="5">Keine Positionen</td></tr>';
+        .join("") ||
+      '<tr><td colspan="5" class="table-cell">Keine Positionen</td></tr>';
 
     const rechnungsHtml = `
-      <!-- Firmen-Header -->
-      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #007bff;">
-        <div>
-          <h1 style="color: #007bff; margin-bottom: 0.5rem; font-size: 24px;">${firmenname}</h1>
-          <div style="color: #666; line-height: 1.4; font-size: 14px;">
-            ${firmenStrasse}<br>
-            ${firmenPlz} ${firmenOrt}<br>
-            Tel: ${firmenTelefon}<br>
-            E-Mail: ${firmenEmail}
-          </div>
-        </div>
-        <div style="text-align: right;">
-          <h2 style="color: #007bff; margin-bottom: 1rem; font-size: 20px;">RECHNUNG</h2>
-          <div style="font-size: 14px;"><strong>Rechnung-Nr.:</strong> ${
-            rechnung.rechnung_nr
-          }</div>
-          <div style="font-size: 14px;"><strong>Datum:</strong> ${formatDate(
-            rechnung.rechnungsdatum
-          )}</div>
-          ${
-            rechnung.auftragsdatum
-              ? `<div style="font-size: 14px;"><strong>Auftragsdatum:</strong> ${formatDate(
-                  rechnung.auftragsdatum
-                )}</div>`
-              : ""
-          }
-        </div>
+  <!-- Firmen-Header -->
+  <div class="header-section">
+    <!-- Left section for company details -->
+    <div>
+      ${
+        firmenLogo && layoutSettings.logoEnabled === "true"
+          ? `<img src="${firmenLogo}" alt="${firmenname}" class="company-logo">`
+          : ""
+      }
+      <h1 class="company-title">${firmenname}</h1>
+      <div class="company-details">
+        ${firmenStrasse}<br>
+        ${firmenPlz} ${firmenOrt}<br>
+        Tel: ${firmenTelefon}<br>
+        E-Mail: ${firmenEmail}
       </div>
+    </div>
 
-      <!-- Kundendaten -->
-      <div style="margin-bottom: 2rem;">
-        <h3 style="font-size: 16px; margin-bottom: 0.5rem;">Rechnungsempfänger:</h3>
-        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; font-size: 14px;">
-          <strong>${rechnung.kunde_name}</strong><br>
-          ${rechnung.strasse || ""}<br>
-          ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
-          ${rechnung.telefon ? `Tel: ${rechnung.telefon}` : ""}
-        </div>
+    <!-- Right section for document title and details -->
+    <div style="text-align: right;">
+      <h2 class="document-title">RECHNUNG</h2>
+      <div style="font-size: ${
+        layoutSettings.fontSize
+      };"><strong>Rechnung-Nr.:</strong> ${rechnung.rechnung_nr}</div>
+      ${
+        rechnung.auftrag_nr
+          ? `<div style="font-size: ${layoutSettings.fontSize};"><strong>Auftragsnr.:</strong> ${rechnung.auftrag_nr}</div>`
+          : ""
+      }
+      <div style="font-size: ${
+        layoutSettings.fontSize
+      };"><strong>Datum:</strong> ${formatDate(rechnung.rechnungsdatum)}</div>
+      ${
+        rechnung.auftragsdatum
+          ? `<div style="font-size: ${
+              layoutSettings.fontSize
+            };"><strong>Auftragsdatum:</strong> ${formatDate(
+              rechnung.auftragsdatum
+            )}</div>`
+          : ""
+      }
+    </div>
+  </div>
+
+  <!-- Kundendaten und Fahrzeugdaten nebeneinander -->
+  <div class="info-section" style="display: flex; justify-content: space-between;">
+    <!-- Left section for customer details -->
+    <div style="width: 48%;">
+      <h3 class="section-title">Rechnungsempfänger:</h3>
+      <div class="info-box">
+        <strong>${rechnung.kunde_name}</strong>${
+      rechnung.kunden_nr
+        ? ` <span style="color: #666;">(Kd.-Nr.: ${rechnung.kunden_nr})</span>`
+        : ""
+    }<br>
+        ${rechnung.strasse || ""}<br>
+        ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
+        ${rechnung.telefon ? `Tel: ${rechnung.telefon}` : ""}
       </div>
+    </div>
 
-      <!-- Fahrzeugdaten -->
-      <div style="margin-bottom: 2rem;">
-        <h3 style="font-size: 16px; margin-bottom: 0.5rem;">Fahrzeug:</h3>
-        <div style="background: #f8f9fa; padding: 1rem; border-radius: 8px; font-size: 14px;">
-          <strong>${rechnung.kennzeichen} - ${rechnung.marke} ${
+    <!-- Right section for vehicle details -->
+    <div style="width: 48%; text-align: right;">
+      <h3 class="section-title">Fahrzeug:</h3>
+      <div class="info-box">
+        <strong>${rechnung.kennzeichen} - ${rechnung.marke} ${
       rechnung.modell
     }</strong><br>
-          ${rechnung.vin ? `VIN: ${rechnung.vin}` : ""}
-        </div>
+        ${rechnung.vin ? `VIN: ${rechnung.vin}` : ""}${
+      rechnung.vin && (rechnung.farbe || rechnung.farbcode) ? "<br>" : ""
+    }
+        ${rechnung.farbe ? `Farbe: ${rechnung.farbe}` : ""}${
+      rechnung.farbcode ? ` (${rechnung.farbcode})` : ""
+    }
       </div>
+    </div>
+  </div>
 
       <!-- Positionen -->
-      <h3 style="font-size: 16px; margin-bottom: 0.5rem;">Leistungen:</h3>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem; font-size: 14px;">
+      <h3 class="section-title">Leistungen:</h3>
+      <table class="data-table">
         <thead>
-          <tr style="background-color: #f5f5f5;">
-            <th style="padding: 12px 8px; text-align: left; border-bottom: 1px solid #ddd; font-weight: bold;">Beschreibung</th>
-            <th style="padding: 12px 8px; text-align: left; border-bottom: 1px solid #ddd; font-weight: bold;">Menge</th>
-            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #ddd; font-weight: bold;">Einzelpreis</th>
-            <th style="padding: 12px 8px; text-align: center; border-bottom: 1px solid #ddd; font-weight: bold;">MwSt.</th>
-            <th style="padding: 12px 8px; text-align: right; border-bottom: 1px solid #ddd; font-weight: bold;">Gesamt</th>
+          <tr class="table-header">
+            <th class="table-header-cell">Beschreibung</th>
+            <th class="table-header-cell">Menge</th>
+            <th class="table-header-cell" style="text-align: right;">Einzelpreis</th>
+            <th class="table-header-cell" style="text-align: center;">MwSt.</th>
+            <th class="table-header-cell" style="text-align: right;">Gesamt</th>
           </tr>
         </thead>
         <tbody>${positionenHtml}</tbody>
       </table>
 
       <!-- Rechnungssumme -->
-      <div style="margin: 2rem 0; padding: 1rem; background: #f8f9fa; border-radius: 8px; font-size: 14px;">
+      <div class="summary-section">
         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
           <span>Zwischensumme netto:</span>
           <span><strong>${formatCurrency(
@@ -897,8 +1105,8 @@ async function printRechnungDirect(id) {
         ${
           rechnung.rabatt_prozent > 0
             ? `
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span>Rabatt (${rechnung.rabatt_prozent}%):</span>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: #dc3545;">
+          <span>Rabatt ${rechnung.rabatt_prozent}%:</span>
           <span><strong>-${formatCurrency(
             rechnung.rabatt_betrag
           )}</strong></span>
@@ -912,25 +1120,65 @@ async function printRechnungDirect(id) {
         `
             : ""
         }
+        ${
+          rechnung.mwst_19 > 0
+            ? `
         <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span>MwSt. (${rechnung.mwst_prozent || 19}%):</span>
-          <span><strong>${formatCurrency(rechnung.mwst_betrag)}</strong></span>
+          <span>zzgl. 19% MwSt.:</span>
+          <span><strong>${formatCurrency(rechnung.mwst_19)}</strong></span>
         </div>
-        <div style="display: flex; justify-content: space-between; border-top: 1px solid #ddd; padding-top: 0.5rem; font-size: 18px; font-weight: bold;">
-          <span>Gesamtbetrag:</span>
-          <span>${formatCurrency(rechnung.gesamtbetrag)}</span>
+        `
+            : ""
+        }
+        ${
+          rechnung.mwst_7 > 0
+            ? `
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>zzgl. 7% MwSt.:</span>
+          <span><strong>${formatCurrency(rechnung.mwst_7)}</strong></span>
+        </div>
+        `
+            : ""
+        }
+        <div class="total-row">
+          <span><strong>Gesamtbetrag:</strong></span>
+          <span><strong>${formatCurrency(rechnung.gesamtbetrag)}</strong></span>
         </div>
       </div>
 
-      <!-- Bankdaten -->
+      <!-- Zahlungsbedingungen -->
       ${
-        bankIban
+        rechnung.zahlungsbedingungen
           ? `
-      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd;">
-        <h4 style="font-size: 14px; margin-bottom: 0.5rem;">Bankverbindung:</h4>
-        <div style="font-size: 13px; color: #666;">
-          ${bankName}<br>
-          IBAN: ${bankIban}<br>
+      <div class="info-section">
+        <h3 class="section-title">Zahlungsbedingungen:</h3>
+        <p style="font-size: ${layoutSettings.fontSize}; line-height: 1.4;">${rechnung.zahlungsbedingungen}</p>
+      </div>
+      `
+          : ""
+      }
+
+      <!-- Gewährleistung -->
+      ${
+        rechnung.gewaehrleistung
+          ? `
+      <div class="info-section">
+        <h3 class="section-title">Gewährleistung:</h3>
+        <p style="font-size: ${layoutSettings.fontSize}; line-height: 1.4;">${rechnung.gewaehrleistung}</p>
+      </div>
+      `
+          : ""
+      }
+
+      <!-- Bankverbindung -->
+      ${
+        bankName || bankIban
+          ? `
+      <div class="info-section">
+        <h3 class="section-title">Bankverbindung:</h3>
+        <div class="info-box">
+          ${bankName ? `${bankName}<br>` : ""}
+          ${bankIban ? `IBAN: ${bankIban}<br>` : ""}
           ${bankBic ? `BIC: ${bankBic}` : ""}
         </div>
       </div>
@@ -942,7 +1190,7 @@ async function printRechnungDirect(id) {
       ${
         steuernummer || umsatzsteuerId
           ? `
-      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 12px;">
+      <div class="footer-info">
         ${steuernummer ? `Steuernummer: ${steuernummer}` : ""}
         ${steuernummer && umsatzsteuerId ? " | " : ""}
         ${umsatzsteuerId ? `USt-IdNr.: ${umsatzsteuerId}` : ""}
@@ -959,18 +1207,7 @@ async function printRechnungDirect(id) {
         <head>
           <title>Rechnung ${rechnung.rechnung_nr}</title>
           <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 2cm; 
-              color: #333;
-            }
-            @media print { 
-              body { margin: 1cm; }
-              button { display: none; }
-            }
-            @page {
-              margin: 1cm;
-            }
+            ${layoutCSS}
           </style>
         </head>
         <body>

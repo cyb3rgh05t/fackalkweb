@@ -18,7 +18,10 @@ module.exports = {
   findById: (id) =>
     new Promise((resolve, reject) => {
       const sql = `
-      SELECT r.*, k.name as kunde_name, k.strasse, k.plz, k.ort, k.telefon, f.kennzeichen, f.marke, f.modell, f.vin, a.auftrag_nr
+      SELECT r.*, 
+             k.name as kunde_name, k.kunden_nr, k.strasse, k.plz, k.ort, k.telefon, 
+             f.kennzeichen, f.marke, f.modell, f.vin, f.farbe, f.farbcode,
+             a.auftrag_nr
       FROM rechnungen r
       LEFT JOIN kunden k ON r.kunden_id = k.id
       LEFT JOIN fahrzeuge f ON r.fahrzeug_id = f.id

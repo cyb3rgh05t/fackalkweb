@@ -71,7 +71,7 @@ async function initializeLayoutEditor() {
     }
 
     // Enhanced Print System laden
-    await import("./enhanced-print.js");
+    //await import("./enhanced-print.js");
     console.log("🖨️ Enhanced Print System geladen");
   } catch (error) {
     console.warn("⚠️ Layout-Editor konnte nicht geladen werden:", error);

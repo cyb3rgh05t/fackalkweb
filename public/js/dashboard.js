@@ -1,6 +1,7 @@
 import { apiCall, formatCurrency, formatDate } from "./utils.js";
 import { getSetting } from "./einstellungen.js";
-import { showSection } from "./utils.js"; // Fügen Sie diese Zeile hinzu
+import { showSection } from "./utils.js";
+import { filterTableByStatus, filterTableByMonth } from "./search.js";
 
 export async function loadDashboard() {
   try {
@@ -169,32 +170,200 @@ function makeCardsClickable() {
 
 // Hilfsfunktionen für Filterung (optional)
 function filterAuftraege(status) {
+  console.log(`🔍 Filtere Aufträge nach Status: ${status}`);
+
+  // Verwende die neue intelligente Filterfunktion
+  filterTableByStatus("auftraege-table", status);
+
+  // Optional: Suchfeld entsprechend setzen für visuelles Feedback
   const searchInput = document.getElementById("auftraege-search");
-  if (searchInput && status) {
-    // Einfacher Ansatz: Status in Suchfeld setzen
-    searchInput.value = status;
-    searchInput.dispatchEvent(new Event("input"));
+  if (searchInput) {
+    searchInput.value = getDisplayTextForStatus(status);
+    // Markiere das Suchfeld als aktiv gefiltert
+    searchInput.style.backgroundColor = "var(--accent-color)";
+    searchInput.style.color = "white";
+
+    // Nach 3 Sekunden zurücksetzen
+    setTimeout(() => {
+      searchInput.style.backgroundColor = "";
+      searchInput.style.color = "";
+    }, 3000);
   }
 }
 
 function filterRechnungen(status) {
+  console.log(`🔍 Filtere Rechnungen nach Status: ${status}`);
+
+  filterTableByStatus("rechnungen-table", status);
+
   const searchInput = document.getElementById("rechnungen-search");
-  if (searchInput && status) {
-    searchInput.value = status;
-    searchInput.dispatchEvent(new Event("input"));
+  if (searchInput) {
+    searchInput.value = getDisplayTextForStatus(status);
+    searchInput.style.backgroundColor = "var(--accent-color)";
+    searchInput.style.color = "white";
+
+    setTimeout(() => {
+      searchInput.style.backgroundColor = "";
+      searchInput.style.color = "";
+    }, 3000);
   }
 }
 
 function filterRechnungenByMonth() {
+  console.log(`🔍 Filtere Rechnungen nach aktuellem Monat`);
+
+  filterTableByMonth("rechnungen-table");
+
   const searchInput = document.getElementById("rechnungen-search");
   if (searchInput) {
     const currentMonth = new Date().toLocaleDateString("de-DE", {
       month: "long",
     });
-    searchInput.value = currentMonth;
-    searchInput.dispatchEvent(new Event("input"));
+    searchInput.value = `${currentMonth} (Monat)`;
+    searchInput.style.backgroundColor = "var(--success-color)";
+    searchInput.style.color = "white";
+
+    setTimeout(() => {
+      searchInput.style.backgroundColor = "";
+      searchInput.style.color = "";
+    }, 3000);
   }
 }
+
+// Hilfsfunktion für bessere Anzeige der Status-Werte
+function getDisplayTextForStatus(status) {
+  const statusDisplayMap = {
+    offen: "Offen",
+    in_bearbeitung: "In Bearbeitung",
+    abgeschlossen: "Abgeschlossen",
+    bezahlt: "Bezahlt",
+    mahnung: "Mahnung",
+    storniert: "Storniert",
+  };
+
+  return statusDisplayMap[status] || status;
+}
+
+// Erweiterte Filter-Optionen für Dashboard
+function addFilterControls() {
+  // Prüfe ob Filter-Controls bereits existieren
+  if (document.getElementById("dashboard-filters")) return;
+
+  const dashboardContainer = document.querySelector(".dashboard-container");
+  if (!dashboardContainer) return;
+
+  const filterContainer = document.createElement("div");
+  filterContainer.id = "dashboard-filters";
+  filterContainer.style.cssText = `
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  `;
+
+  filterContainer.innerHTML = `
+    <h3 style="margin: 0 0 1rem 0;">Schnellfilter</h3>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+      <div class="filter-group">
+        <label>Aufträge:</label>
+        <button class="btn btn-sm btn-secondary" onclick="clearAllFilters('auftraege-table')">Alle</button>
+        <button class="btn btn-sm btn-warning" onclick="filterAuftraege('offen')">Offen</button>
+        <button class="btn btn-sm btn-info" onclick="filterAuftraege('in_bearbeitung')">In Bearbeitung</button>
+        <button class="btn btn-sm btn-success" onclick="filterAuftraege('abgeschlossen')">Abgeschlossen</button>
+      </div>
+      <div class="filter-group">
+        <label>Rechnungen:</label>
+        <button class="btn btn-sm btn-secondary" onclick="clearAllFilters('rechnungen-table')">Alle</button>
+        <button class="btn btn-sm btn-warning" onclick="filterRechnungen('offen')">Offen</button>
+        <button class="btn btn-sm btn-success" onclick="filterRechnungen('bezahlt')">Bezahlt</button>
+        <button class="btn btn-sm btn-danger" onclick="filterRechnungen('mahnung')">Mahnung</button>
+        <button class="btn btn-sm btn-secondary" onclick="filterRechnungenByMonth()">Aktueller Monat</button>
+      </div>
+    </div>
+  `;
+
+  dashboardContainer.insertBefore(
+    filterContainer,
+    dashboardContainer.firstChild
+  );
+}
+
+// Filter zurücksetzen
+function clearAllFilters(tableId) {
+  const table = document.getElementById(tableId);
+  if (!table) return;
+
+  // Alle Zeilen anzeigen
+  const rows = table.querySelectorAll("tbody tr");
+  rows.forEach((row) => (row.style.display = ""));
+
+  // Suchfeld leeren
+  const searchInputId = tableId.replace("-table", "-search");
+  const searchInput = document.getElementById(searchInputId);
+  if (searchInput) {
+    searchInput.value = "";
+    searchInput.style.backgroundColor = "";
+    searchInput.style.color = "";
+  }
+
+  console.log(`✅ Filter für ${tableId} zurückgesetzt`);
+}
+
+// Debug-Funktionen für Troubleshooting
+function debugCurrentFilters() {
+  console.log("🔍 Debug: Aktuelle Filter-Status");
+
+  const tables = [
+    "auftraege-table",
+    "rechnungen-table",
+    "kunden-table",
+    "fahrzeuge-table",
+  ];
+
+  tables.forEach((tableId) => {
+    const table = document.getElementById(tableId);
+    if (!table) {
+      console.log(`❌ Tabelle ${tableId} nicht gefunden`);
+      return;
+    }
+
+    const allRows = table.querySelectorAll("tbody tr");
+    const visibleRows = Array.from(allRows).filter(
+      (row) => row.style.display !== "none"
+    );
+
+    console.log(
+      `📊 ${tableId}: ${visibleRows.length}/${allRows.length} Zeilen sichtbar`
+    );
+
+    const searchInputId = tableId.replace("-table", "-search");
+    const searchInput = document.getElementById(searchInputId);
+    if (searchInput && searchInput.value) {
+      console.log(`🔍 Aktiver Filter: "${searchInput.value}"`);
+    }
+  });
+}
+
+// Exportiere die Funktionen für globale Verwendung
+window.filterAuftraege = filterAuftraege;
+window.filterRechnungen = filterRechnungen;
+window.filterRechnungenByMonth = filterRechnungenByMonth;
+window.clearAllFilters = clearAllFilters;
+window.debugCurrentFilters = debugCurrentFilters;
+window.addFilterControls = addFilterControls;
+
+// Auto-Setup beim Laden
+document.addEventListener("DOMContentLoaded", () => {
+  // Filter-Controls nach kurzer Verzögerung hinzufügen
+  setTimeout(() => {
+    if (window.location.hash === "#dashboard" || !window.location.hash) {
+      addFilterControls();
+    }
+  }, 1000);
+});
+
+console.log("✅ Verbesserte Dashboard-Filter geladen");
 
 function addExtendedStatistics(auftraege, rechnungen) {
   // Prüfen ob erweiterte Statistiken bereits existieren

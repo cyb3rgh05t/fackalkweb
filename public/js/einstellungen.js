@@ -12,16 +12,26 @@ export async function loadEinstellungen() {
     console.log("🔧 Lade Einstellungen...");
     const settings = await apiCall("/api/einstellungen");
 
-    // Einstellungen global verfügbar machen
-    window.einstellungen = {};
-    settings.forEach(
-      (setting) => (window.einstellungen[setting.key] = setting.value)
-    );
+    // KRITISCH: Bestehende Einstellungen NICHT überschreiben!
+    if (!window.einstellungen) {
+      window.einstellungen = {};
+    }
+
+    // Merge neue Einstellungen mit bestehenden
+    const newSettings = {};
+    settings.forEach((setting) => (newSettings[setting.key] = setting.value));
+
+    // Bestehende Werte behalten, neue hinzufügen
+    Object.assign(window.einstellungen, newSettings);
 
     console.log(
       "✅ Einstellungen geladen:",
       Object.keys(window.einstellungen).length,
       "Einträge"
+    );
+    console.log(
+      "🖼️ Logo nach Reload:",
+      window.einstellungen?.firmen_logo?.length || "NICHT VORHANDEN"
     );
 
     // Alle Formulare füllen
@@ -298,53 +308,63 @@ window.uploadLogo = async function () {
     const file = event.target.files[0];
     if (!file) return;
 
-    // Dateigröße prüfen (max 2MB)
     if (file.size > 2 * 1024 * 1024) {
       showNotification("Logo-Datei zu groß (max. 2MB)", "warning");
       return;
     }
 
-    // Datei als Base64 konvertieren
     const reader = new FileReader();
     reader.onload = async function (e) {
       const base64Data = e.target.result;
 
       try {
+        // 1. API-Call zum Speichern
         await apiCall("/api/einstellungen/firmen_logo", "PUT", {
           value: base64Data,
         });
 
-        // **WICHTIG**: window.einstellungen aktualisieren
+        // 2. SICHER: window.einstellungen erstellen falls nicht vorhanden
         if (!window.einstellungen) {
           window.einstellungen = {};
         }
+
+        // 3. Logo setzen
         window.einstellungen.firmen_logo = base64Data;
 
-        // **DEBUG**: Logo-Update bestätigen
-        console.log("✅ Logo-Upload: window.einstellungen aktualisiert", {
-          logoLength: base64Data.length,
-          keyExists: "firmen_logo" in window.einstellungen,
-          value: window.einstellungen.firmen_logo.substring(0, 50) + "...",
+        // 4. VALIDATION: Prüfen ob Logo wirklich gesetzt wurde
+        const logoCheck = window.einstellungen?.firmen_logo;
+        console.log("✅ Logo-Upload VALIDATION:", {
+          logoExists: !!logoCheck,
+          logoLength: logoCheck?.length || 0,
+          timestamp: new Date().toISOString(),
         });
 
-        // Logo-Vorschau aktualisieren
+        // 5. UI updates
         const logoPreview = document.getElementById("logo-preview");
         if (logoPreview) {
           logoPreview.innerHTML = `<img src="${base64Data}" alt="Firmenlogo" style="max-width: 200px; max-height: 100px;">`;
         }
 
-        // Button-Sichtbarkeit aktualisieren
         updateLogoButtonVisibility();
-
         showNotification("Logo erfolgreich hochgeladen", "success");
 
-        // Event senden
+        // 6. Events für andere Module
         window.dispatchEvent(
           new CustomEvent("logoUpdated", {
             detail: { logo: base64Data },
           })
         );
+
+        // 7. FORCE: Dashboard-Logo aktualisieren
+        setTimeout(() => {
+          window.dispatchEvent(
+            new CustomEvent("settingsUpdated", {
+              detail: { updated: { firmen_logo: base64Data } },
+            })
+          );
+        }, 100);
       } catch (error) {
+        console.error("Logo-Upload Fehler:", error);
         showNotification("Fehler beim Hochladen des Logos", "error");
       }
     };

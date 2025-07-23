@@ -5,7 +5,6 @@ import { filterTableByStatus, filterTableByMonth } from "./search.js";
 
 export async function loadDashboard() {
   try {
-    // Alle Daten parallel laden
     const [auftraege, rechnungen, kunden, settings] = await Promise.all([
       apiCall("/api/auftraege"),
       apiCall("/api/rechnungen"),
@@ -13,27 +12,28 @@ export async function loadDashboard() {
       apiCall("/api/einstellungen"),
     ]);
 
-    // Einstellungen in window.einstellungen speichern falls nicht vorhanden
+    // KRITISCH: Bestehende Einstellungen NICHT überschreiben!
     if (!window.einstellungen) {
       window.einstellungen = {};
-      settings.forEach((setting) => {
-        window.einstellungen[setting.key] = setting.value;
-      });
     }
 
-    // Firmenlogo im Header anzeigen falls vorhanden
+    // Nur neue Einstellungen hinzufügen, bestehende behalten
+    settings.forEach((setting) => {
+      // Nur setzen wenn noch nicht vorhanden (oder explizit überschreiben gewünscht)
+      if (window.einstellungen[setting.key] === undefined) {
+        window.einstellungen[setting.key] = setting.value;
+      }
+    });
+
+    console.log(
+      "🖼️ Logo nach Dashboard-Load:",
+      window.einstellungen?.firmen_logo?.length || "NICHT VORHANDEN"
+    );
+
     updateFirmenLogo();
-
-    // Statistiken berechnen
     updateStatistics(auftraege, rechnungen, kunden);
-
-    // Aktuelle Aufträge anzeigen
     updateAuftraegeTable(auftraege);
-
-    // Dashboard-spezifische Firmeninformationen anzeigen
     updateFirmenInfo();
-
-    // Zusätzliche Dashboard-Widgets
     updateQuickActions();
   } catch (err) {
     console.error("Failed to load dashboard:", err);

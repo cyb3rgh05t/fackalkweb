@@ -1909,8 +1909,26 @@ Protokoll: ${window.location.protocol}
         console.log("window.einstellungen:", !!window.einstellungen);
         console.log("Keys:", Object.keys(window.einstellungen || {}));
         console.log("Logo vorhanden:", !!window.einstellungen?.firmen_logo);
-        console.log("IBAN vorhanden:", !!window.einstellungen?.iban);
-        console.log("BIC vorhanden:", !!window.einstellungen?.bic);
+        console.log(
+          "Logo Länge:",
+          window.einstellungen?.firmen_logo?.length || "N/A"
+        );
+        console.log(
+          "Erste 50 Zeichen des Logos:",
+          window.einstellungen?.firmen_logo?.substring(0, 50) || "N/A"
+        );
+        console.log(
+          "Logo ist Base64:",
+          window.einstellungen?.firmen_logo?.startsWith("data:") || false
+        );
+
+        // Testen ob Logo noch da ist nach verschiedenen Aktionen
+        setTimeout(() => {
+          console.log(
+            "Logo nach 1 Sekunde:",
+            !!window.einstellungen?.firmen_logo
+          );
+        }, 1000);
       };
     </script>
 

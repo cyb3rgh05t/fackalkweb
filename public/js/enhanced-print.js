@@ -56,30 +56,11 @@
   }
 
   function getSetting(key, defaultValue = "") {
-    // DEBUG: Einstellungen-Status loggen
-    if (!window.einstellungen) {
-      console.error(
-        `❌ enhanced-print.js: window.einstellungen ist undefined! Key: ${key}`
-      );
-      return defaultValue;
+    // Einstellungen aus window.einstellungen abrufen
+    if (window.einstellungen && window.einstellungen[key] !== undefined) {
+      return window.einstellungen[key];
     }
-
-    if (window.einstellungen[key] === undefined) {
-      console.warn(
-        `⚠️ enhanced-print.js: Key '${key}' nicht gefunden in:`,
-        Object.keys(window.einstellungen)
-      );
-      return defaultValue;
-    }
-
-    // SUCCESS
-    const value = window.einstellungen[key];
-    console.log(
-      `✅ enhanced-print.js: ${key} = ${
-        key === "firmen_logo" ? `[${value.length} chars]` : value
-      }`
-    );
-    return value;
+    return defaultValue;
   }
 
   function formatCurrency(amount) {
@@ -197,6 +178,16 @@
       try {
         console.log(`Drucke ${type} mit ID: ${id}`);
         const data = await this.loadDocumentData(type, id);
+
+        // Debug: Ausgabe der geladenen Daten
+        console.log(`${type} Daten geladen:`, {
+          auftrag_nr: data.auftrag_nr,
+          kunden_nr: data.kunden_nr,
+          farbe: data.farbe,
+          farbcode: data.farbcode,
+          auftragsdatum: data.auftragsdatum,
+        });
+
         const html = this.generatePrintHTML(type, data);
         this.openPrintWindow(html, this.getDocumentTitle(type, data));
       } catch (error) {
@@ -566,7 +557,7 @@
       `;
     }
 
-    // Header generieren
+    // Header generieren - ERWEITERT mit zusätzlichen Daten
     generateHeader(type, data) {
       const firmenname = getSetting("firmenname", "Meine Firma");
       const logoData = getSetting("firmen_logo", "");
@@ -616,6 +607,30 @@
       const documentNumber =
         type === "rechnung" ? data.rechnung_nr : data.auftrag_nr;
 
+      // ERWEITERT: Zusätzliche Informationen für Header
+      let additionalHeaderInfo = "";
+
+      // Bei Rechnungen: Auftragsnummer und Auftragsdatum anzeigen (falls vorhanden)
+      if (type === "rechnung") {
+        if (data.kunden_nr) {
+          additionalHeaderInfo += `<p style="margin: 0.25rem 0; color: ${this.layoutSettings.layout_color_muted}; font-size: ${this.layoutSettings.layout_font_size_small};">Kunden Nr.: <strong>${data.kunden_nr}</strong></p>`;
+        }
+
+        if (data.auftrag_nr) {
+          additionalHeaderInfo += `<p style="margin: 0.25rem 0; color: ${this.layoutSettings.layout_color_muted}; font-size: ${this.layoutSettings.layout_font_size_small};">Auftrag-Nr.: <strong>${data.auftrag_nr}</strong></p>`;
+        }
+
+        if (data.auftragsdatum) {
+          additionalHeaderInfo += `<p style="margin: 0.25rem 0; color: ${
+            this.layoutSettings.layout_color_muted
+          }; font-size: ${
+            this.layoutSettings.layout_font_size_small
+          };">Auftragsdatum: <strong>${formatDate(
+            data.auftragsdatum
+          )}</strong></p>`;
+        }
+      }
+
       return `
         <div class="document-header">
           <div class="company-info">
@@ -649,6 +664,7 @@
             <p style="margin: 0; color: ${
               this.layoutSettings.layout_color_muted
             };">Datum: ${formatDate(data.rechnungsdatum || data.datum)}</p>
+            ${additionalHeaderInfo}
           </div>
         </div>
         <hr style="border: none; border-top: ${
@@ -659,8 +675,27 @@
       `;
     }
 
-    // Kundeninformationen generieren
+    // Kundeninformationen generieren - ERWEITERT mit Kundennummer und Fahrzeugfarbe
     generateCustomerInfo(data) {
+      // ERWEITERT: Kundennummer hinzufügen
+      let customerName = data.kunde_name || data.name || "Unbekannter Kunde";
+      //let customerNumber = data.kunden_nr || "Unbekannte Kundennr.";
+
+      // ERWEITERT: Fahrzeugfarbe und Farbcode hinzufügen
+      let vehicleInfo = `Marke - Modell: <strong>${data.marke || ""} - ${
+        data.modell || ""
+      }</strong><br>`;
+      vehicleInfo += `Kennz: <strong>${data.kennzeichen || ""}</strong><br>`;
+      if (data.vin) {
+        vehicleInfo += `VIN: <strong>${data.vin}</strong><br>`;
+      }
+      if (data.farbe || data.farbcode) {
+        let colorInfo = `Farbe: <strong>`;
+        if (data.farbe) colorInfo += data.farbe;
+        if (data.farbcode) colorInfo += ` (${data.farbcode})`;
+        vehicleInfo += `${colorInfo}</strong><br>`;
+      }
+
       return `
         <div class="customer-vehicle-section" style="display: flex; justify-content: space-between; margin-bottom: ${
           this.layoutSettings.layout_section_spacing
@@ -672,9 +707,11 @@
             <p style="margin: 0; line-height: ${
               this.layoutSettings.layout_line_height
             };">
-              ${data.kunde_name || data.name || "Unbekannter Kunde"}<br>
+              ${customerName}<br>
               ${data.strasse || ""}<br>
-              ${data.plz || ""} ${data.ort || ""}
+              ${data.plz || ""} ${data.ort || ""}${
+        data.telefon ? `<br>Tel: ${data.telefon}` : ""
+      }${data.email ? `<br>E-Mail: ${data.email}` : ""}
             </p>
           </div>
           
@@ -682,15 +719,9 @@
             data.kennzeichen
               ? `
           <div class="vehicle-info" style="flex: 1; text-align: right;">
-            <h3 style="color: ${
-              this.layoutSettings.layout_color_primary
-            }; margin-bottom: 0.5rem;">Fahrzeug:</h3>
-            <p style="margin: 0; line-height: ${
-              this.layoutSettings.layout_line_height
-            };">
-              ${data.kennzeichen} - ${data.marke || ""} ${data.modell || ""}<br>
-              ${data.vin ? `VIN: ${data.vin}` : ""}
-              ${data.farbe ? `<br>Farbe: ${data.farbe}` : ""}
+            <h3 style="color: ${this.layoutSettings.layout_color_primary}; margin-bottom: 0.5rem;">Fahrzeug:</h3>
+            <p style="margin: 0; line-height: ${this.layoutSettings.layout_line_height};">
+              ${vehicleInfo}
             </p>
           </div>
           `
@@ -1103,5 +1134,8 @@
   // Export für debugging
   window.enhancedPrint = enhancedPrint;
 
-  console.log("Enhanced Print System geladen - " + new Date().toISOString());
+  console.log(
+    "Enhanced Print System mit erweiterten Daten geladen - " +
+      new Date().toISOString()
+  );
 })();

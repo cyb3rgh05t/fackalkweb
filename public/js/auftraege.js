@@ -804,6 +804,19 @@ async function createRechnungFromAuftrag(auftragId) {
     const auftrag = await apiCall(`/api/auftraege/${auftragId}`);
     const mwstSatz = parseFloat(getSetting("mwst_satz", "19"));
 
+    // Validierung
+    if (!auftrag || !auftrag.id) {
+      throw new Error(`Auftrag mit ID ${auftragId} nicht gefunden`);
+    }
+
+    if (!auftrag.auftrag_nr) {
+      throw new Error(`Auftrag ${auftrag.id} hat keine gültige Auftragsnummer`);
+    }
+
+    console.log(
+      `📋 Erstelle Rechnung aus Auftrag ${auftrag.auftrag_nr} (ID: ${auftrag.id})`
+    );
+
     // Auftrag in Rechnung umwandeln
     const rechnungsData = {
       auftrag_id: auftrag.id,
@@ -825,17 +838,41 @@ async function createRechnungFromAuftrag(auftragId) {
     };
 
     const result = await apiCall("/api/rechnungen", "POST", rechnungsData);
+
+    // Validierung: Prüfen ob Rechnung korrekt erstellt wurde
+    const neueRechnung = await apiCall(`/api/rechnungen/${result.id}`);
+    if (!neueRechnung.auftrag_nr) {
+      console.error(
+        "❌ Warnung: Neue Rechnung hat keine auftrag_nr!",
+        neueRechnung
+      );
+      showNotification(
+        "Warnung: Rechnungserstellung teilweise fehlerhaft",
+        "warning"
+      );
+    } else {
+      console.log(
+        `✅ Rechnung korrekt erstellt: ${result.rechnung_nr} → ${neueRechnung.auftrag_nr}`
+      );
+    }
+
     showNotification(
-      `Rechnung ${result.rechnung_nr} erfolgreich aus Auftrag erstellt`,
+      `Rechnung ${result.rechnung_nr} erfolgreich aus Auftrag ${auftrag.auftrag_nr} erstellt`,
       "success"
     );
 
+    // Auftrag als abgeschlossen markieren
     auftrag.status = "abgeschlossen";
     await apiCall(`/api/auftraege/${auftragId}`, "PUT", auftrag);
+
     loadAuftraege();
     showSection("rechnungen");
   } catch (error) {
-    showNotification("Fehler beim Erstellen der Rechnung aus Auftrag", "error");
+    console.error("❌ Fehler in createRechnungFromAuftrag:", error);
+    showNotification(
+      `Fehler beim Erstellen der Rechnung: ${error.message}`,
+      "error"
+    );
   }
 }
 

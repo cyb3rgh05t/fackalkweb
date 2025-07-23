@@ -14,17 +14,27 @@ module.exports = {
         resolve(rows);
       });
     }),
+
   findById: (id) =>
     new Promise((resolve, reject) => {
+      // KORRIGIERT: Explizite Spalten-Namen verwenden statt a.*, k.*
       const sql = `
-      SELECT a.*, k.*, f.kennzeichen, f.marke, f.modell, f.vin, f.farbe, f.farbcode
+      SELECT 
+        a.id, a.auftrag_nr, a.kunden_id, a.fahrzeug_id, a.datum, 
+        a.basis_stundenpreis, a.gesamt_zeit, a.gesamt_kosten, a.mwst_betrag, 
+        a.bemerkungen, a.status, a.erstellt_am, a.aktualisiert_am,
+        k.name, k.kunden_nr, k.strasse, k.plz, k.ort, k.telefon, k.email,
+        f.kennzeichen, f.marke, f.modell, f.vin, f.farbe, f.farbcode, f.baujahr
       FROM auftraege a
       LEFT JOIN kunden k ON a.kunden_id = k.id
       LEFT JOIN fahrzeuge f ON a.fahrzeug_id = f.id
       WHERE a.id = ?`;
+
       db.get(sql, [id], (err, auftrag) => {
         if (err) return reject(err);
         if (!auftrag) return resolve(null);
+
+        // Positionen laden
         db.all(
           "SELECT * FROM auftrag_positionen WHERE auftrag_id = ? ORDER BY reihenfolge",
           [id],
@@ -36,6 +46,7 @@ module.exports = {
         );
       });
     }),
+
   create: (data) =>
     new Promise((resolve, reject) => {
       const sql = `INSERT INTO auftraege (auftrag_nr, kunden_id, fahrzeug_id, datum, basis_stundenpreis, gesamt_zeit, gesamt_kosten, mwst_betrag, bemerkungen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
@@ -75,6 +86,7 @@ module.exports = {
         }
       );
     }),
+
   update: (id, data) =>
     new Promise((resolve, reject) => {
       const sql = `UPDATE auftraege SET kunden_id=?, fahrzeug_id=?, datum=?, basis_stundenpreis=?, gesamt_zeit=?, gesamt_kosten=?, mwst_betrag=?, bemerkungen=?, status=? WHERE id=?`;
@@ -121,6 +133,7 @@ module.exports = {
         }
       );
     }),
+
   remove: (id) =>
     new Promise((resolve, reject) => {
       db.run(

@@ -292,7 +292,13 @@ exports.updateBatch = async (req, res) => {
   try {
     const { settings } = req.body;
 
+    console.log("📥 Batch-Update empfangen:", {
+      settingsCount: Object.keys(settings || {}).length,
+      keys: Object.keys(settings || {}),
+    });
+
     if (!settings || typeof settings !== "object") {
+      console.error("❌ Ungültige Request-Body");
       return res.status(400).json({
         error: "Invalid request body. Expected 'settings' object.",
       });
@@ -343,16 +349,17 @@ exports.updateBatch = async (req, res) => {
           processedValue = value.toUpperCase();
         }
 
-        // Einstellung speichern
-        await Einstellung.update(key, processedValue);
+        // **WICHTIG: UPSERT statt UPDATE verwenden**
+        const result = await Einstellung.upsert(key, processedValue);
 
         results.success.push({
           key,
           value: processedValue,
+          action: result.action,
         });
         results.updated++;
       } catch (error) {
-        console.error(`Error updating setting ${key}:`, error);
+        console.error(`❌ Error updating setting ${key}:`, error);
         results.errors.push({
           key,
           error: error.message,
@@ -367,6 +374,7 @@ exports.updateBatch = async (req, res) => {
       updated: results.updated,
       failed: results.failed,
       message: `${results.updated} Einstellungen erfolgreich gespeichert`,
+      details: results.success,
     };
 
     if (results.errors.length > 0) {
@@ -376,8 +384,7 @@ exports.updateBatch = async (req, res) => {
 
     // Status Code je nach Ergebnis
     const statusCode =
-      results.failed === 0 ? 200 : results.updated === 0 ? 400 : 207; // 207 = Multi-Status
-
+      results.failed === 0 ? 200 : results.updated === 0 ? 400 : 207;
     res.status(statusCode).json(response);
   } catch (err) {
     console.error("Batch update error:", err);

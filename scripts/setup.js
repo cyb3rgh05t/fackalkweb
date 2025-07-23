@@ -460,8 +460,8 @@ function insertDefaultSettings(db, resolve, reject) {
 
     // Bankverbindung
     ["bank_name", "Musterbank AG", "Name der Bank"],
-    ["iban", "DE89 3704 0044 0532 0130 00", "IBAN"],
-    ["bic", "COBADEFFXXX", "BIC/SWIFT-Code"],
+    ["bank_iban", "DE89 3704 0044 0532 0130 00", "IBAN"],
+    ["bank_bic", "COBADEFFXXX", "BIC/SWIFT-Code"],
 
     // Preise und Steuern
     ["basis_stundenpreis", "110.00", "Basis-Stundenpreis in Euro"],

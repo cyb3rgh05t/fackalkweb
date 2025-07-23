@@ -56,11 +56,30 @@
   }
 
   function getSetting(key, defaultValue = "") {
-    // Einstellungen aus window.einstellungen abrufen
-    if (window.einstellungen && window.einstellungen[key] !== undefined) {
-      return window.einstellungen[key];
+    // DEBUG: Einstellungen-Status loggen
+    if (!window.einstellungen) {
+      console.error(
+        `❌ enhanced-print.js: window.einstellungen ist undefined! Key: ${key}`
+      );
+      return defaultValue;
     }
-    return defaultValue;
+
+    if (window.einstellungen[key] === undefined) {
+      console.warn(
+        `⚠️ enhanced-print.js: Key '${key}' nicht gefunden in:`,
+        Object.keys(window.einstellungen)
+      );
+      return defaultValue;
+    }
+
+    // SUCCESS
+    const value = window.einstellungen[key];
+    console.log(
+      `✅ enhanced-print.js: ${key} = ${
+        key === "firmen_logo" ? `[${value.length} chars]` : value
+      }`
+    );
+    return value;
   }
 
   function formatCurrency(amount) {
@@ -900,8 +919,8 @@
             Steuernr.: ${getSetting("steuernummer", "")} | 
             USt-IdNr.: ${getSetting("umsatzsteuer_id", "")}<br>
             ${getSetting("bank_name", "")} | 
-            IBAN: ${getSetting("iban", "")} | 
-            BIC: ${getSetting("bic", "")}
+            IBAN: ${getSetting("bank_iban", "")} | 
+            BIC: ${getSetting("bank_bic", "")}
           </p>
         </div>
       `;

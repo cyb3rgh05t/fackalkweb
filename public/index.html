@@ -1885,6 +1885,35 @@ Protokoll: ${window.location.protocol}
       }
     </script>
 
+    <script>
+      // Globale getSetting-Funktion für alle Module
+      window.getSetting = function (key, defaultValue = "") {
+        if (!window.einstellungen) {
+          console.warn(
+            `⚠️ Global getSetting: Einstellungen noch nicht geladen für ${key}`
+          );
+          return defaultValue;
+        }
+
+        if (window.einstellungen[key] === undefined) {
+          console.warn(`⚠️ Global getSetting: Key '${key}' nicht gefunden`);
+          return defaultValue;
+        }
+
+        return window.einstellungen[key];
+      };
+
+      // Debug-Funktion
+      window.debugSettings = function () {
+        console.log("=== SETTINGS DEBUG ===");
+        console.log("window.einstellungen:", !!window.einstellungen);
+        console.log("Keys:", Object.keys(window.einstellungen || {}));
+        console.log("Logo vorhanden:", !!window.einstellungen?.firmen_logo);
+        console.log("IBAN vorhanden:", !!window.einstellungen?.iban);
+        console.log("BIC vorhanden:", !!window.einstellungen?.bic);
+      };
+    </script>
+
     <script type="module" src="js/app.js"></script>
     <script type="module" src="js/modals.js"></script>
     <script type="module" src="js/notifications.js"></script>

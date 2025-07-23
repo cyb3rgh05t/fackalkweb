@@ -541,8 +541,8 @@ async function viewRechnung(id) {
     const steuernummer = getSetting("steuernummer", "");
     const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
     const bankName = getSetting("bank_name", "");
-    const bankIban = getSetting("bank_iban", "");
-    const bankBic = getSetting("bank_bic", "");
+    const bankIban = getSetting("iban", "");
+    const bankBic = getSetting("bic", "");
 
     const positionenHtml =
       rechnung.positionen

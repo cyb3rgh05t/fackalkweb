@@ -154,12 +154,23 @@ async function saveSettingsBatch(formId) {
   const formData = new FormData(form);
   const updates = {};
 
-  // Alle Formularwerte sammeln
+  // **KORRIGIERT:** Alle Formularwerte sammeln (auch leere)
   for (const [key, value] of formData.entries()) {
-    if (key && value !== undefined && value !== "") {
-      updates[key] = value;
+    if (key && value !== undefined) {
+      // Nur undefined ausschließen
+      updates[key] = value.toString().trim(); // Leerzeichen entfernen
     }
   }
+
+  // **NEU:** Explizit alle Eingabefelder durchgehen
+  const inputs = form.querySelectorAll(
+    "input[name], select[name], textarea[name]"
+  );
+  inputs.forEach((input) => {
+    if (input.name && !updates.hasOwnProperty(input.name)) {
+      updates[input.name] = input.value || ""; // Leere Werte mit einschließen
+    }
+  });
 
   // Checkbox-Werte korrekt verarbeiten
   const checkboxes = form.querySelectorAll('input[type="checkbox"]');
@@ -169,7 +180,10 @@ async function saveSettingsBatch(formId) {
     }
   });
 
-  // Zeige Lade-Indikator
+  // **DEBUG:** Logging hinzufügen
+  console.log(`Speichere ${formId}:`, updates);
+
+  // Rest der Funktion bleibt gleich...
   const submitButton = form.querySelector('button[type="submit"]');
   if (!submitButton) return;
 
@@ -179,29 +193,24 @@ async function saveSettingsBatch(formId) {
   submitButton.disabled = true;
 
   try {
-    // Batch-Update an Server senden
     const result = await apiCall("/api/einstellungen/batch", "PUT", {
       settings: updates,
     });
 
-    // Lokale Einstellungen aktualisieren
     Object.assign(window.einstellungen, updates);
 
-    // Erfolgs-Benachrichtigung
     const successCount = Object.keys(updates).length;
     showNotification(
       `${successCount} Einstellungen erfolgreich gespeichert`,
       "success"
     );
 
-    // Events für andere Module senden
     window.dispatchEvent(
       new CustomEvent("settingsUpdated", {
         detail: { updated: updates, form: formId },
       })
     );
 
-    // Layout-spezifisches Event
     if (formId === "layout-form") {
       window.dispatchEvent(
         new CustomEvent("layoutSettingsUpdated", {
@@ -210,14 +219,12 @@ async function saveSettingsBatch(formId) {
       );
     }
 
-    // Form als gespeichert markieren
     form.classList.add("saved");
     setTimeout(() => form.classList.remove("saved"), 2000);
   } catch (error) {
     console.error("Batch save error:", error);
     showNotification(`Fehler beim Speichern: ${error.message}`, "error");
   } finally {
-    // Button zurücksetzen
     submitButton.innerHTML = originalText;
     submitButton.disabled = false;
   }
@@ -307,7 +314,18 @@ window.uploadLogo = async function () {
           value: base64Data,
         });
 
+        // **WICHTIG**: window.einstellungen aktualisieren
+        if (!window.einstellungen) {
+          window.einstellungen = {};
+        }
         window.einstellungen.firmen_logo = base64Data;
+
+        // **DEBUG**: Logo-Update bestätigen
+        console.log("✅ Logo-Upload: window.einstellungen aktualisiert", {
+          logoLength: base64Data.length,
+          keyExists: "firmen_logo" in window.einstellungen,
+          value: window.einstellungen.firmen_logo.substring(0, 50) + "...",
+        });
 
         // Logo-Vorschau aktualisieren
         const logoPreview = document.getElementById("logo-preview");
@@ -339,9 +357,7 @@ window.uploadLogo = async function () {
 
 // Logo entfernen
 window.removeLogo = async function () {
-  if (!confirm("Möchten Sie das Logo wirklich entfernen?")) {
-    return;
-  }
+  if (!confirm("Möchten Sie das Logo wirklich entfernen?")) return;
 
   try {
     await apiCall("/api/einstellungen/firmen_logo", "PUT", { value: "" });
@@ -353,17 +369,28 @@ window.removeLogo = async function () {
         '<div class="no-logo">Kein Logo hochgeladen</div>';
     }
 
-    // Button-Sichtbarkeit aktualisieren
-    updateLogoButtonVisibility();
+    // **NEUE ZEILEN:** Browser-Cache für das Logo löschen
+    if (window.einstellungen.firmen_logo) {
+      window.einstellungen.firmen_logo = null;
+    }
 
+    // Force Browser-Cache löschen
+    const logoImages = document.querySelectorAll('img[alt="Firmenlogo"]');
+    logoImages.forEach((img) => {
+      img.src = "";
+      img.remove();
+    });
+
+    updateLogoButtonVisibility();
     showNotification("Logo entfernt", "success");
 
     // Event senden
-    window.dispatchEvent(
-      new CustomEvent("logoRemoved", {
-        detail: {},
-      })
-    );
+    window.dispatchEvent(new CustomEvent("logoRemoved", { detail: {} }));
+
+    // **WICHTIG:** Seite neu laden um alle Caches zu löschen
+    setTimeout(() => {
+      window.location.reload();
+    }, 1000);
   } catch (error) {
     showNotification("Fehler beim Entfernen des Logos", "error");
   }
@@ -472,12 +499,24 @@ document.addEventListener("DOMContentLoaded", function () {
   forms.forEach((formId) => {
     const form = document.getElementById(formId);
     if (form) {
-      form.addEventListener("submit", function (e) {
-        e.preventDefault();
-        saveSettingsBatch(formId);
-      });
+      // Bestehende Event-Listener entfernen
+      form.removeEventListener("submit", handleFormSubmit);
+
+      // Neuen Event-Listener hinzufügen
+      form.addEventListener("submit", handleFormSubmit);
+
+      console.log(`✅ Event-Handler für ${formId} registriert`);
+    } else {
+      console.warn(`⚠️ Form ${formId} nicht gefunden`);
     }
   });
+
+  function handleFormSubmit(e) {
+    e.preventDefault();
+    const formId = e.target.id;
+    console.log(`📝 Form ${formId} wird gespeichert...`);
+    saveSettingsBatch(formId);
+  }
 
   // Live-Save Setup
   setTimeout(setupLiveSave, 1000);

@@ -643,57 +643,42 @@
     // Kundeninformationen generieren
     generateCustomerInfo(data) {
       return `
-    <!-- Rechnungsheader -->
-    <div class="document-header">
-      <div class="company-info">
-        <h1>${getSetting("firmenname", "Meine Firma")}</h1>
-        <div class="company-details">
-          ${getSetting("firmen_strasse", "")}<br>
-          ${getSetting("firmen_plz", "")} ${getSetting("firmen_ort", "")}<br>
-          Tel: ${getSetting("firmen_telefon", "")}<br>
-          E-Mail: ${getSetting("firmen_email", "")}
+        <div class="customer-vehicle-section" style="display: flex; justify-content: space-between; margin-bottom: ${
+          this.layoutSettings.layout_section_spacing
+        };">
+          <div class="customer-info" style="flex: 1; margin-right: 2rem;">
+            <h3 style="color: ${
+              this.layoutSettings.layout_color_primary
+            }; margin-bottom: 0.5rem;">Kunde:</h3>
+            <p style="margin: 0; line-height: ${
+              this.layoutSettings.layout_line_height
+            };">
+              ${data.kunde_name || data.name || "Unbekannter Kunde"}<br>
+              ${data.strasse || ""}<br>
+              ${data.plz || ""} ${data.ort || ""}
+            </p>
+          </div>
+          
+          ${
+            data.kennzeichen
+              ? `
+          <div class="vehicle-info" style="flex: 1; text-align: right;">
+            <h3 style="color: ${
+              this.layoutSettings.layout_color_primary
+            }; margin-bottom: 0.5rem;">Fahrzeug:</h3>
+            <p style="margin: 0; line-height: ${
+              this.layoutSettings.layout_line_height
+            };">
+              ${data.kennzeichen} - ${data.marke || ""} ${data.modell || ""}<br>
+              ${data.vin ? `VIN: ${data.vin}` : ""}
+              ${data.farbe ? `<br>Farbe: ${data.farbe}` : ""}
+            </p>
+          </div>
+          `
+              : ""
+          }
         </div>
-      </div>
-      <div class="document-info">
-        <h2>RECHNUNG</h2>
-        <div>Rechnung-Nr.: ${data.rechnung_nr}</div>
-        ${data.auftrag_nr ? `<div>Auftragsnr.: ${data.auftrag_nr}</div>` : ""}
-        <div>Datum: ${this.formatDate(data.rechnungsdatum)}</div>
-        ${
-          data.auftragsdatum
-            ? `<div>Auftragsdatum: ${this.formatDate(data.auftragsdatum)}</div>`
-            : ""
-        }
-      </div>
-    </div>
-    
-    <!-- Kundendaten -->
-    <div class="customer-section">
-      <h3>Rechnungsempfänger:</h3>
-      <div class="customer-details">
-        <strong>${data.kunde_name}</strong>${
-        data.kunden_nr ? ` (Kd.-Nr.: ${data.kunden_nr})` : ""
-      }<br>
-        ${data.strasse || ""}<br>
-        ${data.plz || ""} ${data.ort || ""}<br>
-        ${data.telefon ? `Tel: ${data.telefon}` : ""}
-      </div>
-    </div>
-    
-    <!-- Fahrzeugdaten -->
-    <div class="vehicle-section">
-      <h3>Fahrzeug:</h3>
-      <div class="vehicle-details">
-        <strong>${data.kennzeichen} - ${data.marke} ${data.modell}</strong><br>
-        ${data.vin ? `VIN: ${data.vin}` : ""}${
-        data.vin && (data.farbe || data.farbcode) ? "<br>" : ""
-      }
-        ${data.farbe ? `Farbe: ${data.farbe}` : ""}${
-        data.farbcode ? ` (${data.farbcode})` : ""
-      }
-      </div>
-    </div>
-  `;
+      `;
     }
 
     // Positionen generieren

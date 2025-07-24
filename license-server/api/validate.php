@@ -99,44 +99,98 @@ try {
         exit;
     }
 
-    // 3. Aktuelle Aktivierungen zählen (WICHTIG: Vor der Hardware-Prüfung!)
+    // 3. Aktuelle aktive Aktivierungen zählen
     $stmt = $pdo->prepare("
         SELECT COUNT(*) as active_count 
         FROM license_activations 
         WHERE license_key = ? AND status = 'active'
     ");
     $stmt->execute([$license_key]);
-    $activation_count = (int)$stmt->fetchColumn(); // KORREKTUR: Variable richtig initialisieren
+    $activation_count = (int)$stmt->fetchColumn();
 
-    // 4. Hardware-Aktivierungen prüfen
+    // 4. Hardware-Aktivierungen prüfen (ERWEITERT: Auch deaktivierte suchen)
     $stmt = $pdo->prepare("
         SELECT * FROM license_activations 
-        WHERE license_key = ? AND hardware_id = ? AND status = 'active'
+        WHERE license_key = ? AND hardware_id = ?
+        ORDER BY 
+            CASE WHEN status = 'active' THEN 1 
+                 WHEN status = 'deactivated' THEN 2 
+                 ELSE 3 END
+        LIMIT 1
     ");
     $stmt->execute([$license_key, $hardware_id]);
     $existing_activation = $stmt->fetch();
 
     if ($existing_activation) {
-        // Hardware bereits aktiviert - nur Timestamp aktualisieren
-        $stmt = $pdo->prepare("
-            UPDATE license_activations 
-            SET last_validation = NOW(), validation_count = validation_count + 1,
-                app_version = ?, last_ip = ?
-            WHERE id = ?
-        ");
-        $stmt->execute([$app_version, $client_ip, $existing_activation['id']]);
-        
-        logActivity('validation_success', [
-            'license_key' => $license_key,
-            'hardware_id' => $hardware_id,
-            'validation_count' => (int)$existing_activation['validation_count'] + 1
-        ]);
-        
-        // Activation_count bleibt gleich (keine neue Aktivierung)
-        $current_activations = $activation_count;
+        if ($existing_activation['status'] === 'active') {
+            // Hardware bereits aktiv - nur Timestamp aktualisieren
+            $stmt = $pdo->prepare("
+                UPDATE license_activations 
+                SET last_validation = NOW(), validation_count = validation_count + 1,
+                    app_version = ?, last_ip = ?
+                WHERE id = ?
+            ");
+            $stmt->execute([$app_version, $client_ip, $existing_activation['id']]);
+            
+            logActivity('validation_success', [
+                'license_key' => $license_key,
+                'hardware_id' => $hardware_id,
+                'validation_count' => (int)$existing_activation['validation_count'] + 1,
+                'status' => 'existing_active'
+            ]);
+            
+            $current_activations = $activation_count;
+            
+        } elseif ($existing_activation['status'] === 'deactivated') {
+            // Hardware war deaktiviert - REAKTIVIERUNG prüfen
+            
+            // Prüfen ob noch Platz für Reaktivierung vorhanden ist
+            if ($activation_count >= $license['max_activations']) {
+                logActivity('reactivation_failed', [
+                    'license_key' => $license_key,
+                    'hardware_id' => $hardware_id,
+                    'reason' => 'max_activations_reached',
+                    'current_count' => $activation_count,
+                    'max_allowed' => (int)$license['max_activations']
+                ]);
+                
+                http_response_code(400);
+                echo json_encode([
+                    'valid' => false,
+                    'error' => 'Maximum Anzahl Aktivierungen erreicht (' . $license['max_activations'] . '). Hardware-ID war zuvor deaktiviert.',
+                    'current_activations' => $activation_count,
+                    'max_activations' => (int)$license['max_activations'],
+                    'reactivation_available' => false
+                ]);
+                exit;
+            }
+            
+            // Hardware REAKTIVIEREN
+            $stmt = $pdo->prepare("
+                UPDATE license_activations 
+                SET status = 'active', 
+                    last_validation = NOW(), 
+                    validation_count = validation_count + 1,
+                    app_version = ?, 
+                    last_ip = ?,
+                    deactivated_at = NULL
+                WHERE id = ?
+            ");
+            $stmt->execute([$app_version, $client_ip, $existing_activation['id']]);
+            
+            logActivity('hardware_reactivated', [
+                'license_key' => $license_key,
+                'hardware_id' => $hardware_id,
+                'app_version' => $app_version,
+                'previous_validations' => (int)$existing_activation['validation_count']
+            ]);
+            
+            // Nach Reaktivierung: Eine Aktivierung mehr
+            $current_activations = $activation_count + 1;
+        }
         
     } else {
-        // Neue Hardware - prüfen ob noch Aktivierungen verfügbar
+        // Komplett neue Hardware - prüfen ob noch Aktivierungen verfügbar
         if ($activation_count >= $license['max_activations']) {
             logActivity('validation_failed', [
                 'license_key' => $license_key,
@@ -186,7 +240,7 @@ try {
         $features = ['basic']; // Standard-Features
     }
 
-    // 6. Erfolgreiche Validierung (KORREKTUR: $current_activations ist jetzt definiert)
+    // 6. Erfolgreiche Validierung
     $response = [
         'valid' => true,
         'expires_at' => $license['expires_at'] ? strtotime($license['expires_at']) * 1000 : null,
@@ -197,8 +251,9 @@ try {
         ],
         'features' => $features,
         'max_activations' => (int)$license['max_activations'],
-        'current_activations' => $current_activations, // KORREKTUR: Variable ist jetzt immer definiert
-        'validation_timestamp' => time()
+        'current_activations' => $current_activations,
+        'validation_timestamp' => time(),
+        'reactivated' => isset($existing_activation) && $existing_activation['status'] === 'deactivated'
     ];
 
     echo json_encode($response);

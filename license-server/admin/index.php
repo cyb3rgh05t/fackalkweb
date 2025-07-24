@@ -1,544 +1,55 @@
+<?php
+require_once 'auth.php';
+requireLogin(); // Diese Zeile schützt die Seite
+?>
+
 <!DOCTYPE html>
 <html lang="de">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔐 KFZ-App Lizenz-Verwaltung</title>
-    <link rel="stylesheet" href="../assets/style.css">
-    <style>
-        /* Erweiterte Styles für das Admin-Dashboard */
-        :root {
-            /* Neue Dark Mode Variablen integrieren */
-            --clr-dark-a0: #000000;
-            --clr-light-a0: #ffffff;
-
-            /* Aktualisierte Theme primary colors */
-            --clr-primary-a0: #83de8f;
-            --clr-primary-a10: #92e29b;
-            --clr-primary-a20: #a1e6a8;
-            --clr-primary-a30: #afeab4;
-            --clr-primary-a40: #bdedc0;
-            --clr-primary-a50: #caf1cd;
-
-            /* Aktualisierte Theme surface colors */
-            --clr-surface-a0: #121212;
-            --clr-surface-a10: #282828;
-            --clr-surface-a20: #3f3f3f;
-            --clr-surface-a30: #575757;
-            --clr-surface-a40: #717171;
-            --clr-surface-a50: #8b8b8b;
-
-            /* Aktualisierte Theme tonal surface colors */
-            --clr-surface-tonal-a0: #1d231d;
-            --clr-surface-tonal-a10: #323832;
-            --clr-surface-tonal-a20: #484d48;
-            --clr-surface-tonal-a30: #606460;
-            --clr-surface-tonal-a40: #787c78;
-            --clr-surface-tonal-a50: #929591;
-        }
-
-        /* Dashboard-spezifische Anpassungen */
-        .admin-header {
-            background: linear-gradient(135deg, var(--clr-primary-a0) 0%, var(--clr-primary-a20) 100%);
-            color: var(--clr-dark-a0);
-            padding: 2rem;
-            border-radius: 16px;
-            margin-bottom: 2rem;
-            text-align: center;
-            box-shadow: var(--shadow-lg);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .admin-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
-            animation: shimmer 3s infinite;
-        }
-
-        @keyframes shimmer {
-            0% {
-                transform: translateX(-100%);
-            }
-
-            100% {
-                transform: translateX(100%);
-            }
-        }
-
-        .admin-header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            font-weight: 700;
-            position: relative;
-            z-index: 1;
-        }
-
-        .admin-header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-            position: relative;
-            z-index: 1;
-        }
-
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 3rem;
-        }
-
-        .stat-card {
-            background: linear-gradient(135deg, var(--clr-surface-a10) 0%, var(--clr-surface-a20) 100%);
-            padding: 2rem;
-            border-radius: 16px;
-            text-align: center;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            border: 1px solid var(--border-color);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .stat-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 4px;
-            background: linear-gradient(90deg, var(--clr-primary-a0), var(--clr-primary-a30));
-        }
-
-        .stat-card:hover {
-            transform: translateY(-8px);
-            box-shadow: var(--shadow-lg);
-            border-color: var(--accent-primary);
-        }
-
-        .stat-number {
-            font-size: 3rem;
-            font-weight: 800;
-            color: var(--accent-primary);
-            margin-bottom: 0.5rem;
-            line-height: 1;
-        }
-
-        .stat-label {
-            color: var(--text-secondary);
-            text-transform: uppercase;
-            font-size: 0.875rem;
-            letter-spacing: 1px;
-            font-weight: 600;
-        }
-
-        .admin-section {
-            background: var(--clr-surface-a10);
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            border: 1px solid var(--border-color);
-            margin-bottom: 2rem;
-            transition: all 0.3s ease;
-        }
-
-        .admin-section:hover {
-            box-shadow: var(--shadow-lg);
-        }
-
-        .section-header {
-            background: var(--clr-surface-a20);
-            padding: 1.5rem 2rem;
-            border-bottom: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: relative;
-        }
-
-        .section-header::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, var(--clr-primary-a0), transparent);
-        }
-
-        .section-header h2 {
-            color: var(--text-primary);
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin: 0;
-        }
-
-        .section-content {
-            padding: 2rem;
-        }
-
-        .admin-form {
-            background: var(--clr-surface-a20);
-            padding: 2rem;
-            border-radius: 12px;
-            border: 1px solid var(--border-color);
-            margin-top: 1rem;
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-
-        .form-group {
-            margin-bottom: 1.5rem;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            font-size: 0.95rem;
-        }
-
-        .form-group input,
-        .form-group select,
-        .form-group textarea {
-            width: 100%;
-            padding: 0.875rem 1rem;
-            background: var(--clr-surface-a30);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            color: var(--text-primary);
-            font-size: 0.95rem;
-            transition: all 0.3s ease;
-        }
-
-        .form-group input:focus,
-        .form-group select:focus,
-        .form-group textarea:focus {
-            outline: none;
-            border-color: var(--accent-primary);
-            box-shadow: 0 0 0 3px rgba(131, 222, 143, 0.18);
-            background: var(--clr-surface-a20);
-        }
-
-        .admin-table {
-            width: 100%;
-            border-collapse: collapse;
-            background: var(--clr-surface-a20);
-            border-radius: 12px;
-            overflow: hidden;
-        }
-
-        .admin-table th,
-        .admin-table td {
-            padding: 1rem 1.5rem;
-            text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .admin-table th {
-            background: var(--clr-surface-a10);
-            font-weight: 600;
-            color: var(--text-primary);
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .admin-table tbody tr {
-            transition: all 0.2s ease;
-        }
-
-        .admin-table tbody tr:hover {
-            background: var(--clr-surface-a10);
-            transform: scale(1.01);
-        }
-
-        .license-key-display {
-            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-            background: var(--clr-surface-tonal-a20);
-            padding: 0.5rem 0.75rem;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            border: 1px solid var(--clr-surface-tonal-a30);
-            color: var(--clr-primary-a30);
-            font-weight: 500;
-        }
-
-        .hardware-id-display {
-            font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-        }
-
-        .status-badge {
-            padding: 0.4rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .status-active {
-            background: rgba(131, 222, 143, 0.2);
-            color: var(--accent-success);
-            border: 1px solid rgba(131, 222, 143, 0.3);
-        }
-
-        .status-expired {
-            background: rgba(239, 68, 68, 0.2);
-            color: var(--accent-danger);
-            border: 1px solid rgba(239, 68, 68, 0.3);
-        }
-
-        .status-suspended {
-            background: rgba(245, 158, 11, 0.2);
-            color: var(--accent-warning);
-            border: 1px solid rgba(245, 158, 11, 0.3);
-        }
-
-        .customer-info {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-
-        .customer-name {
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .customer-email {
-            font-size: 0.875rem;
-            color: var(--text-muted);
-        }
-
-        .activation-info {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 600;
-        }
-
-        .activation-current {
-            color: var(--accent-primary);
-        }
-
-        .activation-max {
-            color: var(--text-muted);
-        }
-
-        .expiry-info {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-        }
-
-        .expiry-date {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-
-        .expiry-unlimited {
-            color: var(--accent-success);
-            font-style: italic;
-        }
-
-        .expiry-soon {
-            color: var(--accent-warning);
-        }
-
-        .expiry-overdue {
-            color: var(--accent-danger);
-        }
-
-        .actions-group {
-            display: flex;
-            gap: 0.5rem;
-            flex-wrap: wrap;
-        }
-
-        .checkbox-group {
-            display: flex;
-            gap: 1.5rem;
-            flex-wrap: wrap;
-            margin-top: 0.5rem;
-        }
-
-        .checkbox-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .checkbox-item:hover {
-            color: var(--accent-primary);
-        }
-
-        .checkbox-item input[type="checkbox"] {
-            width: auto;
-            margin: 0;
-            accent-color: var(--accent-primary);
-        }
-
-        .features-section {
-            background: var(--clr-surface-tonal-a20);
-            padding: 1.5rem;
-            border-radius: 8px;
-            border: 1px solid var(--clr-surface-tonal-a30);
-        }
-
-        .alert {
-            padding: 1rem 1.5rem;
-            margin: 1.5rem 0;
-            border-radius: 8px;
-            border: 1px solid;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .alert-success {
-            background: rgba(131, 222, 143, 0.1);
-            border-color: rgba(131, 222, 143, 0.3);
-            color: var(--accent-success);
-        }
-
-        .alert-danger {
-            background: rgba(239, 68, 68, 0.1);
-            border-color: rgba(239, 68, 68, 0.3);
-            color: var(--accent-danger);
-        }
-
-        .alert-info {
-            background: rgba(131, 222, 143, 0.1);
-            border-color: rgba(131, 222, 143, 0.3);
-            color: var(--accent-primary);
-        }
-
-        .toggle-button {
-            background: var(--clr-surface-a30);
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-
-        .toggle-button:hover {
-            background: var(--accent-primary);
-            color: var(--button-text-hover);
-            border-color: var(--accent-primary);
-            transform: translateY(-2px);
-        }
-
-        .collapsible-content {
-            display: none;
-            animation: fadeIn 0.3s ease-out;
-        }
-
-        .collapsible-content.active {
-            display: block;
-        }
-
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            .admin-header h1 {
-                font-size: 2rem;
-            }
-
-            .stats-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .section-header {
-                flex-direction: column;
-                gap: 1rem;
-                text-align: center;
-            }
-
-            .actions-group {
-                justify-content: center;
-            }
-
-            .admin-table {
-                font-size: 0.875rem;
-            }
-
-            .admin-table th,
-            .admin-table td {
-                padding: 0.75rem 0.5rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .section-content {
-                padding: 1rem;
-            }
-
-            .admin-form {
-                padding: 1rem;
-            }
-
-            .checkbox-group {
-                flex-direction: column;
-                gap: 0.75rem;
-            }
-        }
-
-        /* Dark Mode Print Styles */
-        @media print {
-
-            .admin-header,
-            .toggle-button,
-            .btn,
-            .actions-group {
-                display: none !important;
-            }
-
-            body {
-                background: white !important;
-                color: black !important;
-            }
-
-            .admin-section,
-            .admin-table,
-            .stat-card {
-                background: white !important;
-                color: black !important;
-                box-shadow: none !important;
-                border: 1px solid #ccc !important;
-            }
-        }
-    </style>
+    <title>🔐 Lizenz-Verwaltung</title>
+    <link rel="stylesheet" href="../assets/style.css?v2">
+    <link rel="stylesheet" href="../assets/index.css?v3">
 </head>
 
 <body>
     <div class="container">
-        <div class="admin-header">
-            <h1>🔐 KFZ-App Lizenz-Verwaltung</h1>
-            <p>Zentrale Verwaltung aller App-Lizenzen im neuen Dark Mode Design</p>
+        <!-- NEUER TOP-HEADER MIT LOGOUT -->
+        <div class="top-header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <a href="index.php" class="logo">
+                        🔐 Lizenz-Verwaltung
+                    </a>
+                    <div class="nav-links">
+                        <a href="index.php" class="nav-link">📊 Dashboard</a>
+                        <a href="../debug.php" class="nav-link">🔧 Debug</a>
+                        <a href="../api/validate.php" class="nav-link">📡 API</a>
+                    </div>
+                </div>
+
+                <div class="user-section">
+                    <div class="user-info">
+                        <div class="user-name">
+                            <div class="status-indicator"></div>
+                            <?php echo htmlspecialchars(getAdminUsername()); ?>
+                            <span class="user-badge">ADMIN</span>
+                        </div>
+                        <div class="session-info">
+                            Session: <?php echo getSessionDuration(); ?>
+                        </div>
+                    </div>
+                    
+                    <a href="logout.php" class="logout-button" onclick="return confirmLogout()">
+                        🚪 Abmelden
+                    </a>
+                </div>
+            </div>
         </div>
 
+      
         <?php
         require_once '../config/database.php';
 
@@ -581,6 +92,8 @@
             </div>
         </div>
 
+        <!-- Rest deines bestehenden Contents bleibt gleich... -->
+        
         <!-- Neue Lizenz erstellen -->
         <div class="admin-section">
             <div class="section-header">
@@ -834,6 +347,25 @@
     </div>
 
     <script>
+        // NEUE LOGOUT-FUNKTION
+        function confirmLogout() {
+            return confirm('🚪 Wirklich abmelden?\n\nIhre Sitzung wird beendet und Sie werden zur Login-Seite weitergeleitet.');
+        }
+
+        // Session-Timeout Warning (optional)
+        let sessionWarningShown = false;
+        setInterval(() => {
+            // Nach 7.5 Stunden warnen (30 Min vor Ablauf)
+            const sessionTime = <?php echo time() - ($_SESSION['admin_login_time'] ?? time()); ?>;
+            if (sessionTime > 27000 && !sessionWarningShown) { // 7.5 Stunden
+                sessionWarningShown = true;
+                if (confirm('⚠️ Session-Warnung\n\nIhre Session läuft in 30 Minuten ab.\n\nMöchten Sie sie verlängern?')) {
+                    // Seite neu laden verlängert die Session
+                    location.reload();
+                }
+            }
+        }, 60000); // Prüfe jede Minute
+
         function toggleSection(id) {
             const section = document.getElementById(id);
             const isActive = section.classList.contains('active');
@@ -926,14 +458,11 @@
         }
 
         function filterActivations(filter) {
-            // Hier könnte eine AJAX-Implementierung für das Filtern stehen
             console.log('Filter:', filter);
-            // Für jetzt einfach neu laden
             location.reload();
         }
 
         function showNotification(type, message) {
-            // Erstelle Notification-Container falls nicht vorhanden
             let container = document.querySelector('.notification-container');
             if (!container) {
                 container = document.createElement('div');
@@ -941,7 +470,6 @@
                 document.body.appendChild(container);
             }
 
-            // Erstelle Notification
             const notification = document.createElement('div');
             notification.className = `notification notification-${type}`;
             notification.innerHTML = `
@@ -950,11 +478,8 @@
             `;
 
             container.appendChild(notification);
-
-            // Animation
             setTimeout(() => notification.classList.add('show'), 100);
 
-            // Auto-Remove nach 5 Sekunden
             setTimeout(() => {
                 notification.classList.add('hide');
                 setTimeout(() => notification.remove(), 300);
@@ -963,7 +488,6 @@
 
         // Auto-refresh alle 30 Sekunden
         setInterval(() => {
-            // Nur refreshen wenn keine Modals oder Forms offen sind
             if (!document.querySelector('.collapsible-content.active')) {
                 location.reload();
             }

@@ -74,9 +74,95 @@ try {
                     'license_key' => $license_key,
                     'hardware_id' => $hardware_id
                 ]);
-                echo json_encode(['success' => true, 'message' => 'Hardware-Aktivierung entfernt']);
+                echo json_encode(['success' => true, 'message' => 'Hardware-Aktivierung deaktiviert']);
             } else {
                 echo json_encode(['success' => false, 'error' => 'Aktive Aktivierung nicht gefunden']);
+            }
+            break;
+
+        case 'reactivate_hardware':
+            $hardware_id = $input['hardware_id'] ?? '';
+            
+            if (empty($hardware_id)) {
+                echo json_encode(['success' => false, 'error' => 'Hardware-ID fehlt']);
+                break;
+            }
+            
+            // Prüfen ob Hardware-ID existiert und deaktiviert ist
+            $stmt = $pdo->prepare("
+                SELECT * FROM license_activations 
+                WHERE license_key = ? AND hardware_id = ? AND status = 'deactivated'
+            ");
+            $stmt->execute([$license_key, $hardware_id]);
+            $deactivated_hardware = $stmt->fetch();
+            
+            if (!$deactivated_hardware) {
+                echo json_encode(['success' => false, 'error' => 'Deaktivierte Hardware-ID nicht gefunden']);
+                break;
+            }
+            
+            // Prüfen ob noch Platz für Reaktivierung vorhanden ist
+            $stmt = $pdo->prepare("
+                SELECT l.max_activations, COUNT(la.id) as current_active
+                FROM licenses l
+                LEFT JOIN license_activations la ON l.license_key = la.license_key AND la.status = 'active'
+                WHERE l.license_key = ?
+                GROUP BY l.id
+            ");
+            $stmt->execute([$license_key]);
+            $license_info = $stmt->fetch();
+            
+            if ($license_info['current_active'] >= $license_info['max_activations']) {
+                echo json_encode([
+                    'success' => false, 
+                    'error' => 'Maximum Anzahl Aktivierungen erreicht (' . $license_info['max_activations'] . ')'
+                ]);
+                break;
+            }
+            
+            // Hardware-ID reaktivieren
+            $stmt = $pdo->prepare("
+                UPDATE license_activations 
+                SET status = 'active', 
+                    last_validation = NOW(), 
+                    deactivated_at = NULL
+                WHERE license_key = ? AND hardware_id = ? AND status = 'deactivated'
+            ");
+            $stmt->execute([$license_key, $hardware_id]);
+            
+            if ($stmt->rowCount() > 0) {
+                logActivity('hardware_reactivated_admin', [
+                    'license_key' => $license_key,
+                    'hardware_id' => $hardware_id
+                ]);
+                echo json_encode(['success' => true, 'message' => 'Hardware-Aktivierung reaktiviert']);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Reaktivierung fehlgeschlagen']);
+            }
+            break;
+
+        case 'delete_hardware':
+            $hardware_id = $input['hardware_id'] ?? '';
+            
+            if (empty($hardware_id)) {
+                echo json_encode(['success' => false, 'error' => 'Hardware-ID fehlt']);
+                break;
+            }
+            
+            $stmt = $pdo->prepare("
+                DELETE FROM license_activations 
+                WHERE license_key = ? AND hardware_id = ?
+            ");
+            $stmt->execute([$license_key, $hardware_id]);
+            
+            if ($stmt->rowCount() > 0) {
+                logActivity('hardware_deleted', [
+                    'license_key' => $license_key,
+                    'hardware_id' => $hardware_id
+                ]);
+                echo json_encode(['success' => true, 'message' => 'Hardware-Aktivierung komplett gelöscht']);
+            } else {
+                echo json_encode(['success' => false, 'error' => 'Hardware-Aktivierung nicht gefunden']);
             }
             break;
 
@@ -100,7 +186,7 @@ try {
                     'license_key' => $license_key,
                     'new_expiry' => $new_expiry
                 ]);
-                echo json_encode(['success' => true, 'message' => 'Lizenz verlängert']);
+                echo json_encode(['success' => true, 'message' => 'Lizenz verlängert bis ' . date('d.m.Y', strtotime($new_expiry))]);
             } else {
                 echo json_encode(['success' => false, 'error' => 'Lizenz nicht gefunden']);
             }
@@ -221,6 +307,29 @@ try {
                 $pdo->rollback();
                 echo json_encode(['success' => false, 'error' => 'Lizenz nicht gefunden']);
             }
+            break;
+
+        case 'get_hardware_status':
+            // Neue Aktion: Hardware-Status für eine Lizenz abrufen
+            $stmt = $pdo->prepare("
+                SELECT hardware_id, status, first_activation, last_validation, 
+                       deactivated_at, validation_count, app_version, last_ip
+                FROM license_activations 
+                WHERE license_key = ?
+                ORDER BY 
+                    CASE WHEN status = 'active' THEN 1 
+                         WHEN status = 'deactivated' THEN 2 
+                         ELSE 3 END,
+                    last_validation DESC
+            ");
+            $stmt->execute([$license_key]);
+            $hardware_list = $stmt->fetchAll();
+            
+            echo json_encode([
+                'success' => true, 
+                'hardware' => $hardware_list,
+                'count' => count($hardware_list)
+            ]);
             break;
 
         default:

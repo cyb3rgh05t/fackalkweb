@@ -15,1079 +15,1168 @@
     />
     <link rel="stylesheet" href="css/theme.css" />
     <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/sidebar.css" />
     <link rel="stylesheet" href="css/layout-editor.css" />
     <link rel="stylesheet" href="css/modal.css" />
+    <style>
+      /* Logo Styles */
+      .company-logo {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        object-fit: contain;
+        padding: 4px;
+      }
+    </style>
   </head>
   <body>
-    <header class="header">
-      <div class="container">
-        <div class="header-content">
-          <nav class="nav">
-            <button class="nav-item active" onclick="showSection('dashboard')">
-              <i class="fas fa-chart-bar"></i> Dashboard
-            </button>
-            <button class="nav-item" onclick="showSection('auftraege')">
-              <i class="fas fa-clipboard-list"></i> Aufträge
-            </button>
-            <button class="nav-item" onclick="showSection('rechnungen')">
-              <i class="fas fa-file-invoice"></i> Rechnungen
-            </button>
-            <button class="nav-item" onclick="showSection('kunden')">
-              <i class="fas fa-users"></i> Kunden
-            </button>
-            <button class="nav-item" onclick="showSection('fahrzeuge')">
-              <i class="fas fa-car"></i> Fahrzeuge
-            </button>
-            <button class="nav-item" onclick="showSection('einstellungen')">
-              <i class="fas fa-cog"></i> Einstellungen
-            </button>
-          </nav>
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <img
+            src="assets/logo/logo.png"
+            alt="Meine Firma Logo"
+            class="company-logo"
+            onerror="this.style.display='none'"
+          />
+        </div>
+        <div class="sidebar-title">KFZ FacPro</div>
+      </div>
 
-          <div class="user-area">
-            <div class="user-info" id="user-info">
-              <i class="fas fa-user"></i>
-              <span id="current-username">Lädt...</span>
-            </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">
+          <div class="nav-section-title">Hauptmenü</div>
+          <button class="nav-item active" onclick="showSection('dashboard')">
+            <i class="fas fa-chart-bar"></i>
+            <span class="nav-item-text">Dashboard</span>
+          </button>
+          <button class="nav-item" onclick="showSection('auftraege')">
+            <i class="fas fa-clipboard-list"></i>
+            <span class="nav-item-text">Aufträge</span>
+          </button>
+          <button class="nav-item" onclick="showSection('rechnungen')">
+            <i class="fas fa-file-invoice"></i>
+            <span class="nav-item-text">Rechnungen</span>
+          </button>
+        </div>
 
-            <button
-              onclick="handleLogout()"
-              class="logout-btn"
-              title="Abmelden"
-            >
-              <i class="fas fa-sign-out-alt"></i>
-              Abmelden
-            </button>
+        <div class="nav-section">
+          <div class="nav-section-title">Verwaltung</div>
+          <button class="nav-item" onclick="showSection('kunden')">
+            <i class="fas fa-users"></i>
+            <span class="nav-item-text">Kunden</span>
+          </button>
+          <button class="nav-item" onclick="showSection('fahrzeuge')">
+            <i class="fas fa-car"></i>
+            <span class="nav-item-text">Fahrzeuge</span>
+          </button>
+        </div>
+
+        <div class="nav-section">
+          <div class="nav-section-title">System</div>
+          <button class="nav-item" onclick="showSection('einstellungen')">
+            <i class="fas fa-cog"></i>
+            <span class="nav-item-text">Einstellungen</span>
+          </button>
+        </div>
+      </nav>
+
+      <div class="sidebar-toggle" onclick="toggleSidebar()">
+        <i class="fas fa-chevron-left"></i>
+      </div>
+    </div>
+
+    <!-- Main Content Wrapper (um deine bestehenden Sections) -->
+    <div class="main-content">
+      <!-- Top Bar -->
+      <div class="top-bar">
+        <h1 class="page-title" id="page-title">Dashboard</h1>
+        <div class="user-area">
+          <div class="user-info" id="user-info">
+            <i class="fas fa-user"></i>
+            <span id="current-username">Lädt...</span>
           </div>
+
+          <button onclick="handleLogout()" class="logout-btn" title="Abmelden">
+            <i class="fas fa-sign-out-alt"></i>
+            Abmelden
+          </button>
         </div>
       </div>
-    </header>
 
-    <main class="main">
-      <div class="container">
-        <!-- Dashboard Section -->
-        <section id="dashboard" class="section active fade-in">
-          <h1 style="margin-bottom: 2rem; font-size: 2.5rem">Dashboard</h1>
+      <div class="content">
+        <main class="main">
+          <div class="container">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="section active fade-in">
+              <h1 style="margin-bottom: 2rem; font-size: 2.5rem">Dashboard</h1>
 
-          <div class="dashboard-grid">
-            <div class="stat-card">
-              <div class="stat-number" id="stat-auftraege">0</div>
-              <div class="stat-label">Offene Aufträge</div>
-            </div>
-            <div
-              class="stat-card"
-              style="
-                background: linear-gradient(
-                  135deg,
-                  var(--accent-success),
-                  #059669
-                );
-              "
-            >
-              <div class="stat-number" id="stat-rechnungen">0</div>
-              <div class="stat-label">Offene Rechnungen</div>
-            </div>
-            <div
-              class="stat-card"
-              style="
-                background: linear-gradient(
-                  135deg,
-                  var(--accent-warning),
-                  #d97706
-                );
-              "
-            >
-              <div class="stat-number" id="stat-kunden">0</div>
-              <div class="stat-label">Kunden</div>
-            </div>
-            <div
-              class="stat-card"
-              style="
-                background: linear-gradient(
-                  135deg,
-                  var(--accent-danger),
-                  #dc2626
-                );
-              "
-            >
-              <div class="stat-number" id="stat-umsatz">0€</div>
-              <div class="stat-label">Monatsumsatz</div>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <h2 class="card-title">Aktuelle Aufträge</h2>
-              <button
-                class="btn btn-primary"
-                onclick="showSection('auftraege')"
-              >
-                <i class="fas fa-plus"></i> Neuer Auftrag
-              </button>
-            </div>
-            <div class="table-container">
-              <table class="table" id="dashboard-auftraege">
-                <thead>
-                  <tr>
-                    <th>Auftrag-Nr.</th>
-                    <th>Kunde</th>
-                    <th>Fahrzeug</th>
-                    <th>Datum</th>
-                    <th>Status</th>
-                    <th>Betrag</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- Aufträge Section -->
-        <section id="auftraege" class="section">
-          <div class="card-header">
-            <h1 class="card-title">Aufträge</h1>
-            <button class="btn btn-primary" onclick="showAuftragModal()">
-              <i class="fas fa-plus"></i> Neuer Auftrag
-            </button>
-          </div>
-
-          <div class="card">
-            <div class="search-box">
-              <i class="fas fa-search search-icon"></i>
-              <input
-                type="text"
-                class="search-input"
-                id="auftraege-search"
-                placeholder="Aufträge durchsuchen..."
-              />
-            </div>
-            <div class="table-container">
-              <table class="table" id="auftraege-table">
-                <thead>
-                  <tr>
-                    <th>Auftrag-Nr.</th>
-                    <th>Kunde</th>
-                    <th>Fahrzeug</th>
-                    <th>Datum</th>
-                    <th>Status</th>
-                    <th>Gesamtkosten</th>
-                    <th>Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- Rechnungen Section -->
-        <section id="rechnungen" class="section">
-          <div class="card-header">
-            <h1 class="card-title">Rechnungen</h1>
-            <button class="btn btn-primary" onclick="showRechnungModal()">
-              <i class="fas fa-plus"></i> Neue Rechnung
-            </button>
-          </div>
-
-          <div class="card">
-            <div class="search-box">
-              <i class="fas fa-search search-icon"></i>
-              <input
-                type="text"
-                class="search-input"
-                id="rechnungen-search"
-                placeholder="Rechnungen durchsuchen..."
-              />
-            </div>
-            <div class="table-container">
-              <table class="table" id="rechnungen-table">
-                <thead>
-                  <tr>
-                    <th>Rechnung-Nr.</th>
-                    <th>Kunde</th>
-                    <th>Fahrzeug</th>
-                    <th>Datum</th>
-                    <th>Status</th>
-                    <th>Gesamtbetrag</th>
-                    <th>Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- Kunden Section -->
-        <section id="kunden" class="section">
-          <div class="card-header">
-            <h1 class="card-title">Kunden</h1>
-            <button class="btn btn-primary" onclick="showKundenModal()">
-              <i class="fas fa-plus"></i> Neuer Kunde
-            </button>
-          </div>
-
-          <div class="card">
-            <div class="search-box">
-              <i class="fas fa-search search-icon"></i>
-              <input
-                type="text"
-                class="search-input"
-                id="kunden-search"
-                placeholder="Kunden durchsuchen..."
-              />
-            </div>
-            <div class="table-container">
-              <table class="table" id="kunden-table">
-                <thead>
-                  <tr>
-                    <th>Kunden-Nr.</th>
-                    <th>Name</th>
-                    <th>Adresse</th>
-                    <th>Telefon</th>
-                    <th>E-Mail</th>
-                    <th>Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- Fahrzeuge Section -->
-        <section id="fahrzeuge" class="section">
-          <div class="card-header">
-            <h1 class="card-title">Fahrzeuge</h1>
-            <button class="btn btn-primary" onclick="showFahrzeugModal()">
-              <i class="fas fa-plus"></i> Neues Fahrzeug
-            </button>
-          </div>
-
-          <div class="card">
-            <div class="search-box">
-              <i class="fas fa-search search-icon"></i>
-              <input
-                type="text"
-                class="search-input"
-                id="fahrzeuge-search"
-                placeholder="Fahrzeuge durchsuchen..."
-              />
-            </div>
-            <div class="table-container">
-              <table class="table" id="fahrzeuge-table">
-                <thead>
-                  <tr>
-                    <th>Kennzeichen</th>
-                    <th>Marke/Modell</th>
-                    <th>Besitzer</th>
-                    <th>VIN</th>
-                    <th>Farbe</th>
-                    <th>Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
-            </div>
-          </div>
-        </section>
-
-        <!-- Einstellungen Section -->
-        <section id="einstellungen" class="section">
-          <h1 style="margin-bottom: 2rem">Einstellungen</h1>
-
-          <!-- Tab-Navigation -->
-          <div class="settings-tabs">
-            <button
-              class="settings-tab active"
-              data-tab="profil"
-              onclick="showSettingsTab('profil')"
-            >
-              <i class="fas fa-user-cog"></i> Profil
-            </button>
-            <button
-              class="settings-tab"
-              data-tab="firma"
-              onclick="showSettingsTab('firma')"
-            >
-              <i class="fas fa-building"></i> Firmendaten
-            </button>
-            <button
-              class="settings-tab"
-              data-tab="leistungen"
-              onclick="showSettingsTab('leistungen')"
-            >
-              <i class="fas fa-tools"></i> Leistungen
-            </button>
-            <button
-              class="settings-tab"
-              data-tab="rechnungen"
-              onclick="showSettingsTab('rechnungen')"
-            >
-              <i class="fas fa-file-invoice"></i> Rechnungen
-            </button>
-            <button
-              class="settings-tab"
-              data-tab="auftraege"
-              onclick="showSettingsTab('auftraege')"
-            >
-              <i class="fas fa-clipboard-list"></i> Aufträge
-            </button>
-          </div>
-
-          <!-- Firmendaten -->
-          <div id="firma-settings" class="settings-content">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Firmendaten</h2>
+              <div class="dashboard-grid">
+                <div class="stat-card">
+                  <div class="stat-number" id="stat-auftraege">0</div>
+                  <div class="stat-label">Offene Aufträge</div>
+                </div>
+                <div
+                  class="stat-card"
+                  style="
+                    background: linear-gradient(
+                      135deg,
+                      var(--accent-success),
+                      #059669
+                    );
+                  "
+                >
+                  <div class="stat-number" id="stat-rechnungen">0</div>
+                  <div class="stat-label">Offene Rechnungen</div>
+                </div>
+                <div
+                  class="stat-card"
+                  style="
+                    background: linear-gradient(
+                      135deg,
+                      var(--accent-warning),
+                      #d97706
+                    );
+                  "
+                >
+                  <div class="stat-number" id="stat-kunden">0</div>
+                  <div class="stat-label">Kunden</div>
+                </div>
+                <div
+                  class="stat-card"
+                  style="
+                    background: linear-gradient(
+                      135deg,
+                      var(--accent-danger),
+                      #dc2626
+                    );
+                  "
+                >
+                  <div class="stat-number" id="stat-umsatz">0€</div>
+                  <div class="stat-label">Monatsumsatz</div>
+                </div>
               </div>
-              <form id="firma-form">
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Firmenname *</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="firmenname"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Rechtsform</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="rechtsform"
-                      placeholder="z.B. GmbH, UG, Einzelunternehmen"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Geschäftsführer</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="geschaeftsfuehrer"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Straße, Hausnummer</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="firmen_strasse"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">PLZ</label>
-                    <input type="text" class="form-input" name="firmen_plz" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Ort</label>
-                    <input type="text" class="form-input" name="firmen_ort" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Telefon</label>
-                    <input
-                      type="tel"
-                      class="form-input"
-                      name="firmen_telefon"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Fax</label>
-                    <input type="tel" class="form-input" name="firmen_fax" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">E-Mail</label>
-                    <input
-                      type="email"
-                      class="form-input"
-                      name="firmen_email"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Website</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="firmen_website"
-                      placeholder="www.ihre-website.de oder https://www.ihre-website.de"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Steuernummer</label>
-                    <input type="text" class="form-input" name="steuernummer" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">USt-IdNr.</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      name="umsatzsteuer_id"
-                    />
-                  </div>
-                </div>
 
-                <h3 style="margin: 2rem 0 1rem 0">Bankverbindung</h3>
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Bank</label>
-                    <input type="text" class="form-input" name="bank_name" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">IBAN</label>
-                    <input type="text" class="form-input" name="bank_iban" />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">BIC</label>
-                    <input type="text" class="form-input" name="bank_bic" />
-                  </div>
-                </div>
-
-                <!-- Ersetzen Sie die bestehende Logo-Sektion in public/index.html -->
-                <h3 style="margin: 2rem 0 1rem 0">Firmenlogo</h3>
-                <div class="form-group">
-                  <label class="form-label">Logo hochladen</label>
-
-                  <!-- Alternativer Upload-Button -->
+              <div class="card">
+                <div class="card-header">
+                  <h2 class="card-title">Aktuelle Aufträge</h2>
                   <button
-                    type="button"
-                    onclick="uploadLogo()"
-                    class="form-input"
-                    style="margin-bottom: 1rem"
+                    class="btn btn-primary"
+                    onclick="showSection('auftraege')"
                   >
-                    Logo auswählen
+                    <i class="fas fa-plus"></i> Neuer Auftrag
                   </button>
-
-                  <button
-                    type="button"
-                    class="btn btn-danger btn-sm"
-                    onclick="removeLogo()"
-                    title="Logo entfernen"
-                    id="remove-logo-btn"
-                    style="display: none"
-                  >
-                    <i class="fas fa-trash"></i> Logo entfernen
-                  </button>
-
-                  <!-- Hidden Input für Formular -->
-                  <input type="hidden" name="firmen_logo" />
-
-                  <!-- Logo-Vorschau Bereich mit verbessertem Styling -->
-                  <div
-                    id="logo-preview"
-                    style="
-                      margin-top: 1rem;
-                      border: 2px dashed var(--border-color);
-                      border-radius: 8px;
-                      padding: 1rem;
-                      text-align: center;
-                      background: var(--clr-surface-a20);
-                      min-height: 120px;
-                      display: flex;
-                      flex-direction: column;
-                      align-items: center;
-                      justify-content: center;
-                      transition: all 0.3s ease;
-                      cursor: pointer;
-                    "
-                    onclick="uploadLogo()"
-                    title="Klicken oder Datei hierher ziehen"
-                  >
-                    <div
-                      class="no-logo"
-                      style="color: var(--text-muted); font-style: italic"
-                    >
-                      Kein Logo hochgeladen - Klicken oder Datei hierher ziehen
-                    </div>
-                  </div>
-
-                  <small
-                    class="text-muted"
-                    style="display: block; margin-top: 0.5rem"
-                  >
-                    Maximale Dateigröße: 2MB. Unterstützte Formate: JPG, PNG,
-                    GIF, SVG.
-                    <br />Sie können auch Dateien direkt in den Vorschaubereich
-                    ziehen.
-                  </small>
                 </div>
+                <div class="table-container">
+                  <table class="table" id="dashboard-auftraege">
+                    <thead>
+                      <tr>
+                        <th>Auftrag-Nr.</th>
+                        <th>Kunde</th>
+                        <th>Fahrzeug</th>
+                        <th>Datum</th>
+                        <th>Status</th>
+                        <th>Betrag</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
 
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-save"></i> Firmendaten speichern
+            <!-- Aufträge Section -->
+            <section id="auftraege" class="section">
+              <div class="card-header">
+                <h1 class="card-title">Aufträge</h1>
+                <button class="btn btn-primary" onclick="showAuftragModal()">
+                  <i class="fas fa-plus"></i> Neuer Auftrag
                 </button>
-              </form>
-            </div>
-          </div>
-
-          <!-- Leistungen -->
-          <div id="leistungen-settings" class="settings-content">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Leistungen & Preise</h2>
-              </div>
-              <form id="leistungen-form">
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Basis-Stundenpreis (€) *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      class="form-input"
-                      name="basis_stundenpreis"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Anfahrtspauschale (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      class="form-input"
-                      name="anfahrtspauschale"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Mindestauftragswert (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      class="form-input"
-                      name="mindestauftragswert"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label"
-                      >Standard Arbeitszeit (Std.)</label
-                    >
-                    <input
-                      type="number"
-                      step="0.5"
-                      class="form-input"
-                      name="standard_arbeitszeit"
-                      placeholder="8.0"
-                    />
-                  </div>
-                </div>
-
-                <h3 style="margin: 2rem 0 1rem 0">Zusatzleistungen</h3>
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Express-Zuschlag (%)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      class="form-input"
-                      name="express_zuschlag"
-                      placeholder="20"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Wochenend-Zuschlag (%)</label>
-                    <input
-                      type="number"
-                      step="1"
-                      class="form-input"
-                      name="wochenend_zuschlag"
-                      placeholder="30"
-                    />
-                  </div>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-save"></i> Leistungen speichern
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <!-- Rechnungen -->
-          <div id="rechnungen-settings" class="settings-content">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Rechnungseinstellungen</h2>
-              </div>
-              <form id="rechnungen-form">
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Mehrwertsteuer (%) *</label>
-                    <input
-                      type="number"
-                      step="1"
-                      class="form-input"
-                      name="mwst_satz"
-                      required
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label"
-                      >Skonto bei Zahlung innerhalb (Tage)</label
-                    >
-                    <input
-                      type="number"
-                      class="form-input"
-                      name="skonto_tage"
-                      placeholder="10"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Skonto-Prozentsatz (%)</label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      class="form-input"
-                      name="skonto_prozent"
-                      placeholder="2.0"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Zahlungsziel (Tage)</label>
-                    <input
-                      type="number"
-                      class="form-input"
-                      name="zahlungsziel_tage"
-                      placeholder="14"
-                    />
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Zahlungsbedingungen</label>
-                  <textarea
-                    class="form-textarea"
-                    name="zahlungsbedingungen"
-                    rows="4"
-                    placeholder="Zahlbar innerhalb 14 Tagen netto. Bei Überschreitung der Zahlungsfrist werden Verzugszinsen in Höhe von 9% über dem Basiszinssatz berechnet."
-                  ></textarea>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Gewährleistung</label>
-                  <textarea
-                    class="form-textarea"
-                    name="gewaehrleistung"
-                    rows="3"
-                    placeholder="3 Jahre auf Lackierarbeiten bei ordnungsgemäßer Behandlung."
-                  ></textarea>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Rechnungshinweise</label>
-                  <textarea
-                    class="form-textarea"
-                    name="rechnungshinweise"
-                    rows="3"
-                    placeholder="Zusätzliche Hinweise die auf jeder Rechnung erscheinen sollen..."
-                  ></textarea>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-save"></i> Rechnungseinstellungen speichern
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <!-- Aufträge -->
-          <div id="auftraege-settings" class="settings-content">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">Auftragseinstellungen</h2>
-              </div>
-              <form id="auftraege-form">
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label"
-                      >Standard Bearbeitungszeit (Tage)</label
-                    >
-                    <input
-                      type="number"
-                      class="form-input"
-                      name="standard_bearbeitungszeit"
-                      placeholder="5"
-                    />
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label"
-                      >Automatische Status-Aktualisierung</label
-                    >
-                    <select class="form-select" name="auto_status_update">
-                      <option value="0">Deaktiviert</option>
-                      <option value="1">Aktiviert</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label"
-                      >E-Mail-Benachrichtigung bei neuen Aufträgen</label
-                    >
-                    <select class="form-select" name="email_benachrichtigung">
-                      <option value="0">Deaktiviert</option>
-                      <option value="1">Aktiviert</option>
-                    </select>
-                  </div>
-                  <div class="form-group">
-                    <label class="form-label">Benachrichtigungs-E-Mail</label>
-                    <input
-                      type="email"
-                      class="form-input"
-                      name="benachrichtigung_email"
-                    />
-                  </div>
-                </div>
-
-                <h3 style="margin: 2rem 0 1rem 0">Standard Arbeitsschritte</h3>
-                <div class="form-group">
-                  <label class="form-label"
-                    >Vordefinierte Arbeitsschritte (einer pro Zeile)</label
-                  >
-                  <textarea
-                    class="form-textarea"
-                    name="standard_arbeitsschritte"
-                    rows="8"
-                    placeholder="Demontage/Vorbereitung&#10;Schleifen/Spachteln&#10;Grundierung&#10;Zwischenschliff&#10;Basislack&#10;Klarlack&#10;Polieren/Finish&#10;Montage"
-                  ></textarea>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                  <i class="fas fa-save"></i> Auftragseinstellungen speichern
-                </button>
-              </form>
-            </div>
-          </div>
-
-          <div id="modal-container"></div>
-
-          <div id="profil-settings" class="settings-content active">
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">
-                  <i class="fas fa-user-circle"></i> Profil-Informationen
-                </h2>
               </div>
 
-              <!-- Benutzer-Info Anzeige -->
-              <div
-                style="
-                  display: grid;
-                  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-                  gap: 1rem;
-                  margin-bottom: 2rem;
-                "
-              >
-                <div
-                  style="
-                    padding: 1rem;
-                    background: var(--clr-surface-a20);
-                    border-radius: 8px;
-                    border: 1px solid var(--border-color);
-                  "
-                >
-                  <div
-                    style="
-                      display: flex;
-                      align-items: center;
-                      gap: 0.5rem;
-                      margin-bottom: 0.5rem;
-                    "
-                  >
-                    <i
-                      class="fas fa-user"
-                      style="color: var(--accent-primary)"
-                    ></i>
-                    <strong>Benutzername</strong>
-                  </div>
-                  <div
-                    id="settings-profile-username"
-                    style="color: var(--text-primary); font-size: 1.1rem"
-                  >
-                    Lädt...
-                  </div>
-                </div>
-
-                <div
-                  style="
-                    padding: 1rem;
-                    background: var(--clr-surface-a20);
-                    border-radius: 8px;
-                    border: 1px solid var(--border-color);
-                  "
-                >
-                  <div
-                    style="
-                      display: flex;
-                      align-items: center;
-                      gap: 0.5rem;
-                      margin-bottom: 0.5rem;
-                    "
-                  >
-                    <i
-                      class="fas fa-shield-alt"
-                      style="color: var(--accent-primary)"
-                    ></i>
-                    <strong>Rolle</strong>
-                  </div>
-                  <div
-                    id="settings-profile-role"
-                    style="color: var(--text-primary); font-size: 1.1rem"
-                  >
-                    Lädt...
-                  </div>
-                </div>
-
-                <div
-                  style="
-                    padding: 1rem;
-                    background: var(--clr-surface-a20);
-                    border-radius: 8px;
-                    border: 1px solid var(--border-color);
-                  "
-                >
-                  <div
-                    style="
-                      display: flex;
-                      align-items: center;
-                      gap: 0.5rem;
-                      margin-bottom: 0.5rem;
-                    "
-                  >
-                    <i
-                      class="fas fa-clock"
-                      style="color: var(--accent-primary)"
-                    ></i>
-                    <strong>Status</strong>
-                  </div>
-                  <div style="color: var(--accent-primary); font-size: 1.1rem">
-                    Aktiv
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">
-                  <i class="fas fa-edit"></i> Benutzerdaten ändern
-                </h2>
-              </div>
-
-              <form id="settings-change-username-form">
-                <div class="form-group">
-                  <label class="form-label">Benutzername *</label>
+              <div class="card">
+                <div class="search-box">
+                  <i class="fas fa-search search-icon"></i>
                   <input
                     type="text"
-                    class="form-input"
-                    id="settings-username-input"
-                    name="newUsername"
-                    placeholder="Neuer Benutzername"
-                    required
-                    minlength="3"
+                    class="search-input"
+                    id="auftraege-search"
+                    placeholder="Aufträge durchsuchen..."
                   />
-                  <small class="text-muted"
-                    >Mindestens 3 Zeichen. Nur Buchstaben, Zahlen und
-                    Unterstriche erlaubt.</small
-                  >
                 </div>
-
-                <div style="display: flex; gap: 1rem; margin-bottom: 2rem">
-                  <button
-                    type="submit"
-                    class="btn btn-primary"
-                    id="settings-username-submit"
-                  >
-                    <i class="fas fa-user-edit"></i> Benutzername ändern
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-secondary"
-                    onclick="resetUsernameForm()"
-                  >
-                    <i class="fas fa-undo"></i> Zurücksetzen
-                  </button>
+                <div class="table-container">
+                  <table class="table" id="auftraege-table">
+                    <thead>
+                      <tr>
+                        <th>Auftrag-Nr.</th>
+                        <th>Kunde</th>
+                        <th>Fahrzeug</th>
+                        <th>Datum</th>
+                        <th>Status</th>
+                        <th>Gesamtkosten</th>
+                        <th>Aktionen</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
                 </div>
-              </form>
-            </div>
+              </div>
+            </section>
 
-            <div class="card">
+            <!-- Rechnungen Section -->
+            <section id="rechnungen" class="section">
               <div class="card-header">
-                <h2 class="card-title">
-                  <i class="fas fa-lock"></i> Passwort ändern
-                </h2>
+                <h1 class="card-title">Rechnungen</h1>
+                <button class="btn btn-primary" onclick="showRechnungModal()">
+                  <i class="fas fa-plus"></i> Neue Rechnung
+                </button>
               </div>
 
-              <form id="settings-change-password-form">
-                <div class="form-grid">
-                  <div class="form-group">
-                    <label class="form-label">Aktuelles Passwort *</label>
-                    <div style="position: relative">
-                      <input
-                        type="password"
-                        class="form-input"
-                        id="settings-current-password"
-                        name="currentPassword"
-                        placeholder="Ihr aktuelles Passwort"
-                        required
-                      />
+              <div class="card">
+                <div class="search-box">
+                  <i class="fas fa-search search-icon"></i>
+                  <input
+                    type="text"
+                    class="search-input"
+                    id="rechnungen-search"
+                    placeholder="Rechnungen durchsuchen..."
+                  />
+                </div>
+                <div class="table-container">
+                  <table class="table" id="rechnungen-table">
+                    <thead>
+                      <tr>
+                        <th>Rechnung-Nr.</th>
+                        <th>Kunde</th>
+                        <th>Fahrzeug</th>
+                        <th>Datum</th>
+                        <th>Status</th>
+                        <th>Gesamtbetrag</th>
+                        <th>Aktionen</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <!-- Kunden Section -->
+            <section id="kunden" class="section">
+              <div class="card-header">
+                <h1 class="card-title">Kunden</h1>
+                <button class="btn btn-primary" onclick="showKundenModal()">
+                  <i class="fas fa-plus"></i> Neuer Kunde
+                </button>
+              </div>
+
+              <div class="card">
+                <div class="search-box">
+                  <i class="fas fa-search search-icon"></i>
+                  <input
+                    type="text"
+                    class="search-input"
+                    id="kunden-search"
+                    placeholder="Kunden durchsuchen..."
+                  />
+                </div>
+                <div class="table-container">
+                  <table class="table" id="kunden-table">
+                    <thead>
+                      <tr>
+                        <th>Kunden-Nr.</th>
+                        <th>Name</th>
+                        <th>Adresse</th>
+                        <th>Telefon</th>
+                        <th>E-Mail</th>
+                        <th>Aktionen</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <!-- Fahrzeuge Section -->
+            <section id="fahrzeuge" class="section">
+              <div class="card-header">
+                <h1 class="card-title">Fahrzeuge</h1>
+                <button class="btn btn-primary" onclick="showFahrzeugModal()">
+                  <i class="fas fa-plus"></i> Neues Fahrzeug
+                </button>
+              </div>
+
+              <div class="card">
+                <div class="search-box">
+                  <i class="fas fa-search search-icon"></i>
+                  <input
+                    type="text"
+                    class="search-input"
+                    id="fahrzeuge-search"
+                    placeholder="Fahrzeuge durchsuchen..."
+                  />
+                </div>
+                <div class="table-container">
+                  <table class="table" id="fahrzeuge-table">
+                    <thead>
+                      <tr>
+                        <th>Kennzeichen</th>
+                        <th>Marke/Modell</th>
+                        <th>Besitzer</th>
+                        <th>VIN</th>
+                        <th>Farbe</th>
+                        <th>Aktionen</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                </div>
+              </div>
+            </section>
+
+            <!-- Einstellungen Section -->
+            <section id="einstellungen" class="section">
+              <h1 style="margin-bottom: 2rem">Einstellungen</h1>
+
+              <!-- Tab-Navigation -->
+              <div class="settings-tabs">
+                <button
+                  class="settings-tab active"
+                  data-tab="profil"
+                  onclick="showSettingsTab('profil')"
+                >
+                  <i class="fas fa-user-cog"></i> Profil
+                </button>
+                <button
+                  class="settings-tab"
+                  data-tab="firma"
+                  onclick="showSettingsTab('firma')"
+                >
+                  <i class="fas fa-building"></i> Firmendaten
+                </button>
+                <button
+                  class="settings-tab"
+                  data-tab="leistungen"
+                  onclick="showSettingsTab('leistungen')"
+                >
+                  <i class="fas fa-tools"></i> Leistungen
+                </button>
+                <button
+                  class="settings-tab"
+                  data-tab="rechnungen"
+                  onclick="showSettingsTab('rechnungen')"
+                >
+                  <i class="fas fa-file-invoice"></i> Rechnungen
+                </button>
+                <button
+                  class="settings-tab"
+                  data-tab="auftraege"
+                  onclick="showSettingsTab('auftraege')"
+                >
+                  <i class="fas fa-clipboard-list"></i> Aufträge
+                </button>
+              </div>
+
+              <!-- Firmendaten -->
+              <div id="firma-settings" class="settings-content">
+                <div class="card">
+                  <div class="card-header">
+                    <h2 class="card-title">Firmendaten</h2>
+                  </div>
+                  <form id="firma-form">
+                    <div class="form-grid">
+                      <div class="form-group">
+                        <label class="form-label">Firmenname *</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="firmenname"
+                          required
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Rechtsform</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="rechtsform"
+                          placeholder="z.B. GmbH, UG, Einzelunternehmen"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Geschäftsführer</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="geschaeftsfuehrer"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Straße, Hausnummer</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="firmen_strasse"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">PLZ</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="firmen_plz"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Ort</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="firmen_ort"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Telefon</label>
+                        <input
+                          type="tel"
+                          class="form-input"
+                          name="firmen_telefon"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Fax</label>
+                        <input
+                          type="tel"
+                          class="form-input"
+                          name="firmen_fax"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">E-Mail</label>
+                        <input
+                          type="email"
+                          class="form-input"
+                          name="firmen_email"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Website</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="firmen_website"
+                          placeholder="www.ihre-website.de oder https://www.ihre-website.de"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Steuernummer</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="steuernummer"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">USt-IdNr.</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="umsatzsteuer_id"
+                        />
+                      </div>
+                    </div>
+
+                    <h3 style="margin: 2rem 0 1rem 0">Bankverbindung</h3>
+                    <div class="form-grid">
+                      <div class="form-group">
+                        <label class="form-label">Bank</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="bank_name"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">IBAN</label>
+                        <input
+                          type="text"
+                          class="form-input"
+                          name="bank_iban"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">BIC</label>
+                        <input type="text" class="form-input" name="bank_bic" />
+                      </div>
+                    </div>
+
+                    <!-- Ersetzen Sie die bestehende Logo-Sektion in public/index.html -->
+                    <h3 style="margin: 2rem 0 1rem 0">Firmenlogo</h3>
+                    <div class="form-group">
+                      <label class="form-label">Logo hochladen</label>
+
+                      <!-- Alternativer Upload-Button -->
                       <button
                         type="button"
-                        onclick="toggleSettingsPassword('settings-current-password')"
+                        onclick="uploadLogo()"
+                        class="form-input"
+                        style="margin-bottom: 1rem"
+                      >
+                        Logo auswählen
+                      </button>
+
+                      <button
+                        type="button"
+                        class="btn btn-danger btn-sm"
+                        onclick="removeLogo()"
+                        title="Logo entfernen"
+                        id="remove-logo-btn"
+                        style="display: none"
+                      >
+                        <i class="fas fa-trash"></i> Logo entfernen
+                      </button>
+
+                      <!-- Hidden Input für Formular -->
+                      <input type="hidden" name="firmen_logo" />
+
+                      <!-- Logo-Vorschau Bereich mit verbessertem Styling -->
+                      <div
+                        id="logo-preview"
                         style="
-                          position: absolute;
-                          right: 10px;
-                          top: 50%;
-                          transform: translateY(-50%);
-                          background: none;
-                          border: none;
-                          color: var(--text-muted);
+                          margin-top: 1rem;
+                          border: 2px dashed var(--border-color);
+                          border-radius: 8px;
+                          padding: 1rem;
+                          text-align: center;
+                          background: var(--clr-surface-a20);
+                          min-height: 120px;
+                          display: flex;
+                          flex-direction: column;
+                          align-items: center;
+                          justify-content: center;
+                          transition: all 0.3s ease;
                           cursor: pointer;
                         "
+                        onclick="uploadLogo()"
+                        title="Klicken oder Datei hierher ziehen"
                       >
-                        <i class="fas fa-eye"></i>
-                      </button>
+                        <div
+                          class="no-logo"
+                          style="color: var(--text-muted); font-style: italic"
+                        >
+                          Kein Logo hochgeladen - Klicken oder Datei hierher
+                          ziehen
+                        </div>
+                      </div>
+
+                      <small
+                        class="text-muted"
+                        style="display: block; margin-top: 0.5rem"
+                      >
+                        Maximale Dateigröße: 2MB. Unterstützte Formate: JPG,
+                        PNG, GIF, SVG.
+                        <br />Sie können auch Dateien direkt in den
+                        Vorschaubereich ziehen.
+                      </small>
                     </div>
+
+                    <button type="submit" class="btn btn-primary">
+                      <i class="fas fa-save"></i> Firmendaten speichern
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              <!-- Leistungen -->
+              <div id="leistungen-settings" class="settings-content">
+                <div class="card">
+                  <div class="card-header">
+                    <h2 class="card-title">Leistungen & Preise</h2>
+                  </div>
+                  <form id="leistungen-form">
+                    <div class="form-grid">
+                      <div class="form-group">
+                        <label class="form-label"
+                          >Basis-Stundenpreis (€) *</label
+                        >
+                        <input
+                          type="number"
+                          step="0.01"
+                          class="form-input"
+                          name="basis_stundenpreis"
+                          required
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Anfahrtspauschale (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          class="form-input"
+                          name="anfahrtspauschale"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label"
+                          >Mindestauftragswert (€)</label
+                        >
+                        <input
+                          type="number"
+                          step="0.01"
+                          class="form-input"
+                          name="mindestauftragswert"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label"
+                          >Standard Arbeitszeit (Std.)</label
+                        >
+                        <input
+                          type="number"
+                          step="0.5"
+                          class="form-input"
+                          name="standard_arbeitszeit"
+                          placeholder="8.0"
+                        />
+                      </div>
+                    </div>
+
+                    <h3 style="margin: 2rem 0 1rem 0">Zusatzleistungen</h3>
+                    <div class="form-grid">
+                      <div class="form-group">
+                        <label class="form-label">Express-Zuschlag (%)</label>
+                        <input
+                          type="number"
+                          step="1"
+                          class="form-input"
+                          name="express_zuschlag"
+                          placeholder="20"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Wochenend-Zuschlag (%)</label>
+                        <input
+                          type="number"
+                          step="1"
+                          class="form-input"
+                          name="wochenend_zuschlag"
+                          placeholder="30"
+                        />
+                      </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                      <i class="fas fa-save"></i> Leistungen speichern
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              <!-- Rechnungen -->
+              <div id="rechnungen-settings" class="settings-content">
+                <div class="card">
+                  <div class="card-header">
+                    <h2 class="card-title">Rechnungseinstellungen</h2>
+                  </div>
+                  <form id="rechnungen-form">
+                    <div class="form-grid">
+                      <div class="form-group">
+                        <label class="form-label">Mehrwertsteuer (%) *</label>
+                        <input
+                          type="number"
+                          step="1"
+                          class="form-input"
+                          name="mwst_satz"
+                          required
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label"
+                          >Skonto bei Zahlung innerhalb (Tage)</label
+                        >
+                        <input
+                          type="number"
+                          class="form-input"
+                          name="skonto_tage"
+                          placeholder="10"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Skonto-Prozentsatz (%)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          class="form-input"
+                          name="skonto_prozent"
+                          placeholder="2.0"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Zahlungsziel (Tage)</label>
+                        <input
+                          type="number"
+                          class="form-input"
+                          name="zahlungsziel_tage"
+                          placeholder="14"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label">Zahlungsbedingungen</label>
+                      <textarea
+                        class="form-textarea"
+                        name="zahlungsbedingungen"
+                        rows="4"
+                        placeholder="Zahlbar innerhalb 14 Tagen netto. Bei Überschreitung der Zahlungsfrist werden Verzugszinsen in Höhe von 9% über dem Basiszinssatz berechnet."
+                      ></textarea>
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label">Gewährleistung</label>
+                      <textarea
+                        class="form-textarea"
+                        name="gewaehrleistung"
+                        rows="3"
+                        placeholder="3 Jahre auf Lackierarbeiten bei ordnungsgemäßer Behandlung."
+                      ></textarea>
+                    </div>
+
+                    <div class="form-group">
+                      <label class="form-label">Rechnungshinweise</label>
+                      <textarea
+                        class="form-textarea"
+                        name="rechnungshinweise"
+                        rows="3"
+                        placeholder="Zusätzliche Hinweise die auf jeder Rechnung erscheinen sollen..."
+                      ></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                      <i class="fas fa-save"></i> Rechnungseinstellungen
+                      speichern
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              <!-- Aufträge -->
+              <div id="auftraege-settings" class="settings-content">
+                <div class="card">
+                  <div class="card-header">
+                    <h2 class="card-title">Auftragseinstellungen</h2>
+                  </div>
+                  <form id="auftraege-form">
+                    <div class="form-grid">
+                      <div class="form-group">
+                        <label class="form-label"
+                          >Standard Bearbeitungszeit (Tage)</label
+                        >
+                        <input
+                          type="number"
+                          class="form-input"
+                          name="standard_bearbeitungszeit"
+                          placeholder="5"
+                        />
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label"
+                          >Automatische Status-Aktualisierung</label
+                        >
+                        <select class="form-select" name="auto_status_update">
+                          <option value="0">Deaktiviert</option>
+                          <option value="1">Aktiviert</option>
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label"
+                          >E-Mail-Benachrichtigung bei neuen Aufträgen</label
+                        >
+                        <select
+                          class="form-select"
+                          name="email_benachrichtigung"
+                        >
+                          <option value="0">Deaktiviert</option>
+                          <option value="1">Aktiviert</option>
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label"
+                          >Benachrichtigungs-E-Mail</label
+                        >
+                        <input
+                          type="email"
+                          class="form-input"
+                          name="benachrichtigung_email"
+                        />
+                      </div>
+                    </div>
+
+                    <h3 style="margin: 2rem 0 1rem 0">
+                      Standard Arbeitsschritte
+                    </h3>
+                    <div class="form-group">
+                      <label class="form-label"
+                        >Vordefinierte Arbeitsschritte (einer pro Zeile)</label
+                      >
+                      <textarea
+                        class="form-textarea"
+                        name="standard_arbeitsschritte"
+                        rows="8"
+                        placeholder="Demontage/Vorbereitung&#10;Schleifen/Spachteln&#10;Grundierung&#10;Zwischenschliff&#10;Basislack&#10;Klarlack&#10;Polieren/Finish&#10;Montage"
+                      ></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">
+                      <i class="fas fa-save"></i> Auftragseinstellungen
+                      speichern
+                    </button>
+                  </form>
+                </div>
+              </div>
+
+              <div id="modal-container"></div>
+
+              <div id="profil-settings" class="settings-content active">
+                <div class="card">
+                  <div class="card-header">
+                    <h2 class="card-title">
+                      <i class="fas fa-user-circle"></i> Profil-Informationen
+                    </h2>
                   </div>
 
-                  <div class="form-group">
-                    <label class="form-label">Neues Passwort *</label>
-                    <div style="position: relative">
-                      <input
-                        type="password"
-                        class="form-input"
-                        id="settings-new-password"
-                        name="newPassword"
-                        placeholder="Neues Passwort (min. 6 Zeichen)"
-                        required
-                        oninput="checkSettingsPasswordStrength(this.value)"
-                      />
-                      <button
-                        type="button"
-                        onclick="toggleSettingsPassword('settings-new-password')"
-                        style="
-                          position: absolute;
-                          right: 10px;
-                          top: 50%;
-                          transform: translateY(-50%);
-                          background: none;
-                          border: none;
-                          color: var(--text-muted);
-                          cursor: pointer;
-                        "
-                      >
-                        <i class="fas fa-eye"></i>
-                      </button>
-                    </div>
+                  <!-- Benutzer-Info Anzeige -->
+                  <div
+                    style="
+                      display: grid;
+                      grid-template-columns: repeat(
+                        auto-fit,
+                        minmax(250px, 1fr)
+                      );
+                      gap: 1rem;
+                      margin-bottom: 2rem;
+                    "
+                  >
                     <div
-                      id="settings-password-strength"
-                      style="display: none; margin-top: 0.5rem"
+                      style="
+                        padding: 1rem;
+                        background: var(--clr-surface-a20);
+                        border-radius: 8px;
+                        border: 1px solid var(--border-color);
+                      "
                     >
                       <div
                         style="
-                          height: 4px;
-                          background: var(--clr-surface-a20);
-                          border-radius: 2px;
-                          overflow: hidden;
+                          display: flex;
+                          align-items: center;
+                          gap: 0.5rem;
                           margin-bottom: 0.5rem;
                         "
                       >
-                        <div
-                          id="settings-strength-fill"
-                          style="
-                            height: 100%;
-                            transition: all 0.3s ease;
-                            border-radius: 2px;
-                            width: 0;
-                          "
-                        ></div>
+                        <i
+                          class="fas fa-user"
+                          style="color: var(--accent-primary)"
+                        ></i>
+                        <strong>Benutzername</strong>
                       </div>
                       <div
-                        id="settings-strength-text"
-                        style="font-size: 0.8rem; color: var(--text-muted)"
-                      ></div>
+                        id="settings-profile-username"
+                        style="color: var(--text-primary); font-size: 1.1rem"
+                      >
+                        Lädt...
+                      </div>
                     </div>
-                  </div>
 
-                  <div class="form-group">
-                    <label class="form-label">Passwort bestätigen *</label>
-                    <div style="position: relative">
-                      <input
-                        type="password"
-                        class="form-input"
-                        id="settings-confirm-password"
-                        name="confirmPassword"
-                        placeholder="Neues Passwort wiederholen"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onclick="toggleSettingsPassword('settings-confirm-password')"
+                    <div
+                      style="
+                        padding: 1rem;
+                        background: var(--clr-surface-a20);
+                        border-radius: 8px;
+                        border: 1px solid var(--border-color);
+                      "
+                    >
+                      <div
                         style="
-                          position: absolute;
-                          right: 10px;
-                          top: 50%;
-                          transform: translateY(-50%);
-                          background: none;
-                          border: none;
-                          color: var(--text-muted);
-                          cursor: pointer;
+                          display: flex;
+                          align-items: center;
+                          gap: 0.5rem;
+                          margin-bottom: 0.5rem;
                         "
                       >
-                        <i class="fas fa-eye"></i>
-                      </button>
+                        <i
+                          class="fas fa-shield-alt"
+                          style="color: var(--accent-primary)"
+                        ></i>
+                        <strong>Rolle</strong>
+                      </div>
+                      <div
+                        id="settings-profile-role"
+                        style="color: var(--text-primary); font-size: 1.1rem"
+                      >
+                        Lädt...
+                      </div>
+                    </div>
+
+                    <div
+                      style="
+                        padding: 1rem;
+                        background: var(--clr-surface-a20);
+                        border-radius: 8px;
+                        border: 1px solid var(--border-color);
+                      "
+                    >
+                      <div
+                        style="
+                          display: flex;
+                          align-items: center;
+                          gap: 0.5rem;
+                          margin-bottom: 0.5rem;
+                        "
+                      >
+                        <i
+                          class="fas fa-clock"
+                          style="color: var(--accent-primary)"
+                        ></i>
+                        <strong>Status</strong>
+                      </div>
+                      <div
+                        style="color: var(--accent-primary); font-size: 1.1rem"
+                      >
+                        Aktiv
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div style="display: flex; gap: 1rem; margin-top: 1.5rem">
-                  <button
-                    type="submit"
-                    class="btn btn-primary"
-                    id="settings-password-submit"
-                  >
-                    <i class="fas fa-save"></i> Passwort ändern
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-secondary"
-                    onclick="resetSettingsPasswordForm()"
-                  >
-                    <i class="fas fa-undo"></i> Zurücksetzen
-                  </button>
+                <div class="card">
+                  <div class="card-header">
+                    <h2 class="card-title">
+                      <i class="fas fa-edit"></i> Benutzerdaten ändern
+                    </h2>
+                  </div>
+
+                  <form id="settings-change-username-form">
+                    <div class="form-group">
+                      <label class="form-label">Benutzername *</label>
+                      <input
+                        type="text"
+                        class="form-input"
+                        id="settings-username-input"
+                        name="newUsername"
+                        placeholder="Neuer Benutzername"
+                        required
+                        minlength="3"
+                      />
+                      <small class="text-muted"
+                        >Mindestens 3 Zeichen. Nur Buchstaben, Zahlen und
+                        Unterstriche erlaubt.</small
+                      >
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; margin-bottom: 2rem">
+                      <button
+                        type="submit"
+                        class="btn btn-primary"
+                        id="settings-username-submit"
+                      >
+                        <i class="fas fa-user-edit"></i> Benutzername ändern
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-secondary"
+                        onclick="resetUsernameForm()"
+                      >
+                        <i class="fas fa-undo"></i> Zurücksetzen
+                      </button>
+                    </div>
+                  </form>
                 </div>
-              </form>
-            </div>
 
-            <div class="card">
-              <div class="card-header">
-                <h2 class="card-title">
-                  <i class="fas fa-shield-alt"></i> Sicherheit
-                </h2>
+                <div class="card">
+                  <div class="card-header">
+                    <h2 class="card-title">
+                      <i class="fas fa-lock"></i> Passwort ändern
+                    </h2>
+                  </div>
+
+                  <form id="settings-change-password-form">
+                    <div class="form-grid">
+                      <div class="form-group">
+                        <label class="form-label">Aktuelles Passwort *</label>
+                        <div style="position: relative">
+                          <input
+                            type="password"
+                            class="form-input"
+                            id="settings-current-password"
+                            name="currentPassword"
+                            placeholder="Ihr aktuelles Passwort"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onclick="toggleSettingsPassword('settings-current-password')"
+                            style="
+                              position: absolute;
+                              right: 10px;
+                              top: 50%;
+                              transform: translateY(-50%);
+                              background: none;
+                              border: none;
+                              color: var(--text-muted);
+                              cursor: pointer;
+                            "
+                          >
+                            <i class="fas fa-eye"></i>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div class="form-group">
+                        <label class="form-label">Neues Passwort *</label>
+                        <div style="position: relative">
+                          <input
+                            type="password"
+                            class="form-input"
+                            id="settings-new-password"
+                            name="newPassword"
+                            placeholder="Neues Passwort (min. 6 Zeichen)"
+                            required
+                            oninput="checkSettingsPasswordStrength(this.value)"
+                          />
+                          <button
+                            type="button"
+                            onclick="toggleSettingsPassword('settings-new-password')"
+                            style="
+                              position: absolute;
+                              right: 10px;
+                              top: 50%;
+                              transform: translateY(-50%);
+                              background: none;
+                              border: none;
+                              color: var(--text-muted);
+                              cursor: pointer;
+                            "
+                          >
+                            <i class="fas fa-eye"></i>
+                          </button>
+                        </div>
+                        <div
+                          id="settings-password-strength"
+                          style="display: none; margin-top: 0.5rem"
+                        >
+                          <div
+                            style="
+                              height: 4px;
+                              background: var(--clr-surface-a20);
+                              border-radius: 2px;
+                              overflow: hidden;
+                              margin-bottom: 0.5rem;
+                            "
+                          >
+                            <div
+                              id="settings-strength-fill"
+                              style="
+                                height: 100%;
+                                transition: all 0.3s ease;
+                                border-radius: 2px;
+                                width: 0;
+                              "
+                            ></div>
+                          </div>
+                          <div
+                            id="settings-strength-text"
+                            style="font-size: 0.8rem; color: var(--text-muted)"
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div class="form-group">
+                        <label class="form-label">Passwort bestätigen *</label>
+                        <div style="position: relative">
+                          <input
+                            type="password"
+                            class="form-input"
+                            id="settings-confirm-password"
+                            name="confirmPassword"
+                            placeholder="Neues Passwort wiederholen"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onclick="toggleSettingsPassword('settings-confirm-password')"
+                            style="
+                              position: absolute;
+                              right: 10px;
+                              top: 50%;
+                              transform: translateY(-50%);
+                              background: none;
+                              border: none;
+                              color: var(--text-muted);
+                              cursor: pointer;
+                            "
+                          >
+                            <i class="fas fa-eye"></i>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style="display: flex; gap: 1rem; margin-top: 1.5rem">
+                      <button
+                        type="submit"
+                        class="btn btn-primary"
+                        id="settings-password-submit"
+                      >
+                        <i class="fas fa-save"></i> Passwort ändern
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-secondary"
+                        onclick="resetSettingsPasswordForm()"
+                      >
+                        <i class="fas fa-undo"></i> Zurücksetzen
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                <div class="card">
+                  <div class="card-header">
+                    <h2 class="card-title">
+                      <i class="fas fa-shield-alt"></i> Sicherheit
+                    </h2>
+                  </div>
+
+                  <div style="display: flex; flex-wrap: wrap; gap: 1rem">
+                    <button
+                      type="button"
+                      class="btn btn-secondary"
+                      onclick="showSettingsSessionInfo()"
+                    >
+                      <i class="fas fa-info-circle"></i> Sitzungsinformationen
+                    </button>
+
+                    <button
+                      type="button"
+                      class="btn"
+                      onclick="logoutFromSettings()"
+                      style="
+                        background: linear-gradient(135deg, #ef4444, #dc2626);
+                        color: white;
+                      "
+                    >
+                      <i class="fas fa-sign-out-alt"></i> Alle Sitzungen beenden
+                    </button>
+                  </div>
+                </div>
               </div>
-
-              <div style="display: flex; flex-wrap: wrap; gap: 1rem">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  onclick="showSettingsSessionInfo()"
-                >
-                  <i class="fas fa-info-circle"></i> Sitzungsinformationen
-                </button>
-
-                <button
-                  type="button"
-                  class="btn"
-                  onclick="logoutFromSettings()"
-                  style="
-                    background: linear-gradient(135deg, #ef4444, #dc2626);
-                    color: white;
-                  "
-                >
-                  <i class="fas fa-sign-out-alt"></i> Alle Sitzungen beenden
-                </button>
-              </div>
-            </div>
+            </section>
           </div>
-        </section>
+        </main>
       </div>
-    </main>
+    </div>
     <div id="modal-container"></div>
     <script>
       // User-Informationen laden und anzeigen

@@ -1,17 +1,11 @@
-// ===== license/licenseManager.js =====
-
-const crypto = require("crypto");
-const os = require("os");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const https = require("https");
 
 class LicenseManager {
   constructor() {
     this.licenseFile = path.join(__dirname, "../data/license.json");
-    this.encryptionKey = this.getEncryptionKey();
-
-    // KONFIGURIERBARE SERVER-URL
     this.serverUrl =
       process.env.LICENSE_SERVER_URL || "https://license.meinefirma.dev/api";
     this.serverHost = this.extractHostFromUrl(this.serverUrl);
@@ -24,14 +18,13 @@ class LicenseManager {
     console.log(`   Vollständige URL: ${this.serverUrl}/${this.endpoint}`);
   }
 
-  // URL-Helper-Methoden
   extractHostFromUrl(url) {
     try {
       const urlObj = new URL(url);
       return urlObj.hostname;
     } catch (error) {
       console.error("❌ Ungültige Server-URL:", url);
-      return "license.meinefirma.dev"; // Fallback
+      return "license.meinefirma.dev";
     }
   }
 
@@ -41,15 +34,13 @@ class LicenseManager {
       return urlObj.pathname;
     } catch (error) {
       console.error("❌ Ungültiger Server-Pfad:", url);
-      return "/api"; // Fallback
+      return "/api";
     }
   }
 
-  // Hardware-Fingerprint generieren (eindeutig pro PC)
   generateHardwareFingerprint() {
     const networkInterfaces = os.networkInterfaces();
     const cpus = os.cpus();
-
     let components = [
       os.platform(),
       os.arch(),
@@ -57,8 +48,6 @@ class LicenseManager {
       cpus[0]?.model || "unknown",
       JSON.stringify(Object.keys(networkInterfaces).sort()),
     ];
-
-    // MAC-Adressen hinzufügen (erste verfügbare)
     for (const [name, interfaces] of Object.entries(networkInterfaces)) {
       for (const iface of interfaces) {
         if (iface.mac && iface.mac !== "00:00:00:00:00:00") {
@@ -68,82 +57,73 @@ class LicenseManager {
       }
       break;
     }
-
-    return crypto
+    return require("crypto")
       .createHash("sha256")
       .update(components.join("|"))
       .digest("hex")
       .substring(0, 32);
   }
 
-  // Verschlüsselungsschlüssel für lokale Lizenz (32 Bytes für AES-256)
-  getEncryptionKey() {
-    const hwFingerprint = this.generateHardwareFingerprint();
-    const keySource = hwFingerprint + "kfz-app-key-2025";
-    return crypto.createHash("sha256").update(keySource).digest();
-  }
-
-  // Lizenz verschlüsseln (MODERNE CRYPTO API)
-  encryptLicense(licenseData) {
-    try {
-      const algorithm = "aes-256-cbc";
-      const iv = crypto.randomBytes(16);
-      const cipher = crypto.createCipheriv(algorithm, this.encryptionKey, iv);
-
-      let encrypted = cipher.update(JSON.stringify(licenseData), "utf8", "hex");
-      encrypted += cipher.final("hex");
-
-      const result = iv.toString("hex") + ":" + encrypted;
-      console.log("🔐 Lizenz verschlüsselt");
-      return result;
-    } catch (error) {
-      console.error("❌ Verschlüsselung fehlgeschlagen:", error);
-      throw error;
+  // KLARTEXT-Speichern!
+  async saveLicenseLocally(licenseData) {
+    const dataDir = path.dirname(this.licenseFile);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
     }
+    fs.writeFileSync(this.licenseFile, JSON.stringify(licenseData, null, 2));
+    console.log("💾 Lizenz lokal (unverschlüsselt) gespeichert");
   }
 
-  // Lizenz entschlüsseln (MODERNE CRYPTO API)
-  decryptLicense(encryptedData) {
+  async loadLocalLicense() {
     try {
-      const algorithm = "aes-256-cbc";
-      const parts = encryptedData.split(":");
-
-      if (parts.length !== 2) {
-        throw new Error("Ungültiges Verschlüsselungsformat");
+      if (!fs.existsSync(this.licenseFile)) {
+        console.log("📝 Keine lokale Lizenz gefunden");
+        return null;
       }
+      const content = fs.readFileSync(this.licenseFile, "utf8");
+      const licenseData = JSON.parse(content);
 
-      const iv = Buffer.from(parts[0], "hex");
-      const encrypted = parts[1];
-
-      const decipher = crypto.createDecipheriv(
-        algorithm,
-        this.encryptionKey,
-        iv
-      );
-      let decrypted = decipher.update(encrypted, "hex", "utf8");
-      decrypted += decipher.final("utf8");
-
-      console.log("🔓 Lizenz entschlüsselt");
-      return JSON.parse(decrypted);
+      if (licenseData.hardware_id !== this.generateHardwareFingerprint()) {
+        console.log("❌ Hardware-Fingerprint stimmt nicht überein");
+        throw new Error("Hardware-Fingerprint stimmt nicht überein");
+      }
+      if (licenseData.expires_at && Date.now() > licenseData.expires_at) {
+        console.log("❌ Lizenz abgelaufen");
+        throw new Error("Lizenz abgelaufen");
+      }
+      console.log("✅ Lokale Lizenz gültig");
+      return licenseData;
     } catch (error) {
-      console.error("❌ Entschlüsselung fehlgeschlagen:", error);
-      throw new Error(
-        "Lizenz-Entschlüsselung fehlgeschlagen: " + error.message
-      );
+      console.error("❌ Lokale Lizenz ungültig:", error.message);
+      if (fs.existsSync(this.licenseFile)) {
+        try {
+          fs.unlinkSync(this.licenseFile);
+          console.log("🗑️ Beschädigte Lizenz-Datei gelöscht");
+        } catch (deleteError) {
+          console.error(
+            "❌ Fehler beim Löschen der Lizenz-Datei:",
+            deleteError
+          );
+        }
+      }
+      return null;
     }
   }
 
-  // Lizenz online validieren (VERBESSERT MIT FEHLERBEHANDLUNG)
   async validateLicenseOnline(licenseKey) {
     const hwFingerprint = this.generateHardwareFingerprint();
-
+    if (!licenseKey) {
+      console.error(
+        "❌ Kein Lizenzschlüssel für die Online-Validierung vorhanden!"
+      );
+      throw new Error("Lizenzschlüssel fehlt");
+    }
     console.log(
       `🔍 Validiere Lizenz: ${licenseKey} für Hardware: ${hwFingerprint.substring(
         0,
         8
       )}...`
     );
-
     return new Promise((resolve, reject) => {
       const data = JSON.stringify({
         license_key: licenseKey,
@@ -151,7 +131,6 @@ class LicenseManager {
         timestamp: Date.now(),
         app_version: "2.0",
       });
-
       const options = {
         hostname: this.serverHost,
         port: 443,
@@ -165,31 +144,24 @@ class LicenseManager {
         },
         timeout: 15000,
       };
-
       console.log(
         `📡 Verbinde mit: https://${options.hostname}${options.path}`
       );
-
       const req = https.request(options, (res) => {
         let body = "";
-
         res.on("data", (chunk) => {
           body += chunk;
         });
-
         res.on("end", () => {
           console.log(
             `📥 Server-Antwort (${res.statusCode}):`,
             body.substring(0, 200) + "..."
           );
-
           try {
-            // VERBESSERTE FEHLERBEHANDLUNG FÜR HTML-RESPONSES
             if (res.headers["content-type"]?.includes("text/html")) {
               console.error(
                 "❌ Server gibt HTML zurück statt JSON - wahrscheinlich 404 oder Fehlerseite"
               );
-
               if (res.statusCode === 404) {
                 reject(
                   new Error(
@@ -205,21 +177,28 @@ class LicenseManager {
               }
               return;
             }
-
-            // JSON parsen
             const response = JSON.parse(body);
-
             if (res.statusCode === 200 && response.valid) {
               console.log("✅ Online-Validierung erfolgreich");
-
+              // Richtige Kundendaten extrahieren:
+              const user_info =
+                response.user_info || response.licenseData?.user_info || {};
               const licenseData = {
                 ...response.licenseData,
+                ...user_info, // Holt customer_name, customer_email auf Hauptebene rein
+                license_key: licenseKey,
                 validated_at: Date.now(),
                 hardware_id: hwFingerprint,
               };
-
               this.saveLicenseLocally(licenseData);
-              resolve(response);
+              console.log("   🔑 License Key: " + licenseKey);
+              console.log(
+                "   👤 Kunde: " +
+                  (licenseData.customer_name ||
+                    licenseData.customer_email ||
+                    "Unbekannt")
+              );
+              resolve({ valid: true, licenseData });
             } else {
               console.error(
                 `❌ Lizenz ungültig (${res.statusCode}): ${
@@ -233,8 +212,6 @@ class LicenseManager {
           } catch (parseError) {
             console.error("❌ JSON-Parsing-Fehler:", parseError.message);
             console.error("❌ Erhaltene Daten:", body.substring(0, 500));
-
-            // Spezifische Fehlermeldung für HTML-Content
             if (body.includes("<!DOCTYPE") || body.includes("<html")) {
               reject(
                 new Error(
@@ -250,10 +227,8 @@ class LicenseManager {
           }
         });
       });
-
       req.on("error", (error) => {
         console.error("❌ Verbindungsfehler:", error.message);
-
         if (error.code === "ENOTFOUND") {
           reject(
             new Error(`License-Server nicht erreichbar: ${this.serverHost}`)
@@ -268,7 +243,6 @@ class LicenseManager {
           reject(new Error("Verbindungsfehler: " + error.message));
         }
       });
-
       req.setTimeout(15000, () => {
         console.error("❌ Request Timeout");
         req.destroy();
@@ -276,29 +250,32 @@ class LicenseManager {
           new Error("Zeitüberschreitung - License-Server antwortet nicht")
         );
       });
-
       console.log(`📤 Sende Daten: ${data}`);
       req.write(data);
       req.end();
     });
   }
 
-  // Lizenz-Validierung für Login (VERBESSERT)
   async validateLicenseOnLogin() {
     console.log("🔑 Validiere Lizenz beim Login...");
-
     try {
       const localLicense = await this.loadLocalLicense();
       if (!localLicense) {
         console.log("❌ Keine lokale Lizenz gefunden");
         return { valid: false, needsActivation: true };
       }
-
+      if (!localLicense.license_key) {
+        console.error("❌ Lizenzschlüssel fehlt in der lokalen Lizenzdatei!");
+        return {
+          valid: false,
+          needsActivation: true,
+          error: "Lizenzschlüssel fehlt",
+        };
+      }
       try {
         const response = await this.validateLicenseOnline(
           localLicense.license_key
         );
-
         if (response.valid) {
           console.log("✅ Login-Lizenzvalidierung erfolgreich");
           return {
@@ -319,18 +296,14 @@ class LicenseManager {
           "⚠️ Online-Validierung fehlgeschlagen:",
           onlineError.message
         );
-
-        // VERBESSERTES FALLBACK-VERHALTEN
         const isNetworkError =
           onlineError.message.includes("Verbindungsfehler") ||
           onlineError.message.includes("Zeitüberschreitung") ||
           onlineError.message.includes("nicht erreichbar") ||
           onlineError.message.includes("ENOTFOUND") ||
           onlineError.message.includes("ECONNREFUSED");
-
         if (isNetworkError) {
           console.log("🔄 Fallback: Prüfe lokale Lizenz...");
-
           if (localLicense.expires_at && Date.now() > localLicense.expires_at) {
             console.log("❌ Lokale Lizenz abgelaufen");
             return {
@@ -339,7 +312,6 @@ class LicenseManager {
               error: "Lizenz abgelaufen und Server nicht erreichbar",
             };
           }
-
           console.log("✅ Lokale Lizenz verwendet (Offline-Modus)");
           return {
             valid: true,
@@ -370,84 +342,12 @@ class LicenseManager {
     }
   }
 
-  // Lokale Lizenz speichern
-  async saveLicenseLocally(licenseData) {
-    const encrypted = this.encryptLicense(licenseData);
-    const dataDir = path.dirname(this.licenseFile);
-
-    if (!fs.existsSync(dataDir)) {
-      fs.mkdirSync(dataDir, { recursive: true });
-    }
-
-    fs.writeFileSync(this.licenseFile, encrypted);
-    console.log("💾 Lizenz lokal gespeichert");
-  }
-
-  // Lokale Lizenz laden (MIT FALLBACK FÜR ALTE FORMATE)
-  async loadLocalLicense() {
-    try {
-      if (!fs.existsSync(this.licenseFile)) {
-        console.log("📝 Keine lokale Lizenz gefunden");
-        return null;
-      }
-
-      const encrypted = fs.readFileSync(this.licenseFile, "utf8");
-      let licenseData;
-
-      try {
-        licenseData = this.decryptLicense(encrypted);
-      } catch (error) {
-        console.log(
-          "⚠️ Entschlüsselung fehlgeschlagen, lösche beschädigte Datei..."
-        );
-        fs.unlinkSync(this.licenseFile);
-        console.log(
-          "🗑️ Beschädigte Lizenz-Datei gelöscht - neue Aktivierung erforderlich"
-        );
-        return null;
-      }
-
-      // Hardware-ID prüfen
-      if (licenseData.hardware_id !== this.generateHardwareFingerprint()) {
-        console.log("❌ Hardware-Fingerprint stimmt nicht überein");
-        throw new Error("Hardware-Fingerprint stimmt nicht überein");
-      }
-
-      // Ablauf prüfen
-      if (licenseData.expires_at && Date.now() > licenseData.expires_at) {
-        console.log("❌ Lizenz abgelaufen");
-        throw new Error("Lizenz abgelaufen");
-      }
-
-      console.log("✅ Lokale Lizenz gültig");
-      return licenseData;
-    } catch (error) {
-      console.error("❌ Lokale Lizenz ungültig:", error.message);
-
-      if (fs.existsSync(this.licenseFile)) {
-        try {
-          fs.unlinkSync(this.licenseFile);
-          console.log("🗑️ Beschädigte Lizenz-Datei gelöscht");
-        } catch (deleteError) {
-          console.error(
-            "❌ Fehler beim Löschen der Lizenz-Datei:",
-            deleteError
-          );
-        }
-      }
-
-      return null;
-    }
-  }
-
-  // Periodische Online-Validierung (alle 7 Tage)
+  // Der Rest (periodicValidation, checkLicenseStatus, extractLicenseFeatures, debugInfo) bleibt gleich
   async periodicValidation() {
     const localLicense = await this.loadLocalLicense();
     if (!localLicense) return false;
-
     const lastValidation = localLicense.validated_at || 0;
     const validationInterval = 7 * 24 * 60 * 60 * 1000; // 7 Tage
-
     if (Date.now() - lastValidation > validationInterval) {
       console.log("🔄 Periodische Online-Validierung erforderlich...");
       try {
@@ -461,28 +361,22 @@ class LicenseManager {
         return !error.message.includes("ungültig");
       }
     }
-
     return true;
   }
 
-  // Lizenz-Status prüfen (Hauptfunktion)
   async checkLicenseStatus() {
     console.log("🔍 Prüfe Lizenz-Status...");
-
     const localLicense = await this.loadLocalLicense();
     if (!localLicense) {
       console.log("❌ Keine gültige lokale Lizenz");
       return { valid: false, needsActivation: true };
     }
-
     const periodicValid = await this.periodicValidation();
     if (!periodicValid) {
       console.log("❌ Periodische Validierung fehlgeschlagen");
       return { valid: false, needsReactivation: true };
     }
-
     const features = this.extractLicenseFeatures(localLicense);
-
     console.log("✅ Lizenz-Status: Gültig");
     return {
       valid: true,
@@ -493,7 +387,6 @@ class LicenseManager {
     };
   }
 
-  // Lizenz-Features extrahieren
   extractLicenseFeatures(licenseData) {
     return {
       maxUsers: licenseData.max_users || 1,
@@ -503,7 +396,6 @@ class LicenseManager {
     };
   }
 
-  // DEBUG: Lizenz-System-Info ausgeben
   debugInfo() {
     console.log("\n🔧 LICENSE MANAGER DEBUG INFO:");
     console.log("================================");

@@ -1,9 +1,10 @@
-// controllers/authController.js
+// ===== ERWEITERTE controllers/authController.js =====
 const bcrypt = require("bcrypt");
 const User = require("../models/user");
+const { LicenseManager } = require("../license/licenseManager");
 
 const authController = {
-  // Login-Verarbeitung
+  // Login-Verarbeitung MIT LIZENZ-VALIDIERUNG
   login: async (req, res) => {
     try {
       const { username, password } = req.body;
@@ -34,6 +35,69 @@ const authController = {
         });
       }
 
+      // ===== NEU: LIZENZ-VALIDIERUNG BEI JEDEM LOGIN =====
+      console.log("🔑 Führe Lizenz-Validierung beim Login durch...");
+      const licenseManager = new LicenseManager();
+
+      try {
+        const licenseStatus = await licenseManager.validateLicenseOnLogin();
+
+        if (!licenseStatus.valid) {
+          console.log("❌ Login verweigert: Lizenz ungültig");
+
+          // Verschiedene Lizenz-Fehlermeldungen
+          let errorMessage = "Ungültige Lizenz";
+          let redirectPath = "/license-activation";
+
+          if (licenseStatus.needsActivation) {
+            errorMessage = "Lizenz-Aktivierung erforderlich";
+            redirectPath = "/license-activation";
+          } else if (licenseStatus.needsReactivation) {
+            errorMessage =
+              "Lizenz-Reaktivierung erforderlich: " +
+              (licenseStatus.error || "Lizenz ungültig");
+            redirectPath = "/license-reactivation";
+          }
+
+          return res.status(403).json({
+            error: errorMessage,
+            licenseError: true,
+            needsActivation: licenseStatus.needsActivation,
+            needsReactivation: licenseStatus.needsReactivation,
+            redirect: redirectPath,
+            details: licenseStatus.error,
+          });
+        }
+
+        console.log(
+          "✅ Lizenz-Validierung erfolgreich:",
+          licenseStatus.message
+        );
+
+        // Optional: Lizenz-Info in Session speichern - SICHER
+        const licenseData = licenseStatus.licenseData || {};
+        req.session.licenseInfo = {
+          validated: true,
+          validatedAt: Date.now(),
+          offline: licenseStatus.offline || false,
+          features: licenseData.features || [],
+          expiresAt: licenseData.expires_at || null,
+          customerName:
+            licenseData.customer_name ||
+            licenseData.user_info?.customer_name ||
+            "Unbekannt",
+        };
+      } catch (licenseError) {
+        console.error("❌ Lizenz-Validierung fehlgeschlagen:", licenseError);
+        return res.status(500).json({
+          error: "Lizenz-Validierung fehlgeschlagen",
+          licenseError: true,
+          details: licenseError.message,
+        });
+      }
+
+      // ===== ORIGINAL LOGIN-LOGIK FORTSETZEN =====
+
       // Session erstellen
       req.session.userId = user.id;
       req.session.username = user.username;
@@ -43,14 +107,27 @@ const authController = {
       // Login-Zeit aktualisieren
       await User.updateLastLogin(user.id);
 
-      res.json({
+      // Erfolgreiche Anmeldung mit Lizenz-Info
+      const responseData = {
         success: true,
         user: {
           id: user.id,
           username: user.username,
           role: user.role,
         },
-      });
+        license: {
+          valid: true,
+          message: req.session.licenseInfo?.offline
+            ? "Offline-Modus aktiv"
+            : "Lizenz online validiert",
+          offline: req.session.licenseInfo?.offline || false,
+        },
+      };
+
+      console.log(
+        `✅ Login erfolgreich: ${username} (Lizenz: ${responseData.license.message})`
+      );
+      res.json(responseData);
     } catch (error) {
       console.error("Login-Fehler:", error);
       res.status(500).json({ error: "Interner Serverfehler" });
@@ -69,7 +146,7 @@ const authController = {
     });
   },
 
-  // Aktuellen Benutzer abrufen
+  // Aktuellen Benutzer abrufen MIT LIZENZ-INFO
   getCurrentUser: (req, res) => {
     if (req.session && req.session.userId) {
       res.json({
@@ -79,6 +156,7 @@ const authController = {
           username: req.session.username,
           role: req.session.userRole,
         },
+        license: req.session.licenseInfo || { validated: false },
       });
     } else {
       res.json({ authenticated: false });
@@ -132,57 +210,21 @@ const authController = {
       res.status(500).json({ error: "Benutzer-Erstellung fehlgeschlagen" });
     }
   },
+
   // Benutzername ändern
   changeUsername: async (req, res) => {
     try {
       const { newUsername } = req.body;
       const userId = req.session.userId;
 
-      // Validierung
       if (!newUsername) {
         return res.status(400).json({
           error: "Neuer Benutzername ist erforderlich",
         });
       }
 
-      // Benutzername validieren
-      const trimmedUsername = newUsername.trim();
-
-      if (trimmedUsername.length < 3) {
-        return res.status(400).json({
-          error: "Benutzername muss mindestens 3 Zeichen lang sein",
-        });
-      }
-
-      if (trimmedUsername.length > 50) {
-        return res.status(400).json({
-          error: "Benutzername darf maximal 50 Zeichen lang sein",
-        });
-      }
-
-      // Nur erlaubte Zeichen (Buchstaben, Zahlen, Unterstriche)
-      if (!/^[a-zA-Z0-9_]+$/.test(trimmedUsername)) {
-        return res.status(400).json({
-          error:
-            "Benutzername darf nur Buchstaben, Zahlen und Unterstriche enthalten",
-        });
-      }
-
-      // Aktueller Benutzer abrufen
-      const currentUser = await User.findById(userId);
-      if (!currentUser) {
-        return res.status(404).json({ error: "Benutzer nicht gefunden" });
-      }
-
-      // Prüfen ob sich der Username geändert hat
-      if (currentUser.username === trimmedUsername) {
-        return res.status(400).json({
-          error: "Neuer Benutzername muss sich vom aktuellen unterscheiden",
-        });
-      }
-
       // Prüfen ob Benutzername bereits existiert
-      const existingUser = await User.findByUsername(trimmedUsername);
+      const existingUser = await User.findByUsername(newUsername);
       if (existingUser && existingUser.id !== userId) {
         return res.status(409).json({
           error: "Benutzername bereits vergeben",
@@ -190,15 +232,16 @@ const authController = {
       }
 
       // Benutzername aktualisieren
-      await User.updateUsername(userId, trimmedUsername);
+      await User.updateUsername(userId, newUsername);
 
       // Session aktualisieren
-      req.session.username = trimmedUsername;
+      req.session.username = newUsername;
+      req.session.save();
 
       res.json({
         success: true,
         message: "Benutzername erfolgreich geändert",
-        newUsername: trimmedUsername,
+        newUsername,
       });
     } catch (error) {
       console.error("Benutzername-Änderung fehlgeschlagen:", error);
@@ -224,7 +267,7 @@ const authController = {
         });
       }
 
-      // Aktueller Benutzer abrufen
+      // Aktuellen Benutzer laden
       const user = await User.findById(userId);
       if (!user) {
         return res.status(404).json({ error: "Benutzer nicht gefunden" });
@@ -241,10 +284,11 @@ const authController = {
         });
       }
 
-      // Neues Passwort hashen und speichern
+      // Neues Passwort hashen
       const saltRounds = 12;
       const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
 
+      // Passwort aktualisieren
       await User.updatePassword(userId, newPasswordHash);
 
       res.json({

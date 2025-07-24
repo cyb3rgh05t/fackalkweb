@@ -1,8 +1,10 @@
-// public/js/auth.js - Frontend Authentication Management
+// ===== ERWEITERTE public/js/auth.js =====
+// Frontend Authentication Management mit Lizenz-Support
 
 class AuthManager {
   constructor() {
     this.currentUser = null;
+    this.licenseInfo = null;
     this.sessionCheckInterval = null;
     this.init();
   }
@@ -12,6 +14,7 @@ class AuthManager {
     this.loadUserInfo();
     this.startSessionMonitoring();
     this.setupKeyboardShortcuts();
+    this.checkForLicenseNotifications();
   }
 
   // User-Informationen laden und anzeigen
@@ -22,7 +25,9 @@ class AuthManager {
 
       if (data.authenticated && data.user) {
         this.currentUser = data.user;
+        this.licenseInfo = data.license || null;
         this.updateUserDisplay();
+        this.showLicenseStatus();
       } else {
         // Nicht eingeloggt - zur Login-Seite weiterleiten
         this.redirectToLogin();
@@ -43,14 +48,166 @@ class AuthManager {
 
       // Admin-Badge hinzufügen
       if (this.currentUser.role === "admin") {
-        const existingBadge = userInfoElement.querySelector(".admin-badge");
-        if (!existingBadge) {
+        const existingBadge = userInfoElement?.querySelector(".admin-badge");
+        if (!existingBadge && userInfoElement) {
           const adminBadge = document.createElement("span");
           adminBadge.className = "admin-badge";
           adminBadge.textContent = "Admin";
           userInfoElement.appendChild(adminBadge);
         }
       }
+    }
+  }
+
+  // NEU: Lizenz-Status anzeigen
+  showLicenseStatus() {
+    if (!this.licenseInfo) return;
+
+    // Lizenz-Status-Element finden oder erstellen
+    let licenseStatusElement = document.getElementById("license-status");
+    if (!licenseStatusElement) {
+      licenseStatusElement = document.createElement("div");
+      licenseStatusElement.id = "license-status";
+      licenseStatusElement.className = "license-status";
+
+      // Am besten in der Nähe der User-Info platzieren
+      const userInfoElement = document.getElementById("user-info");
+      if (userInfoElement) {
+        userInfoElement.appendChild(licenseStatusElement);
+      } else {
+        document.body.appendChild(licenseStatusElement);
+      }
+    }
+
+    // Lizenz-Status anzeigen
+    if (this.licenseInfo.validated) {
+      const statusClass = this.licenseInfo.offline
+        ? "license-offline"
+        : "license-online";
+      const statusText = this.licenseInfo.offline
+        ? "📱 Offline-Modus"
+        : "✅ Lizenz aktiv";
+
+      licenseStatusElement.className = `license-status ${statusClass}`;
+      licenseStatusElement.innerHTML = `<span class="license-indicator">${statusText}</span>`;
+
+      // Tooltip für mehr Informationen
+      licenseStatusElement.title = this.licenseInfo.offline
+        ? "Keine Internetverbindung - lokale Lizenz wird verwendet"
+        : "Lizenz online validiert";
+    }
+  }
+
+  // NEU: Lizenz-Benachrichtigungen prüfen
+  checkForLicenseNotifications() {
+    if (!this.licenseInfo || !this.licenseInfo.expiresAt) return;
+
+    const expiresAt = this.licenseInfo.expiresAt;
+    const daysUntilExpiry = Math.ceil(
+      (expiresAt - Date.now()) / (1000 * 60 * 60 * 24)
+    );
+
+    // Warnung bei baldiger Lizenz-Ablauf
+    if (daysUntilExpiry <= 30 && daysUntilExpiry > 0) {
+      this.showNotification(
+        `⚠️ Lizenz läuft in ${daysUntilExpiry} Tagen ab`,
+        "warning",
+        { persistent: true }
+      );
+    }
+  }
+
+  // Login-Verarbeitung MIT LIZENZ-FEHLER-HANDLING
+  async handleLogin(username, password) {
+    try {
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Erfolgreiches Login
+        this.currentUser = data.user;
+        this.licenseInfo = data.license;
+
+        // Lizenz-Status-Nachricht anzeigen
+        if (data.license?.offline) {
+          this.showNotification("✅ Angemeldet (Offline-Modus)", "info");
+        } else {
+          this.showNotification("✅ Erfolgreich angemeldet", "success");
+        }
+
+        // Zur Hauptseite weiterleiten
+        window.location.href = "/";
+      } else {
+        // Login-Fehler behandeln
+        if (data.licenseError) {
+          // SPEZIELLE LIZENZ-FEHLER-BEHANDLUNG
+          this.handleLicenseError(data);
+        } else {
+          // Normale Login-Fehler
+          this.showNotification(
+            data.error || "Anmeldung fehlgeschlagen",
+            "error"
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Login-Fehler:", error);
+      this.showNotification("Verbindungsfehler beim Anmelden", "error");
+    }
+  }
+
+  // NEU: Lizenz-Fehler-Behandlung
+  handleLicenseError(errorData) {
+    console.error("Lizenz-Fehler:", errorData);
+
+    let message = errorData.error || "Lizenz-Problem";
+    let actionButton = null;
+
+    if (errorData.needsActivation) {
+      message = "🔑 Lizenz-Aktivierung erforderlich";
+      actionButton = {
+        text: "Lizenz aktivieren",
+        action: () => (window.location.href = "/license-activation"),
+      };
+    } else if (errorData.needsReactivation) {
+      message = `🔄 Lizenz-Reaktivierung erforderlich\n${
+        errorData.details || ""
+      }`;
+      actionButton = {
+        text: "Lizenz reaktivieren",
+        action: () => (window.location.href = "/license-reactivation"),
+      };
+    }
+
+    // Lizenz-Fehler-Dialog anzeigen
+    this.showLicenseErrorDialog(message, actionButton);
+  }
+
+  // NEU: Lizenz-Fehler-Dialog
+  showLicenseErrorDialog(message, actionButton) {
+    // Einfacher Alert als Fallback
+    if (!document.getElementById("license-error-modal")) {
+      alert(message);
+      if (actionButton) {
+        if (confirm("Möchten Sie zur Lizenz-Aktivierung?")) {
+          actionButton.action();
+        }
+      }
+      return;
+    }
+
+    // Hier könnte ein schönerer Modal-Dialog implementiert werden
+    // Für jetzt verwenden wir den einfachen Alert
+    alert(message);
+    if (actionButton && confirm("Zur Lizenz-Verwaltung wechseln?")) {
+      actionButton.action();
     }
   }
 
@@ -112,6 +269,9 @@ class AuthManager {
 
         if (!data.authenticated) {
           this.handleSessionExpired();
+        } else {
+          // Lizenz-Info aktualisieren
+          this.licenseInfo = data.license || null;
         }
       } catch (error) {
         console.error("Session-Check fehlgeschlagen:", error);
@@ -134,7 +294,6 @@ class AuthManager {
       "Session abgelaufen. Bitte melden Sie sich erneut an.",
       "warning"
     );
-
     setTimeout(() => {
       window.location.href = "/login";
     }, 2000);
@@ -142,144 +301,106 @@ class AuthManager {
 
   // Zur Login-Seite weiterleiten
   redirectToLogin() {
-    window.location.href = "/login";
+    if (window.location.pathname !== "/login") {
+      window.location.href = "/login";
+    }
+  }
+
+  // Benachrichtigung anzeigen
+  showNotification(message, type = "info", options = {}) {
+    console.log(`[${type.toUpperCase()}] ${message}`);
+
+    // Einfache Implementierung mit Console-Log
+    // Hier könnte ein Toast-System implementiert werden
+    if (type === "error") {
+      console.error(message);
+    } else if (type === "warning") {
+      console.warn(message);
+    } else {
+      console.info(message);
+    }
+
+    // Optional: Browser-Benachrichtigung für wichtige Meldungen
+    if (options.persistent && type === "warning") {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("KFZ-App", {
+          body: message,
+          icon: "/favicon.ico",
+        });
+      }
+    }
   }
 
   // Tastatur-Shortcuts einrichten
   setupKeyboardShortcuts() {
-    document.addEventListener("keydown", (event) => {
-      // Ctrl+L für Logout
-      if (event.ctrlKey && event.key === "l") {
-        event.preventDefault();
-        this.handleLogout();
-      }
-
-      // Escape für Logout (falls in Modal/Dialog)
-      if (event.key === "Escape" && event.ctrlKey && event.shiftKey) {
-        event.preventDefault();
+    document.addEventListener("keydown", (e) => {
+      // Ctrl+Shift+L für Logout
+      if (e.ctrlKey && e.shiftKey && e.key === "L") {
+        e.preventDefault();
         this.handleLogout();
       }
     });
   }
 
-  // Notification anzeigen
-  showNotification(message, type = "info") {
-    // Prüfen ob bereits eine Notification-Funktion existiert
-    if (typeof window.showNotification === "function") {
-      window.showNotification(message, type);
-      return;
-    }
+  // API-Request mit automatischer Auth-Behandlung
+  async apiRequest(url, options = {}) {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          ...options.headers,
+        },
+      });
 
-    // Fallback: Eigene Notification erstellen
-    window.showNotification(message, type);
-  }
+      // Auth-Fehler abfangen
+      if (response.status === 401) {
+        this.handleSessionExpired();
+        throw new Error("Authentifizierung erforderlich");
+      }
 
-  // Notification erstellen (Fallback)
-  createNotification(message, type) {
-    const notification = document.createElement("div");
-    notification.className = `notification notification-${type}`;
-    notification.textContent = message;
-
-    // Styling
-    Object.assign(notification.style, {
-      position: "fixed",
-      top: "20px",
-      right: "20px",
-      padding: "12px 20px",
-      borderRadius: "8px",
-      color: "white",
-      fontWeight: "500",
-      zIndex: "9999",
-      transform: "translateX(100%)",
-      transition: "transform 0.3s ease",
-      boxShadow: "0 4px 12px rgba(0, 0, 0, 0.2)",
-      maxWidth: "400px",
-    });
-
-    // Type-spezifische Farben
-    const colors = {
-      success: "#1ecb4f",
-      error: "#ef4444",
-      warning: "#f59e0b",
-      info: "#2cabe3",
-    };
-    notification.style.backgroundColor = colors[type] || colors.info;
-
-    document.body.appendChild(notification);
-
-    // Animation einblenden
-    setTimeout(() => {
-      notification.style.transform = "translateX(0)";
-    }, 100);
-
-    // Nach 4 Sekunden entfernen
-    setTimeout(() => {
-      notification.style.transform = "translateX(100%)";
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
+      // Lizenz-Fehler abfangen
+      if (response.status === 403) {
+        const data = await response.json();
+        if (data.licenseError) {
+          this.handleLicenseError(data);
+          throw new Error("Lizenz-Problem");
         }
-      }, 300);
-    }, 4000);
-  }
+      }
 
-  // User-Rolle prüfen
-  hasRole(role) {
-    return this.currentUser && this.currentUser.role === role;
-  }
-
-  // Admin-Rechte prüfen
-  isAdmin() {
-    return this.hasRole("admin");
-  }
-
-  // Aktueller Benutzer abrufen
-  getCurrentUser() {
-    return this.currentUser;
-  }
-
-  // Session-Info anzeigen (Debug)
-  showSessionInfo() {
-    if (this.currentUser) {
-      console.log("Current User:", this.currentUser);
-      this.showNotification(
-        `Angemeldet als: ${this.currentUser.username} (${this.currentUser.role})`,
-        "info"
-      );
-    } else {
-      console.log("No user logged in");
-      this.showNotification("Nicht angemeldet", "warning");
+      return response;
+    } catch (error) {
+      console.error("API-Request Fehler:", error);
+      throw error;
     }
   }
 }
 
-// Globale Auth-Manager Instanz
-let authManager;
+// Auth-Manager global verfügbar machen
+window.authManager = new AuthManager();
 
-// Globale Funktionen für Kompatibilität mit bestehenden Code
-window.handleLogout = function () {
-  if (authManager) {
-    authManager.handleLogout();
+// Login-Form-Handler (falls auf Login-Seite)
+document.addEventListener("DOMContentLoaded", () => {
+  const loginForm = document.getElementById("loginForm");
+  if (loginForm) {
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const username = document.getElementById("username")?.value;
+      const password = document.getElementById("password")?.value;
+
+      if (username && password) {
+        await window.authManager.handleLogin(username, password);
+      }
+    });
   }
-};
 
-window.getCurrentUser = function () {
-  return authManager ? authManager.getCurrentUser() : null;
-};
-
-window.isUserAdmin = function () {
-  return authManager ? authManager.isAdmin() : false;
-};
-
-// Initialisierung beim Laden der Seite
-document.addEventListener("DOMContentLoaded", function () {
-  authManager = new AuthManager();
-
-  // Globale Verfügbarkeit für andere Scripts
-  window.authManager = authManager;
+  // Logout-Button-Handler
+  const logoutBtn = document.querySelector(".logout-btn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      window.authManager.handleLogout();
+    });
+  }
 });
-
-// Export für Module (falls verwendet)
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = AuthManager;
-}

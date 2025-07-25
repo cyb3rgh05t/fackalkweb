@@ -1,10 +1,10 @@
-// ===== ERWEITERTE controllers/authController.js =====
+// ===== HARDWARE-DEAKTIVIERUNGS-AWARE controllers/authController.js =====
 const bcrypt = require("bcrypt");
 const User = require("../models/user");
 const { LicenseManager } = require("../license/licenseManager");
 
 const authController = {
-  // Login-Verarbeitung MIT LIZENZ-VALIDIERUNG
+  // Login-Verarbeitung MIT HARDWARE-DEAKTIVIERUNGS-BEHANDLUNG
   login: async (req, res) => {
     try {
       const { username, password } = req.body;
@@ -35,33 +35,48 @@ const authController = {
         });
       }
 
-      // ===== NEU: LIZENZ-VALIDIERUNG BEI JEDEM LOGIN =====
-      console.log("🔑 Führe Lizenz-Validierung beim Login durch...");
+      // ===== HARDWARE-DEAKTIVIERUNGS-AWARE LIZENZ-VALIDIERUNG =====
+      console.log(
+        "🔑 HARDWARE-DEAKTIVIERUNGS-AWARE Lizenz-Validierung beim Login..."
+      );
       const licenseManager = new LicenseManager();
 
       try {
         const licenseStatus = await licenseManager.validateLicenseOnLogin();
 
         if (!licenseStatus.valid) {
-          console.log("❌ Login verweigert: Lizenz ungültig");
+          console.log("❌ LOGIN VERWEIGERT: Lizenz ungültig");
 
-          // Verschiedene Lizenz-Fehlermeldungen
           let errorMessage = "Ungültige Lizenz";
           let redirectPath = "/license-activation";
+          let errorType = "license_invalid";
 
           if (licenseStatus.needsActivation) {
             errorMessage = "Lizenz-Aktivierung erforderlich";
             redirectPath = "/license-activation";
+            errorType = "license_activation_required";
           } else if (licenseStatus.needsReactivation) {
-            errorMessage =
-              "Lizenz-Reaktivierung erforderlich: " +
-              (licenseStatus.error || "Lizenz ungültig");
-            redirectPath = "/license-reactivation";
+            if (licenseStatus.hardwareDeactivated) {
+              // SPEZIELLE BEHANDLUNG FÜR HARDWARE-DEAKTIVIERUNG
+              console.log("🚨 HARDWARE-DEAKTIVIERUNG beim Login erkannt!");
+              errorMessage = "Hardware-ID wurde deaktiviert";
+              errorType = "hardware_deactivated";
+              redirectPath = "/license-activation";
+            } else {
+              errorMessage =
+                "Lizenz-Reaktivierung erforderlich: " +
+                (licenseStatus.error || "Lizenz ungültig");
+              errorType = "license_reactivation_required";
+              redirectPath = "/license-activation";
+            }
           }
 
           return res.status(403).json({
             error: errorMessage,
             licenseError: true,
+            errorType: errorType,
+            hardwareDeactivated: licenseStatus.hardwareDeactivated || false,
+            deactivatedAt: licenseStatus.deactivatedAt || null,
             needsActivation: licenseStatus.needsActivation,
             needsReactivation: licenseStatus.needsReactivation,
             redirect: redirectPath,
@@ -70,11 +85,11 @@ const authController = {
         }
 
         console.log(
-          "✅ Lizenz-Validierung erfolgreich:",
+          "✅ HARDWARE-DEAKTIVIERUNGS-AWARE Lizenz-Validierung erfolgreich:",
           licenseStatus.message
         );
 
-        // Optional: Lizenz-Info in Session speichern - SICHER
+        // Lizenz-Info in Session speichern - SICHER
         const licenseData = licenseStatus.licenseData || {};
         req.session.licenseInfo = {
           validated: true,
@@ -86,9 +101,30 @@ const authController = {
             licenseData.customer_name ||
             licenseData.user_info?.customer_name ||
             "Unbekannt",
+          lastOnlineValidation:
+            licenseData.last_online_validation || Date.now(),
         };
       } catch (licenseError) {
-        console.error("❌ Lizenz-Validierung fehlgeschlagen:", licenseError);
+        console.error(
+          "❌ HARDWARE-DEAKTIVIERUNGS-AWARE Lizenz-Validierung fehlgeschlagen:",
+          licenseError
+        );
+
+        // Prüfen ob es sich um Hardware-Deaktivierung handelt
+        if (licenseError.hardwareDeactivated) {
+          console.log("🚨 HARDWARE-DEAKTIVIERUNG beim Login-Fehler erkannt!");
+          return res.status(403).json({
+            error: "Hardware-ID wurde auf dem Server deaktiviert",
+            licenseError: true,
+            errorType: "hardware_deactivated",
+            hardwareDeactivated: true,
+            deactivatedAt: licenseError.deactivatedAt || null,
+            needsReactivation: true,
+            redirect: "/license-activation",
+            details: licenseError.message,
+          });
+        }
+
         return res.status(500).json({
           error: "Lizenz-Validierung fehlgeschlagen",
           licenseError: true,
@@ -96,7 +132,7 @@ const authController = {
         });
       }
 
-      // ===== ORIGINAL LOGIN-LOGIK FORTSETZEN =====
+      // ===== LOGIN ERFOLGREICH =====
 
       // Session erstellen
       req.session.userId = user.id;
@@ -125,7 +161,7 @@ const authController = {
       };
 
       console.log(
-        `✅ Login erfolgreich: ${username} (Lizenz: ${responseData.license.message})`
+        `✅ LOGIN ERFOLGREICH: ${username} (Lizenz: ${responseData.license.message})`
       );
       res.json(responseData);
     } catch (error) {
@@ -141,23 +177,112 @@ const authController = {
         console.error("Logout-Fehler:", err);
         return res.status(500).json({ error: "Logout fehlgeschlagen" });
       }
-      res.clearCookie("connect.sid"); // Session-Cookie löschen
+      res.clearCookie("connect.sid");
       res.json({ success: true, message: "Erfolgreich abgemeldet" });
     });
   },
 
-  // Aktuellen Benutzer abrufen MIT LIZENZ-INFO
-  getCurrentUser: (req, res) => {
+  // HARDWARE-DEAKTIVIERUNGS-AWARE SESSION-CHECK
+  getCurrentUser: async (req, res) => {
     if (req.session && req.session.userId) {
-      res.json({
-        authenticated: true,
-        user: {
-          id: req.session.userId,
-          username: req.session.username,
-          role: req.session.userRole,
-        },
-        license: req.session.licenseInfo || { validated: false },
-      });
+      // ===== HARDWARE-DEAKTIVIERUNGS-AWARE SESSION-VALIDIERUNG =====
+      console.log("🔄 HARDWARE-DEAKTIVIERUNGS-AWARE Session-Check...");
+
+      const licenseManager = new LicenseManager();
+
+      try {
+        const licenseStatus = await licenseManager.validateLicenseForSession();
+
+        if (!licenseStatus.valid) {
+          console.log(
+            "❌ SESSION INVALID: Lizenz nicht mehr gültig - User wird ausgeloggt"
+          );
+
+          // Session sofort zerstören
+          req.session.destroy((err) => {
+            if (err) console.error("Session-Destroy-Fehler:", err);
+          });
+
+          let errorType = "license_invalid";
+          let errorMessage = licenseStatus.error || "Lizenz nicht mehr gültig";
+
+          if (licenseStatus.hardwareDeactivated) {
+            console.log("🚨 HARDWARE-DEAKTIVIERUNG bei Session-Check erkannt!");
+            errorType = "hardware_deactivated";
+            errorMessage = "Hardware-ID wurde deaktiviert";
+          }
+
+          return res.status(403).json({
+            authenticated: false,
+            licenseError: true,
+            errorType: errorType,
+            hardwareDeactivated: licenseStatus.hardwareDeactivated || false,
+            deactivatedAt: licenseStatus.deactivatedAt || null,
+            needsActivation: licenseStatus.needsActivation,
+            needsReactivation: licenseStatus.needsReactivation,
+            error: errorMessage,
+            message: "Session beendet: " + errorMessage,
+          });
+        }
+
+        console.log("✅ Session-Lizenz-Check erfolgreich");
+
+        // Lizenz-Info in Session aktualisieren
+        const licenseData = licenseStatus.licenseData || {};
+        req.session.licenseInfo = {
+          validated: true,
+          validatedAt: Date.now(),
+          offline: licenseStatus.offline || false,
+          features: licenseData.features || [],
+          expiresAt: licenseData.expires_at || null,
+          customerName:
+            licenseData.customer_name ||
+            licenseData.user_info?.customer_name ||
+            "Unbekannt",
+          lastOnlineValidation:
+            licenseData.last_online_validation || Date.now(),
+        };
+
+        // Session speichern
+        req.session.save();
+
+        res.json({
+          authenticated: true,
+          user: {
+            id: req.session.userId,
+            username: req.session.username,
+            role: req.session.userRole,
+          },
+          license: req.session.licenseInfo || { validated: false },
+        });
+      } catch (licenseError) {
+        console.error("❌ Session-Lizenz-Check fehlgeschlagen:", licenseError);
+
+        // Session beenden
+        req.session.destroy((err) => {
+          if (err) console.error("Session-Destroy-Fehler:", err);
+        });
+
+        let errorType = "license_error";
+        let errorMessage =
+          "Lizenz-Validierung fehlgeschlagen: " + licenseError.message;
+
+        if (licenseError.hardwareDeactivated) {
+          console.log("🚨 HARDWARE-DEAKTIVIERUNG bei Session-Fehler erkannt!");
+          errorType = "hardware_deactivated";
+          errorMessage = "Hardware-ID wurde deaktiviert";
+        }
+
+        return res.status(403).json({
+          authenticated: false,
+          licenseError: true,
+          errorType: errorType,
+          hardwareDeactivated: licenseError.hardwareDeactivated || false,
+          deactivatedAt: licenseError.deactivatedAt || null,
+          error: errorMessage,
+          message: "Session beendet: " + errorMessage,
+        });
+      }
     } else {
       res.json({ authenticated: false });
     }

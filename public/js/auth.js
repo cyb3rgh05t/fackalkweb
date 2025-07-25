@@ -1,18 +1,19 @@
-// ===== ERWEITERTE public/js/auth.js =====
-// Frontend Authentication Management mit Lizenz-Support
+// ===== SOFORTIGE SESSION-CHECK public/js/auth.js =====
+// Frontend Authentication Management mit sofortiger Hardware-Deaktivierungs-Erkennung
 
 class AuthManager {
   constructor() {
     this.currentUser = null;
     this.licenseInfo = null;
     this.sessionCheckInterval = null;
+    this.quickCheckInterval = null;
     this.init();
   }
 
   // Initialisierung
   init() {
     this.loadUserInfo();
-    this.startSessionMonitoring();
+    this.startImmediateSessionMonitoring(); // NEU: Sofortige Session-Checks
     this.setupKeyboardShortcuts();
     this.checkForLicenseNotifications();
   }
@@ -29,8 +30,17 @@ class AuthManager {
         this.updateUserDisplay();
         this.showLicenseStatus();
       } else {
-        // Nicht eingeloggt - zur Login-Seite weiterleiten
-        this.redirectToLogin();
+        // Prüfen ob Hardware-Deaktivierungs-Fehler vorliegt
+        if (data.licenseError && data.errorType === "hardware_deactivated") {
+          console.log("🚨 HARDWARE-DEAKTIVIERUNG beim Laden erkannt!");
+          this.handleHardwareDeactivationError(data);
+        } else if (data.licenseError) {
+          console.log("❌ Lizenz-Fehler beim Laden:", data.error);
+          this.handleStrictLicenseError(data);
+        } else {
+          // Nicht eingeloggt - zur Login-Seite weiterleiten
+          this.redirectToLogin();
+        }
       }
     } catch (error) {
       console.error("Fehler beim Laden der Benutzer-Informationen:", error);
@@ -59,7 +69,7 @@ class AuthManager {
     }
   }
 
-  // NEU: Lizenz-Status anzeigen
+  // Lizenz-Status anzeigen
   showLicenseStatus() {
     if (!this.licenseInfo) return;
 
@@ -98,7 +108,7 @@ class AuthManager {
     }
   }
 
-  // NEU: Lizenz-Benachrichtigungen prüfen
+  // Lizenz-Benachrichtigungen prüfen
   checkForLicenseNotifications() {
     if (!this.licenseInfo || !this.licenseInfo.expiresAt) return;
 
@@ -117,7 +127,7 @@ class AuthManager {
     }
   }
 
-  // Login-Verarbeitung MIT LIZENZ-FEHLER-HANDLING
+  // Login-Verarbeitung MIT HARDWARE-DEAKTIVIERUNGS-BEHANDLUNG
   async handleLogin(username, password) {
     try {
       const response = await fetch("/api/auth/login", {
@@ -147,8 +157,14 @@ class AuthManager {
       } else {
         // Login-Fehler behandeln
         if (data.licenseError) {
-          // SPEZIELLE LIZENZ-FEHLER-BEHANDLUNG
-          this.handleLicenseError(data);
+          if (data.errorType === "hardware_deactivated") {
+            // SPEZIELLE HARDWARE-DEAKTIVIERUNGS-BEHANDLUNG
+            console.log("🚨 HARDWARE-DEAKTIVIERUNG beim Login erkannt!");
+            this.handleHardwareDeactivationError(data);
+          } else {
+            // Normale Lizenz-Fehler
+            this.handleStrictLicenseError(data);
+          }
         } else {
           // Normale Login-Fehler
           this.showNotification(
@@ -163,57 +179,286 @@ class AuthManager {
     }
   }
 
-  // NEU: Lizenz-Fehler-Behandlung
-  handleLicenseError(errorData) {
+  // SPEZIELLE HARDWARE-DEAKTIVIERUNGS-BEHANDLUNG (VERBESSERT)
+  handleHardwareDeactivationError(errorData) {
+    console.error("🚨 HARDWARE-DEAKTIVIERUNG ERKANNT:", errorData);
+
+    // Session sofort beenden
+    this.stopAllMonitoring();
+    this.currentUser = null;
+    this.licenseInfo = null;
+
+    const deactivatedAt = errorData.deactivatedAt
+      ? new Date(errorData.deactivatedAt).toLocaleString()
+      : "Unbekannt";
+
+    // SOFORTIGE SICHTBARE WARNUNG
+    this.showCriticalAlert("🚨 HARDWARE-DEAKTIVIERUNG ERKANNT!", "critical");
+
+    const criticalMessage = `🚨 KRITISCHER SICHERHEITSALARM!
+
+HARDWARE-ID DEAKTIVIERT
+
+Ihre Hardware-ID wurde auf dem License-Server deaktiviert.
+
+📅 Deaktiviert am: ${deactivatedAt}
+
+⚠️ GRUND DER DEAKTIVIERUNG:
+Ihre Hardware-ID wurde vom Administrator manuell deaktiviert.
+
+🔒 SOFORTIGE SICHERHEITSMASSNAHMEN:
+• Alle Sessions wurden beendet
+• Zugriff auf das System ist gesperrt
+• Keine weitere Nutzung möglich
+
+📞 ERFORDERLICHE SCHRITTE:
+1. Kontaktieren Sie sofort Ihren Administrator
+2. Klären Sie den Grund der Deaktivierung
+3. Beantragen Sie eine manuelle Reaktivierung
+
+Details: ${errorData.details || errorData.error}
+
+Sie werden zur Lizenz-Verwaltung weitergeleitet.`;
+
+    // Mehrere Alerts für maximale Sichtbarkeit
+    alert(criticalMessage);
+
+    // Zweite Bestätigung
+    const actionMessage = `🔧 REAKTIVIERUNGS-ANWEISUNGEN:
+
+WICHTIG: Die Hardware-ID wurde vom Administrator deaktiviert!
+
+KONTAKT-OPTIONEN:
+• Administrator: admin@meinefirma.dev
+• Support-Hotline: verfügbar
+• Lizenz-Problem-Ticket erstellen
+
+MANUELLE REAKTIVIERUNG:
+Falls Sie berechtigt sind, können Sie versuchen:
+• Neue Lizenz-Aktivierung
+• Hardware-ID-Reaktivierung beantragen
+
+Zur Lizenz-Verwaltung gehen?`;
+
+    if (confirm(actionMessage)) {
+      window.location.href = "/license-activation";
+    } else {
+      // Nochmalige Warnung
+      alert(
+        "⚠️ ZUGRIFF GESPERRT!\n\nSie können sich erst nach der Hardware-Reaktivierung wieder anmelden.\n\nKontaktieren Sie Ihren Administrator!"
+      );
+      window.location.href = "/login";
+    }
+  }
+
+  // NORMALE LIZENZ-FEHLER-BEHANDLUNG
+  handleStrictLicenseError(errorData) {
     console.error("Lizenz-Fehler:", errorData);
 
-    let message = errorData.error || "Lizenz-Problem";
-    let actionButton = null;
+    // Session beenden
+    this.stopAllMonitoring();
+
+    let title = "🔒 LIZENZ-PROBLEM";
+    let message = errorData.error || "Unbekanntes Lizenz-Problem";
+    let severity = "error";
 
     if (errorData.needsActivation) {
-      message = "🔑 Lizenz-Aktivierung erforderlich";
-      actionButton = {
-        text: "Lizenz aktivieren",
-        action: () => (window.location.href = "/license-activation"),
-      };
+      title = "🔑 Lizenz-Aktivierung erforderlich";
+      message =
+        "Keine gültige Lizenz gefunden. Bitte aktivieren Sie Ihre Lizenz.";
+      severity = "warning";
     } else if (errorData.needsReactivation) {
-      message = `🔄 Lizenz-Reaktivierung erforderlich\n${
-        errorData.details || ""
+      title = "🔄 Lizenz-Reaktivierung erforderlich";
+      message = `Ihre Lizenz muss reaktiviert werden.\n\nDetails: ${
+        errorData.details || errorData.error
       }`;
-      actionButton = {
-        text: "Lizenz reaktivieren",
-        action: () => (window.location.href = "/license-reactivation"),
-      };
+      severity = "error";
     }
 
-    // Lizenz-Fehler-Dialog anzeigen
-    this.showLicenseErrorDialog(message, actionButton);
+    // Standard-Lizenz-Fehler-Dialog
+    this.showStandardLicenseError(title, message, severity);
   }
 
-  // NEU: Lizenz-Fehler-Dialog
-  showLicenseErrorDialog(message, actionButton) {
-    // Einfacher Alert als Fallback
-    if (!document.getElementById("license-error-modal")) {
-      alert(message);
-      if (actionButton) {
-        if (confirm("Möchten Sie zur Lizenz-Aktivierung?")) {
-          actionButton.action();
+  // KRITISCHE ALERT-ANZEIGE (NEU)
+  showCriticalAlert(message, type = "critical") {
+    console.error(`🚨 KRITISCHER ALERT: ${message}`);
+
+    // Versuche Browser-Benachrichtigung
+    if ("Notification" in window) {
+      if (Notification.permission === "granted") {
+        new Notification("🚨 SICHERHEITSALARM - KFZ-App", {
+          body: message,
+          icon: "/favicon.ico",
+          requireInteraction: true,
+        });
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then((permission) => {
+          if (permission === "granted") {
+            new Notification("🚨 SICHERHEITSALARM - KFZ-App", {
+              body: message,
+              icon: "/favicon.ico",
+              requireInteraction: true,
+            });
+          }
+        });
+      }
+    }
+
+    // Zusätzlich: Titel des Browser-Tabs ändern
+    if (document.title) {
+      document.title = "🚨 HARDWARE DEAKTIVIERT - " + document.title;
+    }
+  }
+
+  // Standard-Lizenz-Fehler-Dialog
+  showStandardLicenseError(title, message, severity = "error") {
+    const icon = severity === "error" ? "❌" : "⚠️";
+    const fullMessage = `${icon} ${title}\n\n${message}\n\nSie werden zur Lizenz-Verwaltung weitergeleitet.`;
+
+    alert(fullMessage);
+
+    const actionMessage =
+      `Möchten Sie zur Lizenz-Verwaltung?\n\n` +
+      `Dort können Sie:\n` +
+      `• Eine neue Lizenz aktivieren\n` +
+      `• Bestehende Lizenz reaktivieren\n` +
+      `• Support-Informationen finden`;
+
+    if (confirm(actionMessage)) {
+      window.location.href = "/license-activation";
+    } else {
+      window.location.href = "/login";
+    }
+  }
+
+  // SOFORTIGE SESSION-ÜBERWACHUNG (NEU)
+  startImmediateSessionMonitoring() {
+    console.log(
+      "⚡ SOFORTIGE Session-Überwachung gestartet (Hardware-Deaktivierung wird SOFORT erkannt)"
+    );
+
+    // 1. SCHNELLER SESSION CHECK (alle 30 Sekunden)
+    this.sessionCheckInterval = setInterval(async () => {
+      await this.performSessionCheck("30sec");
+    }, 30 * 1000);
+
+    // 2. SUPER-SCHNELLER LICENSE CHECK (alle 15 Sekunden)
+    this.quickCheckInterval = setInterval(async () => {
+      await this.performSessionCheck("15sec");
+    }, 15 * 1000);
+
+    // 3. SOFORTIGER VISIBILITY CHANGE CHECK
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) {
+        console.log("👁️ Tab wieder aktiv - SOFORTIGER Session-Check...");
+        setTimeout(() => this.performSessionCheck("visibility"), 100); // 100ms statt 1000ms
+      }
+    });
+
+    // 4. SOFORTIGER FOCUS CHECK
+    window.addEventListener("focus", () => {
+      console.log("🎯 Fenster Focus - SOFORTIGER Session-Check...");
+      setTimeout(() => this.performSessionCheck("focus"), 50); // 50ms statt 500ms
+    });
+
+    // 5. MOUSE-MOVEMENT CHECK (bei Aktivität)
+    let lastActivity = Date.now();
+    document.addEventListener("mousemove", () => {
+      const now = Date.now();
+      if (now - lastActivity > 60000) {
+        // Alle 60 Sekunden bei Aktivität
+        lastActivity = now;
+        console.log("🖱️ Benutzer-Aktivität - Session-Check...");
+        setTimeout(() => this.performSessionCheck("activity"), 100);
+      }
+    });
+
+    // 6. KEYBOARD-ACTIVITY CHECK
+    document.addEventListener("keydown", () => {
+      const now = Date.now();
+      if (now - lastActivity > 60000) {
+        // Alle 60 Sekunden bei Aktivität
+        lastActivity = now;
+        console.log("⌨️ Keyboard-Aktivität - Session-Check...");
+        setTimeout(() => this.performSessionCheck("keyboard"), 100);
+      }
+    });
+  }
+
+  // ERWEITERTE SESSION-PRÜFUNG MIT SOFORTIGER HARDWARE-ERKENNUNG
+  async performSessionCheck(type = "normal") {
+    try {
+      // Bei bestimmten Check-Typen zusätzliche Logs
+      if (type !== "15sec") {
+        console.log(`🔄 SOFORTIGER Session-Check (${type})...`);
+      }
+
+      const response = await fetch("/api/auth/status");
+      const data = await response.json();
+
+      if (!data.authenticated) {
+        console.log(`❌ Session ungültig (${type}) - Analysiere Ursache...`);
+
+        if (data.licenseError && data.errorType === "hardware_deactivated") {
+          // HARDWARE-DEAKTIVIERUNG bei Session-Check
+          console.log(
+            `🚨 HARDWARE-DEAKTIVIERUNG bei Session-Check (${type}) erkannt!`
+          );
+          this.handleHardwareDeactivationError(data);
+        } else if (data.licenseError) {
+          // Andere Lizenz-Fehler
+          console.log(
+            `❌ Lizenz-Fehler bei Session-Check (${type}):`,
+            data.error
+          );
+          this.handleStrictLicenseError(data);
+        } else {
+          // Normale Session-Expiration
+          console.log(`⏰ Session-Ablauf bei (${type})`);
+          this.handleSessionExpired();
+        }
+      } else {
+        // Session gültig - Lizenz-Info aktualisieren
+        this.licenseInfo = data.license || null;
+
+        // Nur bei wichtigen Checks loggen
+        if (type === "visibility" || type === "focus" || type === "30sec") {
+          console.log(`✅ Session gültig (${type})`);
         }
       }
-      return;
-    }
+    } catch (error) {
+      console.error(`Session-Check fehlgeschlagen (${type}):`, error);
 
-    // Hier könnte ein schönerer Modal-Dialog implementiert werden
-    // Für jetzt verwenden wir den einfachen Alert
-    alert(message);
-    if (actionButton && confirm("Zur Lizenz-Verwaltung wechseln?")) {
-      actionButton.action();
+      // Bei kritischen Check-Typen Session als ungültig behandeln
+      if (type === "30sec" || type === "visibility" || type === "focus") {
+        console.log(`❌ Kritischer Session-Check-Fehler (${type}) - Logout`);
+        this.handleSessionExpired();
+      }
     }
   }
 
-  // Logout-Funktionalität
+  // Alle Überwachung stoppen
+  stopAllMonitoring() {
+    console.log("🛑 Stoppe alle Session-Überwachung");
+
+    if (this.sessionCheckInterval) {
+      clearInterval(this.sessionCheckInterval);
+      this.sessionCheckInterval = null;
+    }
+
+    if (this.quickCheckInterval) {
+      clearInterval(this.quickCheckInterval);
+      this.quickCheckInterval = null;
+    }
+  }
+
+  // Session-Überwachung stoppen (Legacy-Kompatibilität)
+  stopSessionMonitoring() {
+    this.stopAllMonitoring();
+  }
+
+  // Logout-Funktionalität (unverändert)
   async handleLogout() {
-    // Bestätigung anzeigen
     if (!confirm("Möchten Sie sich wirklich abmelden?")) {
       return;
     }
@@ -222,13 +467,11 @@ class AuthManager {
     if (!logoutBtn) return;
 
     try {
-      // Loading-Indikator
       const originalHTML = logoutBtn.innerHTML;
       logoutBtn.innerHTML =
         '<i class="fas fa-spinner fa-spin"></i> <span class="logout-text">Abmelden...</span>';
       logoutBtn.disabled = true;
 
-      // Logout-Request
       const response = await fetch("/api/auth/logout", {
         method: "POST",
         headers: {
@@ -237,11 +480,9 @@ class AuthManager {
       });
 
       if (response.ok) {
-        // Erfolgreiche Abmeldung
         this.showNotification("Erfolgreich abgemeldet", "success");
-        this.stopSessionMonitoring();
+        this.stopAllMonitoring();
 
-        // Kurz warten, dann weiterleiten
         setTimeout(() => {
           window.location.href = "/login";
         }, 1000);
@@ -251,7 +492,6 @@ class AuthManager {
     } catch (error) {
       console.error("Logout-Fehler:", error);
 
-      // Auch bei Fehlern zur Login-Seite weiterleiten
       this.showNotification("Abgemeldet", "info");
       setTimeout(() => {
         window.location.href = "/login";
@@ -259,37 +499,9 @@ class AuthManager {
     }
   }
 
-  // Session-Überwachung starten
-  startSessionMonitoring() {
-    // Alle 5 Minuten prüfen ob Session noch gültig ist
-    this.sessionCheckInterval = setInterval(async () => {
-      try {
-        const response = await fetch("/api/auth/status");
-        const data = await response.json();
-
-        if (!data.authenticated) {
-          this.handleSessionExpired();
-        } else {
-          // Lizenz-Info aktualisieren
-          this.licenseInfo = data.license || null;
-        }
-      } catch (error) {
-        console.error("Session-Check fehlgeschlagen:", error);
-      }
-    }, 5 * 60 * 1000); // 5 Minuten
-  }
-
-  // Session-Überwachung stoppen
-  stopSessionMonitoring() {
-    if (this.sessionCheckInterval) {
-      clearInterval(this.sessionCheckInterval);
-      this.sessionCheckInterval = null;
-    }
-  }
-
   // Session abgelaufen
   handleSessionExpired() {
-    this.stopSessionMonitoring();
+    this.stopAllMonitoring();
     this.showNotification(
       "Session abgelaufen. Bitte melden Sie sich erneut an.",
       "warning"
@@ -310,8 +522,6 @@ class AuthManager {
   showNotification(message, type = "info", options = {}) {
     console.log(`[${type.toUpperCase()}] ${message}`);
 
-    // Einfache Implementierung mit Console-Log
-    // Hier könnte ein Toast-System implementiert werden
     if (type === "error") {
       console.error(message);
     } else if (type === "warning") {
@@ -320,12 +530,13 @@ class AuthManager {
       console.info(message);
     }
 
-    // Optional: Browser-Benachrichtigung für wichtige Meldungen
+    // Browser-Benachrichtigung für wichtige Meldungen
     if (options.persistent && type === "warning") {
       if ("Notification" in window && Notification.permission === "granted") {
         new Notification("KFZ-App", {
           body: message,
           icon: "/favicon.ico",
+          requireInteraction: true,
         });
       }
     }
@@ -334,7 +545,6 @@ class AuthManager {
   // Tastatur-Shortcuts einrichten
   setupKeyboardShortcuts() {
     document.addEventListener("keydown", (e) => {
-      // Ctrl+Shift+L für Logout
       if (e.ctrlKey && e.shiftKey && e.key === "L") {
         e.preventDefault();
         this.handleLogout();
@@ -363,7 +573,11 @@ class AuthManager {
       if (response.status === 403) {
         const data = await response.json();
         if (data.licenseError) {
-          this.handleLicenseError(data);
+          if (data.errorType === "hardware_deactivated") {
+            this.handleHardwareDeactivationError(data);
+          } else {
+            this.handleStrictLicenseError(data);
+          }
           throw new Error("Lizenz-Problem");
         }
       }

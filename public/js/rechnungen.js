@@ -288,7 +288,8 @@ function displayRechnungModal(rechnung = null) {
           <td>
             <input type="number" step="0.01" class="form-input" 
                    value="${position.gesamt || 0}" 
-                   name="gesamt_${index}" 
+                   name="gesamt_${index}"
+                   placeholder="0.0"
                    readonly>
           </td>
           <td>
@@ -483,74 +484,152 @@ function displayRechnungModal(rechnung = null) {
 }
 
 window.addNewPosition = function () {
-  const tbody = document.getElementById("positionen-tbody");
+  // AUTOMATISCHE ERKENNUNG: Auftrags- oder Rechnungsmodal?
+  let tbody = document.getElementById("arbeitszeiten-tbody"); // Auftragsmodal
+  let isAuftragModal = true;
+
+  if (!tbody) {
+    tbody = document.getElementById("positionen-tbody"); // Rechnungsmodal
+    isAuftragModal = false;
+  }
+
+  if (!tbody) {
+    console.error("Keine Tabelle gefunden!");
+    showNotification("Fehler: Tabelle nicht gefunden", "error");
+    return;
+  }
+
   const currentRows = tbody.children.length;
   const newIndex = currentRows;
 
-  const newRow = document.createElement("tr");
-  newRow.id = `position-row-${newIndex}`;
-  newRow.innerHTML = `
-    <td>
-      <input type="text" class="form-input" 
-             value="" 
-             name="beschreibung_${newIndex}" 
-             placeholder="Beschreibung eingeben...">
-    </td>
-    <td>
-      <input type="number" step="0.01" class="form-input" 
-             value="0" 
-             name="menge_${newIndex}" 
-             onchange="calculateRechnungRow(${newIndex})"
-             placeholder="0">
-    </td>
-    <td>
-      <select class="form-select" name="einheit_${newIndex}">
-        <option value="Std.">Std.</option>
-        <option value="Liter">Liter</option>
-        <option value="Stk." selected>Stk.</option>
-        <option value="m²">m²</option>
-        <option value="Pauschal">Pauschal</option>
-        <option value="kg">kg</option>
-      </select>
-    </td>
-    <td>
-      <input type="number" step="0.01" class="form-input" 
-             value="0" 
-             name="einzelpreis_${newIndex}" 
-             onchange="calculateRechnungRow(${newIndex})"
-             placeholder="0,00">
-    </td>
-    <td>
-      <select class="form-select" name="mwst_${newIndex}" onchange="calculateRechnungRow(${newIndex})">
-        <option value="19" selected>19%</option>
-        <option value="7">7%</option>
-        <option value="0">0%</option>
-      </select>
-    </td>
-    <td>
-      <input type="number" step="0.01" class="form-input" 
-             value="0" 
-             name="gesamt_${newIndex}" 
-             readonly>
-    </td>
-    <td>
-      <button type="button" class="btn btn-sm btn-danger" 
-              onclick="removePosition(${newIndex})" 
-              title="Position entfernen">
-        <i class="fas fa-times"></i>
-      </button>
-    </td>
-    <input type="hidden" name="kategorie_${newIndex}" value="ZUSATZ">
-  `;
+  if (isAuftragModal) {
+    // AUFTRAGSMODAL: Arbeitszeiten hinzufügen
+    const basisStundenpreis = parseFloat(
+      getSetting("basis_stundenpreis", "110.00")
+    );
 
-  tbody.appendChild(newRow);
+    const newRow = document.createElement("tr");
+    newRow.id = `position-row-${newIndex}`;
+    newRow.innerHTML = `
+      <td>
+        <input type="text" class="form-input" 
+               name="beschreibung_${newIndex}" 
+               placeholder="Arbeitsschritt...">
+      </td>
+      <td>
+        <input type="number" step="0.01" class="form-input" 
+               value="${basisStundenpreis}" 
+               name="stundenpreis_${newIndex}" 
+               onchange="calculateAuftragRow(${newIndex})"
+               placeholder="${basisStundenpreis}">
+      </td>
+      <td>
+        <input type="number" step="0.1" class="form-input" 
+               name="zeit_${newIndex}" 
+               onchange="calculateAuftragRow(${newIndex})"
+               placeholder="0.0">
+      </td>
+      <td>
+        <select class="form-select" name="einheit_${newIndex}">
+          <option value="Std." selected>Std.</option>
+          <option value="Min.">Min.</option>
+          <option value="Pauschal">Pauschal</option>
+        </select>
+      </td>
+      <td>
+        <input type="number" step="0.01" class="form-input" 
+               name="gesamt_${newIndex}" 
+               readonly
+               placeholder="0,00">
+      </td>
+      <td>
+        <button type="button" class="btn btn-sm btn-danger" 
+                onclick="removePosition(${newIndex})" 
+                title="Position entfernen">
+          <i class="fas fa-times"></i>
+        </button>
+      </td>
+    `;
 
-  // Fokus auf Beschreibung setzen
-  const beschreibungInput = newRow.querySelector(
-    `input[name="beschreibung_${newIndex}"]`
-  );
-  if (beschreibungInput) {
-    beschreibungInput.focus();
+    tbody.appendChild(newRow);
+
+    // Fokus auf Beschreibung
+    const beschreibungInput = newRow.querySelector(
+      `input[name="beschreibung_${newIndex}"]`
+    );
+    if (beschreibungInput) {
+      beschreibungInput.focus();
+    }
+
+    console.log(`✅ Neue Arbeitszeit-Position ${newIndex} hinzugefügt`);
+  } else {
+    // RECHNUNGSMODAL: Rechnungsposition hinzufügen
+    const newRow = document.createElement("tr");
+    newRow.id = `position-row-${newIndex}`;
+    newRow.innerHTML = `
+      <td>
+        <input type="text" class="form-input" 
+               name="beschreibung_${newIndex}" 
+               placeholder="Beschreibung eingeben...">
+      </td>
+      <td>
+        <input type="number" step="0.01" class="form-input" 
+               value="0" 
+               name="menge_${newIndex}" 
+               onchange="calculateRechnungRow(${newIndex})"
+               placeholder="0">
+      </td>
+      <td>
+        <select class="form-select" name="einheit_${newIndex}">
+          <option value="Std.">Std.</option>
+          <option value="Liter">Liter</option>
+          <option value="Stk." selected>Stk.</option>
+          <option value="m²">m²</option>
+          <option value="Pauschal">Pauschal</option>
+          <option value="kg">kg</option>
+        </select>
+      </td>
+      <td>
+        <input type="number" step="0.01" class="form-input" 
+               value="0" 
+               name="einzelpreis_${newIndex}" 
+               onchange="calculateRechnungRow(${newIndex})"
+               placeholder="0,00">
+      </td>
+      <td>
+        <select class="form-select" name="mwst_${newIndex}" onchange="calculateRechnungRow(${newIndex})">
+          <option value="19" selected>19%</option>
+          <option value="7">7%</option>
+          <option value="0">0%</option>
+        </select>
+      </td>
+      <td>
+        <input type="number" step="0.01" class="form-input" 
+               value="0" 
+               name="gesamt_${newIndex}"
+               readonly>
+      </td>
+      <td>
+        <button type="button" class="btn btn-sm btn-danger" 
+                onclick="removePosition(${newIndex})" 
+                title="Position entfernen">
+          <i class="fas fa-times"></i>
+        </button>
+      </td>
+      <input type="hidden" name="kategorie_${newIndex}" value="ZUSATZ">
+    `;
+
+    tbody.appendChild(newRow);
+
+    // Fokus auf Beschreibung
+    const beschreibungInput = newRow.querySelector(
+      `input[name="beschreibung_${newIndex}"]`
+    );
+    if (beschreibungInput) {
+      beschreibungInput.focus();
+    }
+
+    console.log(`✅ Neue Rechnungs-Position ${newIndex} hinzugefügt`);
   }
 };
 
@@ -558,22 +637,24 @@ window.addNewPosition = function () {
 window.removePosition = function (index) {
   const row = document.getElementById(`position-row-${index}`);
   if (row) {
-    // Prüfen ob Position ausgefüllt ist
-    const beschreibung = row.querySelector(
-      `input[name="beschreibung_${index}"]`
-    ).value;
-    const menge =
-      parseFloat(row.querySelector(`input[name="menge_${index}"]`).value) || 0;
+    row.remove();
 
-    if (
-      (beschreibung.trim() || menge > 0) &&
-      !confirm("Position wirklich entfernen?")
-    ) {
-      return;
+    // Je nach Modal die richtige Berechnungsfunktion aufrufen
+    if (document.getElementById("arbeitszeiten-tbody")) {
+      // Auftragsmodal
+      if (typeof updateAuftragCalculations === "function") {
+        updateAuftragCalculations();
+      }
+    } else {
+      // Rechnungsmodal
+      if (typeof calculateRechnungGesamt === "function") {
+        calculateRechnungGesamt();
+      }
     }
 
-    row.remove();
-    calculateRechnungGesamt();
+    console.log(`✅ Position ${index} entfernt`);
+  } else {
+    console.warn(`Position ${index} nicht gefunden`);
   }
 };
 

@@ -1,3 +1,4 @@
+// public/js/auftraege.js - ERWEITERTE VERSION mit korrektem +Position System
 import {
   apiCall,
   showNotification,
@@ -37,411 +38,1428 @@ async function loadAuftraege() {
         }</span>
           </td>
           <td>${formatCurrency(auftrag.gesamt_kosten)}</td>
-          <td onclick="event.stopPropagation()">
-            <button 
-              class="btn btn-sm btn-primary" 
-              onclick="editAuftrag(${auftrag.id})"
-              title="Bearbeiten"
-            >
-              <i class="fas fa-edit"></i>
-            </button>
-            <button 
-              class="btn btn-sm btn-info" 
-              onclick="printAuftrag(${auftrag.id})"
-              title="Drucken"
-            >
-              <i class="fas fa-print"></i>
-            </button>
-            <button 
-              class="btn btn-sm btn-success" 
-              onclick="createRechnungFromAuftrag(${auftrag.id})"
-              title="Rechnung erstellen"
-            >
-              <i class="fas fa-file-invoice"></i>
-            </button>
-            <button 
-              class="btn btn-sm btn-danger" 
-              onclick="deleteAuftrag(${auftrag.id})"
-              title="Löschen"
-            >
-              <i class="fas fa-trash"></i>
-            </button>
+          <td>
+            <div class="btn-group">
+              <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editAuftrag(${
+                auftrag.id
+              })">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); printAuftrag(${
+                auftrag.id
+              })">
+                <i class="fas fa-print"></i>
+              </button>
+              <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); createRechnungFromAuftrag(${
+                auftrag.id
+              })">
+                <i class="fas fa-file-invoice"></i>
+              </button>
+              <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteAuftrag(${
+                auftrag.id
+              })">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
           </td>
         </tr>
       `
       )
       .join("");
+
+    addSearchToTable("auftraege-table", "auftraege-search");
   } catch (error) {
     showNotification("Fehler beim Laden der Aufträge", "error");
   }
 }
 
-// ===== NEUE DRUCKFUNKTIONALITÄT =====
+// ERWEITERTE Funktion für das Auftragsmodal mit korrektem +Position System
+async function showAuftragModal(auftragId = null) {
+  const isEdit = !!auftragId;
+  let auftrag = null;
 
-async function printAuftrag(id) {
-  try {
-    // Prüfen ob bereits ein Modal mit Auftragsinhalt geöffnet ist
-    const modalContent = document.querySelector(".modal-body");
-
-    if (modalContent && modalContent.innerHTML.includes("AUFTRAG")) {
-      // Modal ist bereits geöffnet - direkt drucken
-      printModalContent(modalContent, "auftrag");
-    } else {
-      // Kein Modal geöffnet - Auftrag laden und drucken
-      await printAuftragDirect(id);
-    }
-  } catch (error) {
-    console.error("Print error:", error);
-    showNotification("Fehler beim Drucken des Auftrags", "error");
+  if (isEdit) {
+    auftrag = await apiCall(`/api/auftraege/${auftragId}`);
   }
-}
 
-// Hilfsfunktion: Modal-Inhalt drucken
-function printModalContent(modalContent, type = "auftrag") {
-  const title = type === "auftrag" ? "Auftrag" : "Rechnung";
-  const printWindow = window.open("", "_blank");
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 2cm; }
-          table { width: 100%; border-collapse: collapse; margin: 1em 0; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-          th { background-color: #f5f5f5; }
-          .text-right { text-align: right; }
-          .signature-section { 
-            margin-top: 3cm; 
-            page-break-inside: avoid;
-            border-top: 2px solid #007bff;
-            padding-top: 2rem;
+  if (!window.kunden || window.kunden.length === 0) {
+    await ensureKundenFunctions();
+    await loadKunden();
+  }
+
+  const kundenOptions = window.kunden
+    .map(
+      (k) =>
+        `<option value="${k.id}" ${
+          k.id === auftrag?.kunden_id ? "selected" : ""
+        }>${k.name}</option>`
+    )
+    .join("");
+
+  // Standard-Arbeitsschritte aus Einstellungen holen
+  const standardArbeitsschritte = getSetting(
+    "standard_arbeitsschritte",
+    "Demontage/Vorbereitung\nSchleifen/Spachteln\nGrundierung\nZwischenschliff\nBasislack\nKlarlack\nPolieren/Finish\nMontage"
+  )
+    .split("\n")
+    .filter((s) => s.trim());
+
+  // Basis-Stundenpreis aus Einstellungen
+  const basisStundenpreis = parseFloat(
+    getSetting("basis_stundenpreis", "110.00")
+  );
+
+  // Zuschläge aus Einstellungen laden
+  const anfahrtspauschale = parseFloat(getSetting("anfahrtspauschale", "0"));
+  const expressZuschlag = parseFloat(getSetting("express_zuschlag", "0"));
+  const wochenendZuschlag = parseFloat(getSetting("wochenend_zuschlag", "0"));
+
+  // Initiale Arbeitsschritte generieren (wie im Rechnungsmodal)
+  const anzahlArbeitsschritte = Math.max(
+    auftrag?.positionen?.length || 0,
+    standardArbeitsschritte.length,
+    5 // Mindestens 5 Zeilen
+  );
+
+  const arbeitsschritteRows = Array.from(
+    { length: anzahlArbeitsschritte },
+    (_, index) => {
+      const position = auftrag?.positionen?.[index];
+      const standardSchritt = standardArbeitsschritte[index] || "";
+
+      return `
+      <tr id="position-row-${index}">
+        <td>
+          <input type="text" class="form-input" 
+                 value="${position?.beschreibung || standardSchritt}" 
+                 name="beschreibung_${index}" 
+                 placeholder="Arbeitsschritt...">
+        </td>
+        <td>
+          <input type="number" step="0.01" class="form-input" 
+                 value="${position?.stundenpreis || basisStundenpreis}" 
+                 name="stundenpreis_${index}" 
+                 onchange="calculateAuftragRow(${index})"
+                 placeholder="${basisStundenpreis}">
+        </td>
+        <td>
+          <input type="number" step="0.1" class="form-input" 
+                 value="${position?.zeit || ""}" 
+                 name="zeit_${index}" 
+                 onchange="calculateAuftragRow(${index})"
+                 placeholder="0.0">
+        </td>
+        <td>
+          <select class="form-select" name="einheit_${index}">
+            <option value="Std." ${
+              (position?.einheit || "Std.") === "Std." ? "selected" : ""
+            }>Std.</option>
+            <option value="Min." ${
+              (position?.einheit || "") === "Min." ? "selected" : ""
+            }>Min.</option>
+            <option value="Pauschal" ${
+              (position?.einheit || "") === "Pauschal" ? "selected" : ""
+            }>Pauschal</option>
+          </select>
+        </td>
+        <td>
+          <input type="number" step="0.01" class="form-input" 
+                 value="${position?.gesamt || ""}" 
+                 name="gesamt_${index}" 
+                 readonly
+                 placeholder="0,00">
+        </td>
+        <td>
+          ${
+            index >= standardArbeitsschritte.length
+              ? `
+            <button type="button" class="btn btn-sm btn-danger" 
+                    onclick="removePosition(${index})" 
+                    title="Position entfernen">
+              <i class="fas fa-times"></i>
+            </button>
+          `
+              : ""
           }
-          .signature-box {
-            border: 1px solid #333;
-            height: 4cm;
-            margin-top: 1cm;
-            position: relative;
-          }
-          .signature-label {
-            position: absolute;
-            bottom: -1.5em;
-            left: 0;
-            font-size: 12px;
-            color: #666;
-          }
-          @media print { 
-            button { display: none; }
-            .modal-header, .modal-footer { display: none; }
-            body { margin: 1cm; }
-          }
-          @page {
-            margin: 1cm;
-            size: A4;
-          }
-        </style>
-      </head>
-      <body>
-        ${modalContent.innerHTML}
-        ${type === "auftrag" ? generateSignatureSection() : ""}
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => {
-    printWindow.print();
-    printWindow.close();
-  }, 250);
-}
-
-// Hilfsfunktion: Auftrag direkt drucken (ohne Modal)
-async function printAuftragDirect(id) {
-  try {
-    const auftrag = await apiCall(`/api/auftraege/${id}`);
-
-    // Einstellungen importieren falls nicht verfügbar
-    if (!window.getSetting) {
-      const einstellungenModule = await import("./einstellungen.js");
-      window.getSetting = einstellungenModule.getSetting;
-    }
-
-    // Firmendaten aus Einstellungen laden
-    const firmenname = getSetting("firmenname", "Meine Firma");
-    const firmenStrasse = getSetting("firmen_strasse", "");
-    const firmenPlz = getSetting("firmen_plz", "");
-    const firmenOrt = getSetting("firmen_ort", "");
-    const firmenTelefon = getSetting("firmen_telefon", "");
-    const firmenEmail = getSetting("firmen_email", "");
-    const steuernummer = getSetting("steuernummer", "");
-    const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
-    const mwstSatz = parseFloat(getSetting("mwst_satz", "19"));
-
-    // HTML für Auftragspositionen generieren
-    const positionenHtml =
-      auftrag.positionen
-        ?.map(
-          (pos) => `
-        <tr>
-          <td>${pos.beschreibung}</td>
-          <td style="text-align: center;">${pos.zeit} ${pos.einheit}</td>
-          <td style="text-align: right;">${formatCurrency(
-            pos.stundenpreis
-          )}</td>
-          <td style="text-align: right;">${formatCurrency(pos.gesamt)}</td>
-        </tr>
-      `
-        )
-        .join("") || '<tr><td colspan="4">Keine Positionen</td></tr>';
-
-    // Gesamtkosten berechnen
-    const gesamtNetto = auftrag.gesamt_kosten || 0;
-    const mwstBetrag = gesamtNetto * (mwstSatz / 100);
-    const gesamtBrutto = gesamtNetto + mwstBetrag;
-
-    const auftragsHtml = `
-      <!-- Firmen-Header -->
-      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid #007bff;">
-        <div>
-          <h1 style="color: #007bff; margin-bottom: 0.5rem; font-size: 24px;">${firmenname}</h1>
-          <div style="color: #666; line-height: 1.4; font-size: 14px;">
-            ${firmenStrasse}<br>
-            ${firmenPlz} ${firmenOrt}<br>
-            Tel: ${firmenTelefon}<br>
-            E-Mail: ${firmenEmail}
-          </div>
-        </div>
-        <div style="text-align: right;">
-          <h2 style="color: #007bff; margin-bottom: 1rem; font-size: 20px;">AUFTRAG</h2>
-          <div style="font-size: 14px;"><strong>Auftrag-Nr.: ${
-            auftrag.auftrag_nr
-          }</strong></div>
-          <div style="font-size: 14px;">Datum: ${formatDate(
-            auftrag.datum
-          )}</div>
-          <div style="font-size: 14px;">Status: <span style="color: #007bff; font-weight: bold;">${auftrag.status.toUpperCase()}</span></div>
-        </div>
-      </div>
-
-      <!-- Kunden- und Fahrzeugdaten -->
-      <div style="display: flex; justify-content: space-between; margin-bottom: 2rem;">
-        <div style="width: 48%;">
-          <h3 style="color: #007bff; margin-bottom: 0.5rem; font-size: 16px;">Kunde</h3>
-          <div style="line-height: 1.4; font-size: 14px;">
-            <strong>${auftrag.name}</strong><br>
-            ${auftrag.strasse || ""}<br>
-            ${auftrag.plz || ""} ${auftrag.ort || ""}<br>
-            ${auftrag.telefon ? `Tel: ${auftrag.telefon}` : ""}
-          </div>
-        </div>
-        <div style="width: 48%;">
-          <h3 style="color: #007bff; margin-bottom: 0.5rem; font-size: 16px;">Fahrzeug</h3>
-          <div style="line-height: 1.4; font-size: 14px;">
-            <strong>${auftrag.kennzeichen}</strong><br>
-            ${auftrag.marke} ${auftrag.modell}<br>
-            ${auftrag.vin ? `VIN: ${auftrag.vin}` : ""}<br>
-            ${auftrag.farbe ? `Farbe: ${auftrag.farbe}` : ""}
-          </div>
-        </div>
-      </div>
-
-      <!-- Arbeitszeiten -->
-      <h3 style="color: #007bff; margin-bottom: 1rem; font-size: 16px;">Arbeitszeiten</h3>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 2rem;">
-        <thead>
-          <tr style="background-color: #f8f9fa;">
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: left;">Beschreibung</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: center;">Zeit</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: right;">Stundenpreis</th>
-            <th style="padding: 12px; border: 1px solid #ddd; text-align: right;">Gesamt</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${positionenHtml}
-        </tbody>
-      </table>
-
-      <!-- Kostenübersicht -->
-      <div style="margin-top: 2rem;">
-        <div style="float: right; width: 300px;">
-          <table style="width: 100%; border-collapse: collapse;">
-            <tr>
-              <td style="padding: 8px; text-align: right; font-weight: bold;">Netto:</td>
-              <td style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">${formatCurrency(
-                gesamtNetto
-              )}</td>
-            </tr>
-            <tr>
-              <td style="padding: 8px; text-align: right;">zzgl. ${mwstSatz}% MwSt:</td>
-              <td style="padding: 8px; text-align: right; border-bottom: 1px solid #ddd;">${formatCurrency(
-                mwstBetrag
-              )}</td>
-            </tr>
-            <tr style="background-color: #f8f9fa;">
-              <td style="padding: 8px; text-align: right; font-weight: bold; font-size: 16px;">Gesamt:</td>
-              <td style="padding: 8px; text-align: right; font-weight: bold; font-size: 16px;">${formatCurrency(
-                gesamtBrutto
-              )}</td>
-            </tr>
-          </table>
-        </div>
-        <div style="clear: both;"></div>
-      </div>
-
-      ${
-        auftrag.bemerkungen
-          ? `
-      <!-- Bemerkungen -->
-      <div style="margin-top: 2rem;">
-        <h3 style="color: #007bff; margin-bottom: 1rem; font-size: 16px;">Bemerkungen</h3>
-        <div style="padding: 1rem; background-color: #f8f9fa; border-left: 4px solid #007bff; line-height: 1.4;">
-          ${auftrag.bemerkungen.replace(/\n/g, "<br>")}
-        </div>
-      </div>
-      `
-          : ""
-      }
-
-      <!-- Unterschriftensektion -->
-      ${generateSignatureSection()}
-
-      <!-- Steuerinformationen -->
-      ${
-        steuernummer || umsatzsteuerId
-          ? `
-      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #ddd; text-align: center; color: #666; font-size: 12px;">
-        ${steuernummer ? `Steuernummer: ${steuernummer}` : ""}
-        ${steuernummer && umsatzsteuerId ? " | " : ""}
-        ${umsatzsteuerId ? `USt-IdNr.: ${umsatzsteuerId}` : ""}
-      </div>
-      `
-          : ""
-      }
+        </td>
+      </tr>
     `;
+    }
+  ).join("");
 
-    // Print-Fenster öffnen
-    const printWindow = window.open("", "_blank");
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Auftrag ${auftrag.auftrag_nr}</title>
-          <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 2cm; 
-              color: #333;
-            }
-            table {
-              border-collapse: collapse;
-            }
-            .signature-section { 
-              margin-top: 3cm; 
-              page-break-inside: avoid;
-              border-top: 2px solid #007bff;
-              padding-top: 2rem;
-            }
-            .signature-row {
-              display: flex;
-              justify-content: space-between;
-              margin-top: 2rem;
-            }
-            .signature-box {
-              width: 45%;
-              border: 1px solid #333;
-              height: 4cm;
-              position: relative;
-              background-color: #fafafa;
-            }
-            .signature-label {
-              position: absolute;
-              bottom: -1.5em;
-              left: 0;
-              font-size: 12px;
-              color: #666;
-              font-weight: bold;
-            }
-            .signature-date {
-              position: absolute;
-              top: 0.5em;
-              right: 0.5em;
-              font-size: 10px;
-              color: #999;
-            }
-            @media print { 
-              body { margin: 1cm; }
-              button { display: none; }
-            }
-            @page {
-              margin: 1cm;
-              size: A4;
-            }
-          </style>
-        </head>
-        <body>
-          ${auftragsHtml}
-        </body>
-      </html>
-    `);
+  // Ersetze die ZUSCHLAG-SEKTION in showAuftragModal() mit diesem schönen Design:
 
-    printWindow.document.close();
-    printWindow.focus();
+  const content = `
+  <form id="auftrag-form" novalidate>
+  <div class="form-grid">
+    <div class="form-group">
+      <label class="form-label">
+        Kunde
+        <span class="required-indicator">*</span>
+      </label>
+      <select 
+        class="form-select" 
+        name="kunden_id" 
+        required 
+        onchange="loadKundenFahrzeuge(this.value); validateKundeSelection();"
+        oninvalid="this.setCustomValidity('Bitte wählen Sie einen Kunden aus')"
+        oninput="this.setCustomValidity('')">
+        <option value="">Kunde auswählen...</option>
+        ${kundenOptions}
+      </select>
+      <div class="field-error" id="kunden-error"></div>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">
+        Fahrzeug
+        <span class="required-indicator">*</span>
+      </label>
+      <select 
+        class="form-select" 
+        name="fahrzeug_id" 
+        required 
+        id="fahrzeug-select"
+        onchange="validateFahrzeugSelection();"
+        oninvalid="this.setCustomValidity('Bitte wählen Sie ein Fahrzeug aus')"
+        oninput="this.setCustomValidity('')"
+        disabled>
+        <option value="">Zuerst Kunde auswählen...</option>
+      </select>
+      <div class="field-error" id="fahrzeug-error"></div>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">
+        Datum
+        <span class="required-indicator">*</span>
+      </label>
+      <input 
+        type="date" 
+        class="form-input" 
+        name="datum" 
+        required 
+        value="${auftrag?.datum || new Date().toISOString().split("T")[0]}"
+        oninvalid="this.setCustomValidity('Bitte geben Sie ein Datum an')"
+        oninput="this.setCustomValidity('')">
+      <div class="field-error" id="datum-error"></div>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select class="form-select" name="status">
+        <option value="offen" ${
+          auftrag?.status === "offen" ? "selected" : ""
+        }>Offen</option>
+        <option value="in_bearbeitung" ${
+          auftrag?.status === "in_bearbeitung" ? "selected" : ""
+        }>In Bearbeitung</option>
+        <option value="abgeschlossen" ${
+          auftrag?.status === "abgeschlossen" ? "selected" : ""
+        }>Abgeschlossen</option>
+      </select>
+    </div>
+  </div>
 
-    // Kurz warten bis das Fenster vollständig geladen ist, dann drucken
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
-  } catch (error) {
-    console.error("Error loading order for print:", error);
-    showNotification("Fehler beim Laden des Auftrags für Druck", "error");
-  }
-}
+  <!-- Validation Summary -->
+  <div id="validation-summary" class="validation-summary" style="display: none;">
+    <div class="validation-header">
+      <i class="fas fa-exclamation-triangle"></i>
+      Bitte korrigieren Sie folgende Fehler:
+    </div>
+    <ul id="validation-errors"></ul>
+  </div>
 
-// Hilfsfunktion: Unterschriftensektion generieren
-function generateSignatureSection() {
-  const today = new Date().toLocaleDateString("de-DE");
+    <!-- NEUE SCHÖNE ZUSCHLAG-SEKTION -->
+    <h3 style="margin: 2rem 0 1rem 0; color: var(--accent-primary); display: flex; align-items: center; gap: 0.5rem;">
+      <i class="fas fa-plus-circle"></i>
+      Zuschläge und Zusatzleistungen
+    </h3>
 
-  return `
-    <div class="signature-section">
-      <h3 style="color: #007bff; margin-bottom: 1rem; font-size: 16px;">
-        <i class="fas fa-pen" style="margin-right: 0.5rem;"></i>
-        Kundenabnahme
-      </h3>
-      
-      <p style="margin-bottom: 2rem; line-height: 1.5; color: #555;">
-        Hiermit bestätige ich die ordnungsgemäße Ausführung der oben aufgeführten Arbeiten 
-        und erkenne die Rechnung in der angegebenen Höhe an.
-      </p>
-      
-      <div class="signature-row" style="display: flex; justify-content: space-between; margin-top: 2rem;">
-        <div class="signature-box" style="width: 45%; border: 1px solid #333; height: 4cm; position: relative; background-color: #fafafa;">
-          <div class="signature-date" style="position: absolute; top: 0.5em; right: 0.5em; font-size: 10px; color: #999;">
-            Datum: ______________
-          </div>
-          <div class="signature-label" style="position: absolute; bottom: -1.5em; left: 0; font-size: 12px; color: #666; font-weight: bold;">
-            Unterschrift Kunde
-          </div>
-        </div>
-        
-        <div class="signature-box" style="width: 45%; border: 1px solid #333; height: 4cm; position: relative; background-color: #fafafa;">
-          <div class="signature-date" style="position: absolute; top: 0.5em; right: 0.5em; font-size: 10px; color: #999;">
-            Datum: ${today}
-          </div>
-          <div class="signature-label" style="position: absolute; bottom: -1.5em; left: 0; font-size: 12px; color: #666; font-weight: bold;">
-            Unterschrift Meine Firma
-          </div>
+    <div class="zuschlag-container">
+      <!-- Anfahrtspauschale -->
+      <div class="zuschlag-card">
+        <div class="zuschlag-checkbox-container">
+          <input type="checkbox" 
+                 id="anfahrt_aktiv" 
+                 name="anfahrt_aktiv" 
+                 class="zuschlag-checkbox"
+                 ${auftrag?.anfahrt_aktiv ? "checked" : ""} 
+                 onchange="updateAuftragCalculations()">
+          <label for="anfahrt_aktiv" class="zuschlag-label">
+            <div class="zuschlag-icon">
+              <i class="fas fa-route"></i>
+            </div>
+            <div class="zuschlag-content">
+              <div class="zuschlag-title">Anfahrtspauschale</div>
+              <div class="zuschlag-amount">${formatCurrency(
+                anfahrtspauschale
+              )}</div>
+              <div class="zuschlag-description">Einmaliger Aufschlag für Anfahrt</div>
+            </div>
+            <div class="zuschlag-toggle">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
         </div>
       </div>
-      
-      <div style="margin-top: 3rem; padding: 1rem; background-color: #f8f9fa; border-left: 4px solid #007bff; font-size: 12px; color: #666;">
-        <strong>Hinweis:</strong> Diese Unterschrift bestätigt die Abnahme der Arbeiten zum angegebenen Datum. 
-        Bei Reklamationen wenden Sie sich bitte umgehend an uns. Gewährleistungsansprüche bleiben hiervon unberührt.
+
+      <!-- Express-Zuschlag -->
+      <div class="zuschlag-card">
+        <div class="zuschlag-checkbox-container">
+          <input type="checkbox" 
+                 id="express_aktiv" 
+                 name="express_aktiv" 
+                 class="zuschlag-checkbox"
+                 ${auftrag?.express_aktiv ? "checked" : ""} 
+                 onchange="updateAuftragCalculations()">
+          <label for="express_aktiv" class="zuschlag-label">
+            <div class="zuschlag-icon express">
+              <i class="fas fa-bolt"></i>
+            </div>
+            <div class="zuschlag-content">
+              <div class="zuschlag-title">Express-Zuschlag</div>
+              <div class="zuschlag-amount">+${expressZuschlag}%</div>
+              <div class="zuschlag-description">Aufschlag auf Arbeitszeiten</div>
+            </div>
+            <div class="zuschlag-toggle">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Wochenend-Zuschlag -->
+      <div class="zuschlag-card">
+        <div class="zuschlag-checkbox-container">
+          <input type="checkbox" 
+                 id="wochenend_aktiv" 
+                 name="wochenend_aktiv" 
+                 class="zuschlag-checkbox"
+                 ${auftrag?.wochenend_aktiv ? "checked" : ""} 
+                 onchange="updateAuftragCalculations()">
+          <label for="wochenend_aktiv" class="zuschlag-label">
+            <div class="zuschlag-icon weekend">
+              <i class="fas fa-calendar-week"></i>
+            </div>
+            <div class="zuschlag-content">
+              <div class="zuschlag-title">Wochenend-Zuschlag</div>
+              <div class="zuschlag-amount">+${wochenendZuschlag}%</div>
+              <div class="zuschlag-description">Aufschlag für Wochenendarbeit</div>
+            </div>
+            <div class="zuschlag-toggle">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
       </div>
     </div>
+
+    <h3>Arbeitszeiten</h3>
+  
+  <div class="table-container">
+    <table class="table" id="arbeitszeiten-table">
+      <thead>
+        <tr>
+          <th>Beschreibung</th>
+          <th>Stundenpreis</th>
+          <th>Zeit</th>
+          <th>Einheit</th>
+          <th>Gesamt</th>
+          <th>
+            <button type="button" class="btn btn-sm btn-success" 
+                    onclick="addNewPosition()" 
+                    title="Neue Position hinzufügen">
+              <i class="fas fa-plus"></i>
+            </button>
+          </th>
+        </tr>
+      </thead>
+      <tbody id="arbeitszeiten-tbody">
+        ${arbeitsschritteRows}
+      </tbody>
+    </table>
+  </div>
+  
+  <div class="form-group">
+    <label class="form-label">Bemerkungen</label>
+    <textarea class="form-textarea" name="bemerkungen" rows="3" placeholder="Zusätzliche Hinweise zum Auftrag...">${
+      auftrag?.bemerkungen || ""
+    }</textarea>
+  </div>
+    
+    <!-- ERWEITERTE KOSTENÜBERSICHT -->
+    <div class="cost-summary">
+      <div class="cost-row">
+        <span>Arbeitszeiten (netto):</span>
+        <span id="arbeitszeiten-netto">€ 0,00</span>
+      </div>
+      <div class="cost-row" id="anfahrt-row" style="display: none;">
+        <span>Anfahrtspauschale:</span>
+        <span id="anfahrt-betrag">€ 0,00</span>
+      </div>
+      <div class="cost-row" id="express-row" style="display: none;">
+        <span>Express-Zuschlag:</span>
+        <span id="express-betrag">€ 0,00</span>
+      </div>
+      <div class="cost-row" id="wochenend-row" style="display: none;">
+        <span>Wochenend-Zuschlag:</span>
+        <span id="wochenend-betrag">€ 0,00</span>
+      </div>
+      <hr>
+      <div class="cost-row">
+        <span><strong>Gesamtkosten (netto):</strong></span>
+        <span id="gesamt-kosten"><strong>€ 0,00</strong></span>
+      </div>
+      <div class="cost-row">
+        <span>Inkl. MwSt (${getSetting("mwst_satz", "19")}%):</span>
+        <span id="gesamt-mwst">€ 0,00</span>
+      </div>
+    </div>
+
+    <style>
+    .required-indicator {
+    color: #ef4444;
+    font-weight: bold;
+  }
+
+  .field-error {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    display: none;
+  }
+
+  .field-error.show {
+    display: block;
+  }
+
+  .validation-summary {
+    background: linear-gradient(135deg, 
+      rgba(239, 68, 68, 0.1) 0%, 
+      rgba(239, 68, 68, 0.05) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+  }
+
+  .validation-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: #ef4444;
+    margin-bottom: 0.5rem;
+  }
+
+  .validation-summary ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: #ef4444;
+  }
+
+  .validation-summary li {
+    margin-bottom: 0.25rem;
+  }
+
+  /* VERBESSERTE FORM-STYLES */
+  .form-select:invalid,
+  .form-input:invalid {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+  }
+
+  .form-select:valid,
+  .form-input:valid {
+    border-color: #10b981;
+  }
+
+  .form-select:disabled {
+    background-color: var(--clr-surface-a10);
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* LOADING BUTTON STYLES */
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn .fa-spinner {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* FOCUS IMPROVEMENTS */
+  .form-select:focus,
+  .form-input:focus,
+  .form-textarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(175, 234, 180, 0.2);
+  }
+
+  /* PLACEHOLDER IMPROVEMENTS */
+  .form-input::placeholder,
+  .form-textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+  }
+    
+    /* SCHÖNE ZUSCHLAG-STYLES */
+    .zuschlag-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .zuschlag-card {
+      background: linear-gradient(135deg, 
+        var(--clr-surface-a10, #2a2a2a) 0%, 
+        var(--clr-surface-a20, #333333) 100%);
+      border-radius: 12px;
+      border: 1px solid var(--border-color, #555);
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .zuschlag-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+      border-color: var(--accent-primary, #afeab4);
+    }
+
+    .zuschlag-checkbox-container {
+      position: relative;
+    }
+
+    .zuschlag-checkbox {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      z-index: 2;
+    }
+
+    .zuschlag-label {
+      display: flex;
+      align-items: center;
+      padding: 1.5rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      gap: 1rem;
+      position: relative;
+    }
+
+    .zuschlag-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      color: white;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    }
+
+    .zuschlag-icon.express {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+    }
+
+    .zuschlag-icon.weekend {
+      background: linear-gradient(135deg, #10b981, #059669);
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .zuschlag-content {
+      flex: 1;
+    }
+
+    .zuschlag-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary, #caf1cd);
+      margin-bottom: 0.25rem;
+    }
+
+    .zuschlag-amount {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--accent-primary, #afeab4);
+      margin-bottom: 0.25rem;
+    }
+
+    .zuschlag-description {
+      font-size: 0.9rem;
+      color: var(--text-secondary, #a1e6a8);
+      opacity: 0.8;
+    }
+
+    .zuschlag-toggle {
+      width: 60px;
+      height: 32px;
+      background: var(--clr-surface-a30, #555);
+      border-radius: 16px;
+      position: relative;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border-radius: 50%;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    /* AKTIVE ZUSTÄNDE */
+    .zuschlag-checkbox:checked + .zuschlag-label {
+      background: linear-gradient(135deg, 
+        rgba(175, 234, 180, 0.1) 0%, 
+        rgba(175, 234, 180, 0.05) 100%);
+    }
+
+    .zuschlag-checkbox:checked + .zuschlag-label .zuschlag-toggle {
+      background: var(--accent-primary, #afeab4);
+      border-color: var(--accent-primary, #afeab4);
+    }
+
+    .zuschlag-checkbox:checked + .zuschlag-label .toggle-slider {
+      transform: translateX(28px);
+      background: white;
+    }
+
+    .zuschlag-checkbox:checked + .zuschlag-label .zuschlag-icon {
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
+    }
+
+    .zuschlag-checkbox:checked + .zuschlag-label .zuschlag-icon.express {
+      box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
+    }
+
+    .zuschlag-checkbox:checked + .zuschlag-label .zuschlag-icon.weekend {
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    }
+
+    /* HOVER-EFFEKTE */
+    .zuschlag-card:hover .zuschlag-icon {
+      transform: scale(1.05);
+    }
+
+    .zuschlag-checkbox:checked + .zuschlag-label:hover .zuschlag-icon {
+      transform: scale(1.15);
+    }
+
+    /* MOBILE RESPONSIVE */
+    @media (max-width: 768px) {
+      .zuschlag-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .zuschlag-label {
+        padding: 1rem;
+      }
+      
+      .zuschlag-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.2rem;
+      }
+    }
+
+    /* ANIMATIONEN */
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .zuschlag-checkbox:checked + .zuschlag-label .zuschlag-icon {
+      animation: pulse 0.6s ease-in-out;
+    }
+    </style>
+  </form>
+`;
+
+  const footer = `
+    <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
+    <button type="button" class="btn btn-primary" onclick="saveAuftrag(${
+      auftragId || "null"
+    })">
+      ${isEdit ? "Aktualisieren" : "Erstellen"}
+    </button>
   `;
+
+  createModal(isEdit ? "Auftrag bearbeiten" : "Neuer Auftrag", content, footer);
+
+  // Fahrzeuge laden falls Kunde bereits ausgewählt
+  if (auftrag?.kunden_id) {
+    await loadKundenFahrzeuge(auftrag.kunden_id, auftrag.fahrzeug_id);
+  }
+
+  // Berechnungen aktualisieren
+  setTimeout(updateAuftragCalculations, 100);
 }
 
-// ===== VIEWAUFTRAG FUNKTION ERWEITERT =====
+// NEUE FUNKTION: Position hinzufügen (wie im Rechnungsmodal)
+window.addNewPosition = function () {
+  // AUTOMATISCHE ERKENNUNG: Auftrags- oder Rechnungsmodal?
+  let tbody = document.getElementById("arbeitszeiten-tbody"); // Auftragsmodal
+  let isAuftragModal = true;
 
+  if (!tbody) {
+    tbody = document.getElementById("positionen-tbody"); // Rechnungsmodal
+    isAuftragModal = false;
+  }
+
+  if (!tbody) {
+    console.error("Keine Tabelle gefunden!");
+    showNotification("Fehler: Tabelle nicht gefunden", "error");
+    return;
+  }
+
+  const currentRows = tbody.children.length;
+  const newIndex = currentRows;
+
+  if (isAuftragModal) {
+    // AUFTRAGSMODAL: Arbeitszeiten hinzufügen
+    const basisStundenpreis = parseFloat(
+      getSetting("basis_stundenpreis", "110.00")
+    );
+
+    const newRow = document.createElement("tr");
+    newRow.id = `position-row-${newIndex}`;
+    newRow.innerHTML = `
+      <td>
+        <input type="text" class="form-input" 
+               name="beschreibung_${newIndex}" 
+               placeholder="Arbeitsschritt...">
+      </td>
+      <td>
+        <input type="number" step="0.01" class="form-input" 
+               value="${basisStundenpreis}" 
+               name="stundenpreis_${newIndex}" 
+               onchange="calculateAuftragRow(${newIndex})"
+               placeholder="${basisStundenpreis}">
+      </td>
+      <td>
+        <input type="number" step="0.1" class="form-input" 
+               name="zeit_${newIndex}" 
+               onchange="calculateAuftragRow(${newIndex})"
+               placeholder="0.0">
+      </td>
+      <td>
+        <select class="form-select" name="einheit_${newIndex}">
+          <option value="Std." selected>Std.</option>
+          <option value="Min.">Min.</option>
+          <option value="Pauschal">Pauschal</option>
+        </select>
+      </td>
+      <td>
+        <input type="number" step="0.01" class="form-input" 
+               name="gesamt_${newIndex}" 
+               readonly
+               placeholder="0,00">
+      </td>
+      <td>
+        <button type="button" class="btn btn-sm btn-danger" 
+                onclick="removePosition(${newIndex})" 
+                title="Position entfernen">
+          <i class="fas fa-times"></i>
+        </button>
+      </td>
+    `;
+
+    tbody.appendChild(newRow);
+
+    // Fokus auf Beschreibung
+    const beschreibungInput = newRow.querySelector(
+      `input[name="beschreibung_${newIndex}"]`
+    );
+    if (beschreibungInput) {
+      beschreibungInput.focus();
+    }
+
+    console.log(`✅ Neue Arbeitszeit-Position ${newIndex} hinzugefügt`);
+  } else {
+    // RECHNUNGSMODAL: Rechnungsposition hinzufügen
+    const newRow = document.createElement("tr");
+    newRow.id = `position-row-${newIndex}`;
+    newRow.innerHTML = `
+      <td>
+        <input type="text" class="form-input" 
+               name="beschreibung_${newIndex}" 
+               placeholder="Beschreibung eingeben...">
+      </td>
+      <td>
+        <input type="number" step="0.01" class="form-input" 
+               value="0" 
+               name="menge_${newIndex}" 
+               onchange="calculateRechnungRow(${newIndex})"
+               placeholder="0">
+      </td>
+      <td>
+        <select class="form-select" name="einheit_${newIndex}">
+          <option value="Std.">Std.</option>
+          <option value="Liter">Liter</option>
+          <option value="Stk." selected>Stk.</option>
+          <option value="m²">m²</option>
+          <option value="Pauschal">Pauschal</option>
+          <option value="kg">kg</option>
+        </select>
+      </td>
+      <td>
+        <input type="number" step="0.01" class="form-input" 
+               value="0" 
+               name="einzelpreis_${newIndex}" 
+               onchange="calculateRechnungRow(${newIndex})"
+               placeholder="0,00">
+      </td>
+      <td>
+        <select class="form-select" name="mwst_${newIndex}" onchange="calculateRechnungRow(${newIndex})">
+          <option value="19" selected>19%</option>
+          <option value="7">7%</option>
+          <option value="0">0%</option>
+        </select>
+      </td>
+      <td>
+        <input type="number" step="0.01" class="form-input" 
+               value="0" 
+               name="gesamt_${newIndex}" 
+               readonly>
+      </td>
+      <td>
+        <button type="button" class="btn btn-sm btn-danger" 
+                onclick="removePosition(${newIndex})" 
+                title="Position entfernen">
+          <i class="fas fa-times"></i>
+        </button>
+      </td>
+      <input type="hidden" name="kategorie_${newIndex}" value="ZUSATZ">
+    `;
+
+    tbody.appendChild(newRow);
+
+    // Fokus auf Beschreibung
+    const beschreibungInput = newRow.querySelector(
+      `input[name="beschreibung_${newIndex}"]`
+    );
+    if (beschreibungInput) {
+      beschreibungInput.focus();
+    }
+
+    console.log(`✅ Neue Rechnungs-Position ${newIndex} hinzugefügt`);
+  }
+};
+
+// NEUE FUNKTION: Position entfernen (wie im Rechnungsmodal)
+window.removePosition = function (index) {
+  const row = document.getElementById(`position-row-${index}`);
+  if (row) {
+    row.remove();
+
+    // Je nach Modal die richtige Berechnungsfunktion aufrufen
+    if (document.getElementById("arbeitszeiten-tbody")) {
+      // Auftragsmodal
+      if (typeof updateAuftragCalculations === "function") {
+        updateAuftragCalculations();
+      }
+    } else {
+      // Rechnungsmodal
+      if (typeof calculateRechnungGesamt === "function") {
+        calculateRechnungGesamt();
+      }
+    }
+
+    console.log(`✅ Position ${index} entfernt`);
+  } else {
+    console.warn(`Position ${index} nicht gefunden`);
+  }
+};
+
+// ERWEITERTE Berechnungsfunktion für einzelne Zeilen
+window.calculateAuftragRow = function (index) {
+  const stundenpreis =
+    parseFloat(
+      document.querySelector(`[name="stundenpreis_${index}"]`)?.value
+    ) || 0;
+  const zeit =
+    parseFloat(document.querySelector(`[name="zeit_${index}"]`)?.value) || 0;
+  const gesamt = stundenpreis * zeit;
+
+  const gesamtInput = document.querySelector(`[name="gesamt_${index}"]`);
+  if (gesamtInput) {
+    gesamtInput.value = gesamt.toFixed(2);
+  }
+  updateAuftragCalculations();
+};
+
+// ERWEITERTE Berechnungsfunktion mit Zuschlägen
+window.updateAuftragCalculations = function () {
+  // Basis-Arbeitszeiten berechnen
+  let arbeitszeitenNetto = 0;
+  const inputs = document.querySelectorAll('[name^="gesamt_"]');
+
+  inputs.forEach((input) => {
+    arbeitszeitenNetto += parseFloat(input.value) || 0;
+  });
+
+  // Zuschläge aus Einstellungen
+  const anfahrtspauschale = parseFloat(getSetting("anfahrtspauschale", "0"));
+  const expressZuschlag = parseFloat(getSetting("express_zuschlag", "0")) / 100;
+  const wochenendZuschlag =
+    parseFloat(getSetting("wochenend_zuschlag", "0")) / 100;
+
+  // Checkboxen prüfen
+  const anfahrtAktiv =
+    document.querySelector('[name="anfahrt_aktiv"]')?.checked || false;
+  const expressAktiv =
+    document.querySelector('[name="express_aktiv"]')?.checked || false;
+  const wochenendAktiv =
+    document.querySelector('[name="wochenend_aktiv"]')?.checked || false;
+
+  // Zuschläge berechnen
+  let anfahrtBetrag = 0;
+  let expressBetrag = 0;
+  let wochenendBetrag = 0;
+
+  if (anfahrtAktiv) {
+    anfahrtBetrag = anfahrtspauschale;
+  }
+
+  if (expressAktiv) {
+    expressBetrag = arbeitszeitenNetto * expressZuschlag;
+  }
+
+  if (wochenendAktiv) {
+    wochenendBetrag = arbeitszeitenNetto * wochenendZuschlag;
+  }
+
+  // Gesamtkosten
+  const gesamtKosten =
+    arbeitszeitenNetto + anfahrtBetrag + expressBetrag + wochenendBetrag;
+  const mwstSatz = parseFloat(getSetting("mwst_satz", "19")) / 100;
+  const gesamtMitMwst = gesamtKosten * (1 + mwstSatz);
+
+  // UI aktualisieren
+  const arbeitszeitenEl = document.getElementById("arbeitszeiten-netto");
+  if (arbeitszeitenEl)
+    arbeitszeitenEl.textContent = formatCurrency(arbeitszeitenNetto);
+
+  // Anfahrt
+  const anfahrtRow = document.getElementById("anfahrt-row");
+  if (anfahrtRow) {
+    if (anfahrtAktiv && anfahrtBetrag > 0) {
+      anfahrtRow.style.display = "flex";
+      const anfahrtBetragEl = document.getElementById("anfahrt-betrag");
+      if (anfahrtBetragEl)
+        anfahrtBetragEl.textContent = formatCurrency(anfahrtBetrag);
+    } else {
+      anfahrtRow.style.display = "none";
+    }
+  }
+
+  // Express
+  const expressRow = document.getElementById("express-row");
+  if (expressRow) {
+    if (expressAktiv && expressBetrag > 0) {
+      expressRow.style.display = "flex";
+      const expressBetragEl = document.getElementById("express-betrag");
+      if (expressBetragEl)
+        expressBetragEl.textContent = formatCurrency(expressBetrag);
+    } else {
+      expressRow.style.display = "none";
+    }
+  }
+
+  // Wochenend
+  const wochenendRow = document.getElementById("wochenend-row");
+  if (wochenendRow) {
+    if (wochenendAktiv && wochenendBetrag > 0) {
+      wochenendRow.style.display = "flex";
+      const wochenendBetragEl = document.getElementById("wochenend-betrag");
+      if (wochenendBetragEl)
+        wochenendBetragEl.textContent = formatCurrency(wochenendBetrag);
+    } else {
+      wochenendRow.style.display = "none";
+    }
+  }
+
+  // Gesamtbeträge
+  const gesamtKostenEl = document.getElementById("gesamt-kosten");
+  const gesamtMwstEl = document.getElementById("gesamt-mwst");
+
+  if (gesamtKostenEl) gesamtKostenEl.textContent = formatCurrency(gesamtKosten);
+  if (gesamtMwstEl) gesamtMwstEl.textContent = formatCurrency(gesamtMitMwst);
+};
+
+// ERWEITERTE Speicherfunktion
+window.saveAuftrag = async function (auftragId = null) {
+  console.log("💾 Speichere Auftrag...");
+
+  // 1. FORM-ELEMENT HOLEN
+  const form = document.getElementById("auftrag-form");
+  if (!form) {
+    showNotification("Fehler: Formular nicht gefunden", "error");
+    return;
+  }
+
+  // 2. HTML5-VALIDIERUNG PRÜFEN
+  if (!form.checkValidity()) {
+    console.warn("❌ HTML5-Validierung fehlgeschlagen");
+
+    // Zeige Fehlermeldungen an
+    const firstInvalidElement = form.querySelector(":invalid");
+    if (firstInvalidElement) {
+      firstInvalidElement.focus();
+      firstInvalidElement.reportValidity();
+    }
+
+    showNotification("Bitte füllen Sie alle Pflichtfelder aus", "error");
+    return;
+  }
+
+  // 3. FORMDATA SAMMELN
+  const formData = new FormData(form);
+
+  // 4. MANUELLE VALIDIERUNG (zusätzlich zur HTML5-Validierung)
+  const kundenId = parseInt(formData.get("kunden_id"));
+  const fahrzeugId = parseInt(formData.get("fahrzeug_id"));
+  const datum = formData.get("datum");
+
+  // Validierungsfehler sammeln
+  const errors = [];
+
+  if (!kundenId || kundenId <= 0) {
+    errors.push("Kunde muss ausgewählt werden");
+    // Visuelles Feedback
+    const kundenSelect = document.querySelector('[name="kunden_id"]');
+    if (kundenSelect) {
+      kundenSelect.style.borderColor = "#ef4444";
+      setTimeout(() => (kundenSelect.style.borderColor = ""), 3000);
+    }
+  }
+
+  if (!fahrzeugId || fahrzeugId <= 0) {
+    errors.push("Fahrzeug muss ausgewählt werden");
+    // Visuelles Feedback
+    const fahrzeugSelect = document.querySelector('[name="fahrzeug_id"]');
+    if (fahrzeugSelect) {
+      fahrzeugSelect.style.borderColor = "#ef4444";
+      setTimeout(() => (fahrzeugSelect.style.borderColor = ""), 3000);
+    }
+  }
+
+  if (!datum || datum.trim() === "") {
+    errors.push("Datum muss angegeben werden");
+    // Visuelles Feedback
+    const datumInput = document.querySelector('[name="datum"]');
+    if (datumInput) {
+      datumInput.style.borderColor = "#ef4444";
+      setTimeout(() => (datumInput.style.borderColor = ""), 3000);
+    }
+  }
+
+  // 5. POSITIONEN VALIDIERUNG
+  const beschreibungInputs = document.querySelectorAll(
+    '[name^="beschreibung_"]'
+  );
+  const positionen = [];
+  let hasValidPositions = false;
+
+  beschreibungInputs.forEach((input) => {
+    const index = input.name.split("_")[1];
+    const beschreibung = input.value?.trim();
+    const stundenpreis =
+      parseFloat(
+        document.querySelector(`[name="stundenpreis_${index}"]`)?.value
+      ) || 0;
+    const zeit =
+      parseFloat(document.querySelector(`[name="zeit_${index}"]`)?.value) || 0;
+    const einheit =
+      document.querySelector(`[name="einheit_${index}"]`)?.value || "Std.";
+    const gesamt =
+      parseFloat(document.querySelector(`[name="gesamt_${index}"]`)?.value) ||
+      0;
+
+    if (beschreibung && (zeit > 0 || gesamt > 0)) {
+      positionen.push({
+        beschreibung,
+        stundenpreis,
+        zeit,
+        einheit,
+        gesamt,
+      });
+      hasValidPositions = true;
+    }
+  });
+
+  if (!hasValidPositions) {
+    errors.push("Mindestens eine Arbeitsposition muss ausgefüllt werden");
+  }
+
+  // 6. FEHLER ANZEIGEN FALLS VORHANDEN
+  if (errors.length > 0) {
+    console.error("❌ Validierungsfehler:", errors);
+    showNotification(`Validierungsfehler:\n• ${errors.join("\n• ")}`, "error");
+    return;
+  }
+
+  // 7. ZUSCHLÄGE SAMMELN
+  const anfahrtAktiv =
+    document.querySelector('[name="anfahrt_aktiv"]')?.checked || false;
+  const expressAktiv =
+    document.querySelector('[name="express_aktiv"]')?.checked || false;
+  const wochenendAktiv =
+    document.querySelector('[name="wochenend_aktiv"]')?.checked || false;
+
+  // 8. DATEN-OBJEKT ERSTELLEN
+  const data = {
+    kunden_id: kundenId,
+    fahrzeug_id: fahrzeugId,
+    datum,
+    status: formData.get("status") || "offen",
+    positionen,
+    bemerkungen: formData.get("bemerkungen")?.trim() || "",
+    // Zuschläge
+    anfahrt_aktiv: anfahrtAktiv,
+    express_aktiv: expressAktiv,
+    wochenend_aktiv: wochenendAktiv,
+  };
+
+  console.log("📋 Auftragsdaten:", data);
+
+  // 9. SPEICHERN MIT LOADING-INDIKATOR
+  try {
+    // Loading-Zustand anzeigen
+    const saveButton = document.querySelector('button[onclick*="saveAuftrag"]');
+    const originalText = saveButton?.textContent;
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.innerHTML =
+        '<i class="fas fa-spinner fa-spin"></i> Speichert...';
+    }
+
+    if (auftragId) {
+      console.log(`📝 Aktualisiere Auftrag ${auftragId}`);
+      await apiCall(`/api/auftraege/${auftragId}`, "PUT", data);
+      showNotification("Auftrag erfolgreich aktualisiert", "success");
+    } else {
+      console.log("➕ Erstelle neuen Auftrag");
+      const result = await apiCall("/api/auftraege", "POST", data);
+      console.log("✅ Auftrag erstellt:", result);
+      showNotification("Auftrag erfolgreich erstellt", "success");
+    }
+
+    closeModal();
+    loadAuftraege();
+  } catch (error) {
+    console.error("❌ Speicherfehler:", error);
+    showNotification(
+      `Fehler beim Speichern: ${error.message || "Unbekannter Fehler"}`,
+      "error"
+    );
+  } finally {
+    // Loading-Zustand zurücksetzen
+    const saveButton = document.querySelector('button[onclick*="saveAuftrag"]');
+    if (saveButton && originalText) {
+      saveButton.disabled = false;
+      saveButton.textContent = originalText;
+    }
+  }
+};
+
+// VERBESSERTE VALIDIERUNGS-HILFSFUNKTIONEN
+
+// Feld als fehlerhaft markieren
+function markFieldAsError(fieldName, message) {
+  const field = document.querySelector(`[name="${fieldName}"]`);
+  if (field) {
+    field.style.borderColor = "#ef4444";
+    field.style.boxShadow = "0 0 0 2px rgba(239, 68, 68, 0.2)";
+
+    // Tooltip mit Fehlermeldung
+    field.title = message;
+
+    // Nach 3 Sekunden zurücksetzen
+    setTimeout(() => {
+      field.style.borderColor = "";
+      field.style.boxShadow = "";
+      field.title = "";
+    }, 3000);
+  }
+}
+
+// Echtzeit-Validierung für Kunde-Auswahl
+window.validateKundeSelection = function () {
+  const kundenSelect = document.querySelector('[name="kunden_id"]');
+  const fahrzeugSelect = document.querySelector('[name="fahrzeug_id"]');
+
+  if (kundenSelect && kundenSelect.value) {
+    kundenSelect.style.borderColor = "#10b981";
+
+    // Fahrzeug-Select aktivieren
+    if (fahrzeugSelect) {
+      fahrzeugSelect.disabled = false;
+      fahrzeugSelect.innerHTML =
+        '<option value="">Fahrzeug auswählen...</option>';
+    }
+  } else {
+    markFieldAsError("kunden_id", "Kunde muss ausgewählt werden");
+
+    // Fahrzeug-Select deaktivieren
+    if (fahrzeugSelect) {
+      fahrzeugSelect.disabled = true;
+      fahrzeugSelect.innerHTML =
+        '<option value="">Zuerst Kunde auswählen...</option>';
+    }
+  }
+};
+
+// Echtzeit-Validierung für Fahrzeug-Auswahl
+window.validateFahrzeugSelection = function () {
+  const fahrzeugSelect = document.querySelector('[name="fahrzeug_id"]');
+
+  if (fahrzeugSelect && fahrzeugSelect.value) {
+    fahrzeugSelect.style.borderColor = "#10b981";
+  } else {
+    markFieldAsError("fahrzeug_id", "Fahrzeug muss ausgewählt werden");
+  }
+};
+
+// ERWEITERTE KUNDENFUNKTION mit Validierung
+window.loadKundenFahrzeuge = async function (
+  kundenId,
+  selectedFahrzeugId = null
+) {
+  console.log(`🚗 Lade Fahrzeuge für Kunde ${kundenId}`);
+
+  // Validierung
+  validateKundeSelection();
+
+  if (!kundenId) {
+    console.warn("Keine Kunden-ID angegeben");
+    return;
+  }
+
+  try {
+    await ensureKundenFunctions();
+
+    const fahrzeuge = await apiCall(`/api/fahrzeuge?kunden_id=${kundenId}`);
+    const fahrzeugSelect = document.getElementById("fahrzeug-select");
+
+    if (!fahrzeugSelect) {
+      console.error("Fahrzeug-Select nicht gefunden");
+      return;
+    }
+
+    if (fahrzeuge.length === 0) {
+      fahrzeugSelect.innerHTML =
+        '<option value="">Keine Fahrzeuge für diesen Kunden</option>';
+      fahrzeugSelect.disabled = true;
+      return;
+    }
+
+    fahrzeugSelect.disabled = false;
+    fahrzeugSelect.innerHTML = `
+      <option value="">Fahrzeug auswählen...</option>
+      ${fahrzeuge
+        .map(
+          (f) =>
+            `<option value="${f.id}" ${
+              f.id == selectedFahrzeugId ? "selected" : ""
+            }>
+          ${f.kennzeichen} - ${f.marke} ${f.modell}
+        </option>`
+        )
+        .join("")}
+    `;
+
+    console.log(`✅ ${fahrzeuge.length} Fahrzeuge geladen`);
+
+    // Validierung nach dem Laden
+    if (selectedFahrzeugId) {
+      validateFahrzeugSelection();
+    }
+  } catch (error) {
+    console.error("❌ Fehler beim Laden der Fahrzeuge:", error);
+    showNotification("Fehler beim Laden der Fahrzeuge", "error");
+  }
+};
+
+// ERWEITERTE createRechnungFromAuftrag Funktion - MIT ZUSCHLÄGEN!
+async function createRechnungFromAuftrag(auftragId) {
+  try {
+    const auftrag = await apiCall(`/api/auftraege/${auftragId}`);
+    const mwstSatz = parseFloat(getSetting("mwst_satz", "19"));
+
+    // Validierung
+    if (!auftrag || !auftrag.id) {
+      throw new Error(`Auftrag mit ID ${auftragId} nicht gefunden`);
+    }
+
+    if (!auftrag.auftrag_nr) {
+      throw new Error(`Auftrag ${auftrag.id} hat keine gültige Auftragsnummer`);
+    }
+
+    console.log(
+      `📋 Erstelle Rechnung aus Auftrag ${auftrag.auftrag_nr} (ID: ${auftrag.id})`
+    );
+
+    // Rechnungspositionen zusammenstellen
+    let rechnungsPositionen = [];
+
+    // 1. ARBEITSZEITEN hinzufügen
+    if (auftrag.positionen && auftrag.positionen.length > 0) {
+      auftrag.positionen.forEach((pos) => {
+        rechnungsPositionen.push({
+          kategorie: "ARBEITSZEITEN",
+          beschreibung: pos.beschreibung,
+          menge: pos.zeit,
+          einheit: pos.einheit,
+          einzelpreis: pos.stundenpreis,
+          mwst_prozent: mwstSatz,
+          gesamt: pos.gesamt,
+        });
+      });
+    }
+
+    // 2. ANFAHRTSPAUSCHALE hinzufügen (falls aktiv)
+    if (auftrag.anfahrt_aktiv) {
+      const anfahrtspauschale = parseFloat(
+        getSetting("anfahrtspauschale", "0")
+      );
+      if (anfahrtspauschale > 0) {
+        rechnungsPositionen.push({
+          kategorie: "ZUSATZ",
+          beschreibung: "Anfahrtspauschale",
+          menge: 1,
+          einheit: "Pauschal",
+          einzelpreis: anfahrtspauschale,
+          mwst_prozent: mwstSatz,
+          gesamt: anfahrtspauschale,
+        });
+      }
+    }
+
+    // 3. EXPRESS-ZUSCHLAG hinzufügen (falls aktiv)
+    if (auftrag.express_aktiv) {
+      const expressZuschlag = parseFloat(getSetting("express_zuschlag", "0"));
+      const arbeitsKosten = (auftrag.positionen || []).reduce(
+        (sum, pos) => sum + (pos.gesamt || 0),
+        0
+      );
+      const expressBetrag = arbeitsKosten * (expressZuschlag / 100);
+
+      if (expressBetrag > 0) {
+        rechnungsPositionen.push({
+          kategorie: "ZUSATZ",
+          beschreibung: `Express-Zuschlag (+${expressZuschlag}%)`,
+          menge: 1,
+          einheit: "Pauschal",
+          einzelpreis: expressBetrag,
+          mwst_prozent: mwstSatz,
+          gesamt: expressBetrag,
+        });
+      }
+    }
+
+    // 4. WOCHENEND-ZUSCHLAG hinzufügen (falls aktiv)
+    if (auftrag.wochenend_aktiv) {
+      const wochenendZuschlag = parseFloat(
+        getSetting("wochenend_zuschlag", "0")
+      );
+      const arbeitsKosten = (auftrag.positionen || []).reduce(
+        (sum, pos) => sum + (pos.gesamt || 0),
+        0
+      );
+      const wochenendBetrag = arbeitsKosten * (wochenendZuschlag / 100);
+
+      if (wochenendBetrag > 0) {
+        rechnungsPositionen.push({
+          kategorie: "ZUSATZ",
+          beschreibung: `Wochenend-Zuschlag (+${wochenendZuschlag}%)`,
+          menge: 1,
+          einheit: "Pauschal",
+          einzelpreis: wochenendBetrag,
+          mwst_prozent: mwstSatz,
+          gesamt: wochenendBetrag,
+        });
+      }
+    }
+
+    // Auftrag in Rechnung umwandeln
+    const rechnungsData = {
+      auftrag_id: auftrag.id,
+      kunden_id: auftrag.kunden_id,
+      fahrzeug_id: auftrag.fahrzeug_id,
+      rechnungsdatum: new Date().toISOString().split("T")[0],
+      auftragsdatum: auftrag.datum,
+      positionen: rechnungsPositionen,
+      rabatt_prozent: 0,
+      status: "offen",
+    };
+
+    console.log(
+      `📊 Rechnung wird erstellt mit ${rechnungsPositionen.length} Positionen:`,
+      rechnungsPositionen
+    );
+
+    const result = await apiCall("/api/rechnungen", "POST", rechnungsData);
+
+    showNotification(
+      `Rechnung ${result.rechnung_nr} erfolgreich aus Auftrag ${auftrag.auftrag_nr} erstellt (inkl. Zuschläge)`,
+      "success"
+    );
+
+    // Auftrag als abgeschlossen markieren
+    auftrag.status = "abgeschlossen";
+    await apiCall(`/api/auftraege/${auftragId}`, "PUT", auftrag);
+
+    loadAuftraege();
+    showSection("rechnungen");
+  } catch (error) {
+    console.error("❌ Fehler in createRechnungFromAuftrag:", error);
+    showNotification(
+      `Fehler beim Erstellen der Rechnung: ${error.message}`,
+      "error"
+    );
+  }
+}
+
+// Bestehende Funktionen beibehalten...
+async function ensureKundenFunctions() {
+  if (!window.loadKunden) {
+    try {
+      const kundenModule = await import("./kunden.js");
+      window.loadKunden = kundenModule.loadKunden;
+    } catch (error) {
+      console.warn("Kunden-Modul konnte nicht geladen werden:", error);
+    }
+  }
+}
+
+// View-Funktion bleibt unverändert
 async function viewAuftrag(id) {
   try {
     const auftrag = await apiCall(`/api/auftraege/${id}`);
@@ -529,247 +1547,7 @@ async function viewAuftrag(id) {
   }
 }
 
-// ===== BESTEHENDE FUNKTIONEN (unverändert) =====
-
-async function showAuftragModal(auftragId = null) {
-  const isEdit = !!auftragId;
-  let auftrag = null;
-
-  if (isEdit) {
-    auftrag = await apiCall(`/api/auftraege/${auftragId}`);
-  }
-
-  if (!window.kunden || window.kunden.length === 0) {
-    await ensureKundenFunctions();
-    await loadKunden();
-  }
-
-  const kundenOptions = window.kunden
-    .map(
-      (k) =>
-        `<option value="${k.id}" ${
-          k.id === auftrag?.kunden_id ? "selected" : ""
-        }>${k.name}</option>`
-    )
-    .join("");
-
-  // Standard-Arbeitsschritte aus Einstellungen holen
-  const standardArbeitsschritte = getSetting(
-    "standard_arbeitsschritte",
-    "Demontage/Vorbereitung\nSchleifen/Spachteln\nGrundierung\nZwischenschliff\nBasislack\nKlarlack\nPolieren/Finish\nMontage"
-  )
-    .split("\n")
-    .filter((s) => s.trim());
-
-  // Basis-Stundenpreis aus Einstellungen
-  const basisStundenpreis = parseFloat(
-    getSetting("basis_stundenpreis", "110.00")
-  );
-
-  const arbeitsschritteRows = standardArbeitsschritte
-    .map((schritt, index) => {
-      const position = auftrag?.positionen?.[index] || {};
-      return `
-        <tr>
-            <td><input type="text" class="form-input" value="${
-              position.beschreibung || schritt
-            }" name="beschreibung_${index}"></td>
-            <td><input type="number" step="0.01" class="form-input" value="${
-              position.stundenpreis || basisStundenpreis
-            }" name="stundenpreis_${index}"></td>
-            <td><input type="number" step="0.01" class="form-input" value="${
-              position.zeit || 0
-            }" name="zeit_${index}" onchange="calculateAuftragRow(${index})"></td>
-            <td>Std.</td>
-            <td><input type="number" step="0.01" class="form-input" value="${
-              position.gesamt || 0
-            }" name="gesamt_${index}" readonly></td>
-        </tr>
-      `;
-    })
-    .join("");
-
-  const content = `
-        <form id="auftrag-form">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label class="form-label">Kunde *</label>
-                    <select class="form-select" name="kunden_id" required onchange="loadKundenFahrzeuge(this.value)">
-                        <option value="">Kunde auswählen</option>
-                        ${kundenOptions}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Fahrzeug *</label>
-                    <select class="form-select" name="fahrzeug_id" required>
-                        <option value="">Erst Kunde auswählen</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Auftragsdatum *</label>
-                    <input type="date" class="form-input" name="datum" value="${
-                      auftrag?.datum || new Date().toISOString().split("T")[0]
-                    }" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Status</label>
-                    <select class="form-select" name="status">
-                        <option value="offen" ${
-                          auftrag?.status === "offen" ? "selected" : ""
-                        }>Offen</option>
-                        <option value="in_bearbeitung" ${
-                          auftrag?.status === "in_bearbeitung" ? "selected" : ""
-                        }>In Bearbeitung</option>
-                        <option value="abgeschlossen" ${
-                          auftrag?.status === "abgeschlossen" ? "selected" : ""
-                        }>Abgeschlossen</option>
-                    </select>
-                </div>
-            </div>
-            
-            <h3>Arbeitszeiten</h3>
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>Beschreibung</th>
-                        <th>Stundenpreis</th>
-                        <th>Zeit</th>
-                        <th>Einheit</th>
-                        <th>Gesamt</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${arbeitsschritteRows}
-                </tbody>
-            </table>
-            
-            <div class="form-group">
-                <label class="form-label">Bemerkungen</label>
-                <textarea class="form-textarea" name="bemerkungen" rows="3">${
-                  auftrag?.bemerkungen || ""
-                }</textarea>
-            </div>
-            
-            <div class="cost-summary">
-                <div class="cost-row">
-                    <span>Gesamtkosten (netto):</span>
-                    <span id="gesamt-kosten">€ 0,00</span>
-                </div>
-                <div class="cost-row">
-                    <span>Inkl. MwSt (${getSetting("mwst_satz", "19")}%):</span>
-                    <span id="gesamt-mwst">€ 0,00</span>
-                </div>
-            </div>
-        </form>
-    `;
-
-  const footer = `
-    <button type="button" class="btn btn-secondary" onclick="closeModal()">Abbrechen</button>
-    <button type="button" class="btn btn-primary" onclick="saveAuftrag(${
-      auftragId || "null"
-    })">
-      ${isEdit ? "Aktualisieren" : "Erstellen"}
-    </button>
-  `;
-
-  createModal(isEdit ? "Auftrag bearbeiten" : "Neuer Auftrag", content, footer);
-
-  // Fahrzeuge laden falls Kunde bereits ausgewählt
-  if (auftrag?.kunden_id) {
-    await loadKundenFahrzeuge(auftrag.kunden_id, auftrag.fahrzeug_id);
-  }
-
-  // Berechnungen aktualisieren
-  setTimeout(updateAuftragCalculations, 100);
-}
-
-// Weitere bestehende Funktionen bleiben unverändert...
-// (calculateAuftragRow, updateAuftragCalculations, saveAuftrag, deleteAuftrag, etc.)
-
-window.calculateAuftragRow = function (index) {
-  const stundenpreis =
-    parseFloat(
-      document.querySelector(`[name="stundenpreis_${index}"]`).value
-    ) || 0;
-  const zeit =
-    parseFloat(document.querySelector(`[name="zeit_${index}"]`).value) || 0;
-  const gesamt = stundenpreis * zeit;
-
-  document.querySelector(`[name="gesamt_${index}"]`).value = gesamt.toFixed(2);
-  updateAuftragCalculations();
-};
-
-const updateAuftragCalculations = () => {
-  let gesamtKosten = 0;
-  const inputs = document.querySelectorAll('[name^="gesamt_"]');
-
-  inputs.forEach((input) => {
-    gesamtKosten += parseFloat(input.value) || 0;
-  });
-
-  const mwstSatz = parseFloat(getSetting("mwst_satz", "19")) / 100;
-  const gesamtKostenEl = document.getElementById("gesamt-kosten");
-  const gesamtMwstEl = document.getElementById("gesamt-mwst");
-
-  if (gesamtKostenEl) gesamtKostenEl.textContent = formatCurrency(gesamtKosten);
-  if (gesamtMwstEl)
-    gesamtMwstEl.textContent = formatCurrency(gesamtKosten * (1 + mwstSatz));
-};
-
-window.saveAuftrag = async function (auftragId = null) {
-  const form = document.getElementById("auftrag-form");
-  const formData = new FormData(form);
-  const positionen = [];
-
-  const maxRows = document.querySelectorAll('[name^="beschreibung_"]').length;
-
-  for (let i = 0; i < maxRows; i++) {
-    const beschreibung = formData.get(`beschreibung_${i}`);
-    const stundenpreis = parseFloat(formData.get(`stundenpreis_${i}`)) || 0;
-    const zeit = parseFloat(formData.get(`zeit_${i}`)) || 0;
-    const gesamt = parseFloat(formData.get(`gesamt_${i}`)) || 0;
-    if (beschreibung && (zeit > 0 || gesamt > 0)) {
-      positionen.push({
-        beschreibung,
-        stundenpreis,
-        zeit,
-        einheit: "Std.",
-        gesamt,
-      });
-    }
-  }
-
-  const data = {
-    kunden_id: parseInt(formData.get("kunden_id")),
-    fahrzeug_id: parseInt(formData.get("fahrzeug_id")),
-    datum: formData.get("datum"),
-    status: formData.get("status"),
-    positionen,
-    bemerkungen: formData.get("bemerkungen"),
-  };
-
-  try {
-    if (auftragId) {
-      await apiCall(`/api/auftraege/${auftragId}`, "PUT", data);
-      showNotification("Auftrag erfolgreich aktualisiert", "success");
-    } else {
-      await apiCall("/api/auftraege", "POST", data);
-      showNotification("Auftrag erfolgreich erstellt", "success");
-
-      // E-Mail-Benachrichtigung senden falls aktiviert
-      const emailBenachrichtigung = getSetting("email_benachrichtigung", "0");
-      if (emailBenachrichtigung === "1") {
-        // Hier würde die E-Mail-Funktionalität implementiert werden
-        console.log("E-Mail-Benachrichtigung würde gesendet werden");
-      }
-    }
-    closeModal();
-    loadAuftraege();
-  } catch (error) {
-    showNotification("Fehler beim Speichern des Auftrags", "error");
-  }
-};
-
+// Delete-Funktion
 async function deleteAuftrag(id) {
   if (
     confirm(
@@ -786,108 +1564,23 @@ async function deleteAuftrag(id) {
   }
 }
 
-async function updateAuftragStatus(id, status) {
+// Print-Funktion (Platzhalter - kann erweitert werden)
+async function printAuftrag(id) {
   try {
     const auftrag = await apiCall(`/api/auftraege/${id}`);
-    auftrag.status = status;
-    await apiCall(`/api/auftraege/${id}`, "PUT", auftrag);
-    showNotification("Status erfolgreich aktualisiert", "success");
-    loadAuftraege();
+    // Hier würde die Drucklogik kommen
+    showNotification("Druckfunktion noch nicht implementiert", "info");
   } catch (error) {
-    showNotification("Fehler beim Aktualisieren des Status", "error");
-    loadAuftraege();
+    showNotification("Fehler beim Drucken", "error");
   }
 }
 
-async function createRechnungFromAuftrag(auftragId) {
-  try {
-    const auftrag = await apiCall(`/api/auftraege/${auftragId}`);
-    const mwstSatz = parseFloat(getSetting("mwst_satz", "19"));
-
-    // Validierung
-    if (!auftrag || !auftrag.id) {
-      throw new Error(`Auftrag mit ID ${auftragId} nicht gefunden`);
-    }
-
-    if (!auftrag.auftrag_nr) {
-      throw new Error(`Auftrag ${auftrag.id} hat keine gültige Auftragsnummer`);
-    }
-
-    console.log(
-      `📋 Erstelle Rechnung aus Auftrag ${auftrag.auftrag_nr} (ID: ${auftrag.id})`
-    );
-
-    // Auftrag in Rechnung umwandeln
-    const rechnungsData = {
-      auftrag_id: auftrag.id,
-      kunden_id: auftrag.kunden_id,
-      fahrzeug_id: auftrag.fahrzeug_id,
-      rechnungsdatum: new Date().toISOString().split("T")[0],
-      auftragsdatum: auftrag.datum,
-      positionen: (auftrag.positionen || []).map((pos) => ({
-        kategorie: "ARBEITSZEITEN",
-        beschreibung: pos.beschreibung,
-        menge: pos.zeit,
-        einheit: pos.einheit,
-        einzelpreis: pos.stundenpreis,
-        mwst_prozent: mwstSatz,
-        gesamt: pos.gesamt,
-      })),
-      rabatt_prozent: 0,
-      status: "offen",
-    };
-
-    const result = await apiCall("/api/rechnungen", "POST", rechnungsData);
-
-    // Validierung: Prüfen ob Rechnung korrekt erstellt wurde
-    const neueRechnung = await apiCall(`/api/rechnungen/${result.id}`);
-    if (!neueRechnung.auftrag_nr) {
-      console.error(
-        "❌ Warnung: Neue Rechnung hat keine auftrag_nr!",
-        neueRechnung
-      );
-      showNotification(
-        "Warnung: Rechnungserstellung teilweise fehlerhaft",
-        "warning"
-      );
-    } else {
-      console.log(
-        `✅ Rechnung korrekt erstellt: ${result.rechnung_nr} → ${neueRechnung.auftrag_nr}`
-      );
-    }
-
-    showNotification(
-      `Rechnung ${result.rechnung_nr} erfolgreich aus Auftrag ${auftrag.auftrag_nr} erstellt`,
-      "success"
-    );
-
-    // Auftrag als abgeschlossen markieren
-    auftrag.status = "abgeschlossen";
-    await apiCall(`/api/auftraege/${auftragId}`, "PUT", auftrag);
-
-    loadAuftraege();
-    showSection("rechnungen");
-  } catch (error) {
-    console.error("❌ Fehler in createRechnungFromAuftrag:", error);
-    showNotification(
-      `Fehler beim Erstellen der Rechnung: ${error.message}`,
-      "error"
-    );
-  }
-}
-
-// Event Listener für Einstellungsänderungen
-window.addEventListener("settingsUpdated", () => {
-  console.log("Einstellungen wurden aktualisiert - Aufträge-Modul reagiert");
-  // Hier könnten weitere Aktionen ausgeführt werden
-});
-
-// Export der Funktionen
+// Export und globale Funktionen
 window.showAuftragModal = showAuftragModal;
-window.printAuftrag = printAuftrag;
 window.viewAuftrag = viewAuftrag;
-window.editAuftrag = showAuftragModal; // Alias für editAuftrag
+window.editAuftrag = showAuftragModal;
 window.deleteAuftrag = deleteAuftrag;
+window.printAuftrag = printAuftrag;
 window.createRechnungFromAuftrag = createRechnungFromAuftrag;
 
 // Kunden-Funktionen global verfügbar machen
@@ -903,6 +1596,5 @@ window.loadKundenFahrzeuge = async function (
 export { loadAuftraege };
 
 console.log(
-  "auftraege.js v3.0 mit Druckfunktion und Unterschriftsstelle geladen - " +
-    new Date().toISOString()
+  "✅ auftraege.js v4.0 mit korrektem +Position System und Zuschlag-Integration geladen"
 );

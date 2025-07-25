@@ -125,6 +125,12 @@ function displayRechnungModal(rechnung = null) {
     getSetting("basis_stundenpreis", "110.00")
   );
 
+  // SKonto-Einstellungen holen
+  const skontoTage = getSetting("skonto_tage", "10");
+  const skontoProzent = getSetting("skonto_prozent", "2");
+  const zahlungszielTage = getSetting("zahlungsziel_tage", "14");
+
+  // Standard-Positionen
   const standardPositionen = [
     {
       kategorie: "ARBEITSZEITEN",
@@ -184,43 +190,136 @@ function displayRechnungModal(rechnung = null) {
     },
   ];
 
-  const positionenRows = standardPositionen
-    .map((pos, index) => {
-      const position = rechnung?.positionen?.[index] || {};
-      return `
-        <tr>
-            <td><input type="text" class="form-input" value="${
-              position.beschreibung || pos.beschreibung
-            }" name="beschreibung_${index}"></td>
-            <td><input type="number" step="0.01" class="form-input" value="${
-              position.menge || 0
-            }" name="menge_${index}" onchange="calculateRechnungRow(${index})"></td>
-            <td>${position.einheit || pos.einheit}</td>
-            <td><input type="number" step="0.01" class="form-input" value="${
-              position.einzelpreis || pos.einzelpreis
-            }" name="einzelpreis_${index}" onchange="calculateRechnungRow(${index})"></td>
-            <td>${position.mwst_prozent || pos.mwst}%</td>
-            <td><input type="number" step="0.01" class="form-input" value="${
-              position.gesamt || 0
-            }" name="gesamt_${index}" readonly></td>
-            <input type="hidden" name="kategorie_${index}" value="${
-        position.kategorie || pos.kategorie
-      }">
-            <input type="hidden" name="einheit_${index}" value="${
-        position.einheit || pos.einheit
-      }">
-            <input type="hidden" name="mwst_${index}" value="${
-        position.mwst_prozent || pos.mwst
-      }">
-        </tr>
-      `;
-    })
-    .join("");
+  // Anzahl der Positionen (Standard + zusätzliche)
+  const anzahlPositionen =
+    rechnung?.positionen?.length > standardPositionen.length
+      ? rechnung.positionen.length
+      : standardPositionen.length;
 
-  // Zahlungsbedingungen und Gewährleistung aus Einstellungen
-  const zahlungsbedingungen = getSetting("zahlungsbedingungen", "");
+  // Mindestens 2 zusätzliche leere Positionen
+  const maxPositionen = Math.max(
+    anzahlPositionen + 2,
+    standardPositionen.length + 2
+  );
+
+  const positionenRows = Array.from({ length: maxPositionen }, (_, index) => {
+    const position = rechnung?.positionen?.[index] || {};
+    const standardPos = standardPositionen[index] || {};
+
+    return `
+      <tr id="position-row-${index}">
+          <td>
+            <input type="text" class="form-input" 
+                   value="${
+                     position.beschreibung || standardPos.beschreibung || ""
+                   }" 
+                   name="beschreibung_${index}" 
+                   placeholder="Beschreibung eingeben...">
+          </td>
+          <td>
+            <input type="number" step="0.01" class="form-input" 
+                   value="${position.menge || 0}" 
+                   name="menge_${index}" 
+                   onchange="calculateRechnungRow(${index})"
+                   placeholder="0">
+          </td>
+          <td>
+            <select class="form-select" name="einheit_${index}">
+              <option value="Std." ${
+                (position.einheit || standardPos.einheit) === "Std."
+                  ? "selected"
+                  : ""
+              }>Std.</option>
+              <option value="Liter" ${
+                (position.einheit || standardPos.einheit) === "Liter"
+                  ? "selected"
+                  : ""
+              }>Liter</option>
+              <option value="Stk." ${
+                (position.einheit || standardPos.einheit) === "Stk."
+                  ? "selected"
+                  : ""
+              }>Stk.</option>
+              <option value="m²" ${
+                (position.einheit || standardPos.einheit) === "m²"
+                  ? "selected"
+                  : ""
+              }>m²</option>
+              <option value="Pauschal" ${
+                (position.einheit || standardPos.einheit) === "Pauschal"
+                  ? "selected"
+                  : ""
+              }>Pauschal</option>
+              <option value="kg" ${
+                (position.einheit || standardPos.einheit) === "kg"
+                  ? "selected"
+                  : ""
+              }>kg</option>
+            </select>
+          </td>
+          <td>
+            <input type="number" step="0.01" class="form-input" 
+                   value="${
+                     position.einzelpreis || standardPos.einzelpreis || 0
+                   }" 
+                   name="einzelpreis_${index}" 
+                   onchange="calculateRechnungRow(${index})"
+                   placeholder="0,00">
+          </td>
+          <td>
+            <select class="form-select" name="mwst_${index}" onchange="calculateRechnungRow(${index})">
+              <option value="19" ${
+                (position.mwst_prozent || standardPos.mwst) === 19
+                  ? "selected"
+                  : ""
+              }>19%</option>
+              <option value="7" ${
+                (position.mwst_prozent || standardPos.mwst) === 7
+                  ? "selected"
+                  : ""
+              }>7%</option>
+              <option value="0" ${
+                (position.mwst_prozent || standardPos.mwst) === 0
+                  ? "selected"
+                  : ""
+              }>0%</option>
+            </select>
+          </td>
+          <td>
+            <input type="number" step="0.01" class="form-input" 
+                   value="${position.gesamt || 0}" 
+                   name="gesamt_${index}" 
+                   readonly>
+          </td>
+          <td>
+            <button type="button" class="btn btn-sm btn-danger" 
+                    onclick="removePosition(${index})" 
+                    title="Position entfernen"
+                    ${
+                      index < standardPositionen.length
+                        ? 'style="display:none"'
+                        : ""
+                    }>
+              <i class="fas fa-times"></i>
+            </button>
+          </td>
+          <input type="hidden" name="kategorie_${index}" value="${
+      position.kategorie || standardPos.kategorie || "ZUSATZ"
+    }">
+      </tr>
+    `;
+  }).join("");
+
+  // Zahlungsbedingungen mit SKonto erweitern
+  const baseZahlungsbedingungen = getSetting("zahlungsbedingungen", "");
+  const skontoText =
+    skontoTage && skontoProzent
+      ? `\nBei Zahlung innerhalb von ${skontoTage} Tagen ${skontoProzent}% Skonto.`
+      : "";
+  const zahlungsbedingungenMitSkonto = baseZahlungsbedingungen + skontoText;
+
   const gewaehrleistung = getSetting("gewaehrleistung", "");
-  const zahlungszielTage = getSetting("zahlungsziel_tage", "14");
+  const rechnungshinweise = getSetting("rechnungshinweise", "");
 
   const content = `
         <form id="rechnung-form">
@@ -240,22 +339,22 @@ function displayRechnungModal(rechnung = null) {
                 </div>
                 <div class="form-group">
                     <label class="form-label">Rechnungsdatum *</label>
-                    <input type="date" class="form-input" name="rechnungsdatum" value="${
-                      rechnung?.rechnungsdatum ||
-                      new Date().toISOString().split("T")[0]
-                    }" required>
+                    <input type="date" class="form-input" name="rechnungsdatum" 
+                           value="${
+                             rechnung?.rechnungsdatum ||
+                             new Date().toISOString().split("T")[0]
+                           }" required>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Auftragsdatum</label>
-                    <input type="date" class="form-input" name="auftragsdatum" value="${
-                      rechnung?.auftragsdatum || ""
-                    }">
+                    <input type="date" class="form-input" name="auftragsdatum" 
+                           value="${rechnung?.auftragsdatum || ""}">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Rabatt (%)</label>
-                    <input type="number" step="0.01" class="form-input" name="rabatt_prozent" value="${
-                      rechnung?.rabatt_prozent || 0
-                    }" onchange="calculateRechnungTotal()">
+                    <input type="number" step="0.1" class="form-input" name="rabatt_prozent" 
+                           value="${rechnung?.rabatt_prozent || 0}" 
+                           onchange="calculateRechnungGesamt()" placeholder="0.0">
                 </div>
                 <div class="form-group">
                     <label class="form-label">Status</label>
@@ -288,7 +387,7 @@ function displayRechnungModal(rechnung = null) {
             
             <h3 style="margin: 2rem 0 1rem 0;">Positionen</h3>
             <div class="table-container">
-                <table class="table">
+                <table class="table" id="positionen-table">
                     <thead>
                         <tr>
                             <th>Beschreibung</th>
@@ -297,9 +396,16 @@ function displayRechnungModal(rechnung = null) {
                             <th>Einzelpreis (€)</th>
                             <th>MwSt %</th>
                             <th>Gesamt (€)</th>
+                            <th>
+                              <button type="button" class="btn btn-sm btn-success" 
+                                      onclick="addNewPosition()" 
+                                      title="Neue Position hinzufügen">
+                                <i class="fas fa-plus"></i>
+                              </button>
+                            </th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody id="positionen-tbody">
                         ${positionenRows}
                     </tbody>
                 </table>
@@ -328,15 +434,21 @@ function displayRechnungModal(rechnung = null) {
                 </div>
             </div>
 
-            <h3 style="margin: 2rem 0 1rem 0;">Zahlungsbedingungen & Gewährleistung</h3>
+            <h3 style="margin: 2rem 0 1rem 0;">Zahlungsbedingungen & Hinweise</h3>
             <div class="form-grid">
                 <div class="form-group">
                     <label class="form-label">Zahlungsbedingungen</label>
-                    <textarea class="form-textarea" name="zahlungsbedingungen" rows="3">${zahlungsbedingungen}</textarea>
+                    <textarea class="form-textarea" name="zahlungsbedingungen" rows="4">${zahlungsbedingungenMitSkonto}</textarea>
+                    <small class="text-muted">Inkl. SKonto: ${skontoProzent}% bei Zahlung innerhalb ${skontoTage} Tagen</small>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Gewährleistung</label>
                     <textarea class="form-textarea" name="gewaehrleistung" rows="2">${gewaehrleistung}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Rechnungshinweise</label>
+                    <textarea class="form-textarea" name="rechnungshinweise" rows="3">${rechnungshinweise}</textarea>
+                    <small class="text-muted">Zusätzliche Hinweise für diese Rechnung</small>
                 </div>
             </div>
         </form>
@@ -364,11 +476,106 @@ function displayRechnungModal(rechnung = null) {
   }
 
   setTimeout(() => {
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < maxPositionen; i++) {
       calculateRechnungRow(i);
     }
   }, 100);
 }
+
+window.addNewPosition = function () {
+  const tbody = document.getElementById("positionen-tbody");
+  const currentRows = tbody.children.length;
+  const newIndex = currentRows;
+
+  const newRow = document.createElement("tr");
+  newRow.id = `position-row-${newIndex}`;
+  newRow.innerHTML = `
+    <td>
+      <input type="text" class="form-input" 
+             value="" 
+             name="beschreibung_${newIndex}" 
+             placeholder="Beschreibung eingeben...">
+    </td>
+    <td>
+      <input type="number" step="0.01" class="form-input" 
+             value="0" 
+             name="menge_${newIndex}" 
+             onchange="calculateRechnungRow(${newIndex})"
+             placeholder="0">
+    </td>
+    <td>
+      <select class="form-select" name="einheit_${newIndex}">
+        <option value="Std.">Std.</option>
+        <option value="Liter">Liter</option>
+        <option value="Stk." selected>Stk.</option>
+        <option value="m²">m²</option>
+        <option value="Pauschal">Pauschal</option>
+        <option value="kg">kg</option>
+      </select>
+    </td>
+    <td>
+      <input type="number" step="0.01" class="form-input" 
+             value="0" 
+             name="einzelpreis_${newIndex}" 
+             onchange="calculateRechnungRow(${newIndex})"
+             placeholder="0,00">
+    </td>
+    <td>
+      <select class="form-select" name="mwst_${newIndex}" onchange="calculateRechnungRow(${newIndex})">
+        <option value="19" selected>19%</option>
+        <option value="7">7%</option>
+        <option value="0">0%</option>
+      </select>
+    </td>
+    <td>
+      <input type="number" step="0.01" class="form-input" 
+             value="0" 
+             name="gesamt_${newIndex}" 
+             readonly>
+    </td>
+    <td>
+      <button type="button" class="btn btn-sm btn-danger" 
+              onclick="removePosition(${newIndex})" 
+              title="Position entfernen">
+        <i class="fas fa-times"></i>
+      </button>
+    </td>
+    <input type="hidden" name="kategorie_${newIndex}" value="ZUSATZ">
+  `;
+
+  tbody.appendChild(newRow);
+
+  // Fokus auf Beschreibung setzen
+  const beschreibungInput = newRow.querySelector(
+    `input[name="beschreibung_${newIndex}"]`
+  );
+  if (beschreibungInput) {
+    beschreibungInput.focus();
+  }
+};
+
+// 3. POSITION ENTFERNEN
+window.removePosition = function (index) {
+  const row = document.getElementById(`position-row-${index}`);
+  if (row) {
+    // Prüfen ob Position ausgefüllt ist
+    const beschreibung = row.querySelector(
+      `input[name="beschreibung_${index}"]`
+    ).value;
+    const menge =
+      parseFloat(row.querySelector(`input[name="menge_${index}"]`).value) || 0;
+
+    if (
+      (beschreibung.trim() || menge > 0) &&
+      !confirm("Position wirklich entfernen?")
+    ) {
+      return;
+    }
+
+    row.remove();
+    calculateRechnungGesamt();
+  }
+};
 
 window.loadKundenFahrzeuge = async function (
   kundenId,
@@ -396,16 +603,21 @@ window.loadKundenFahrzeuge = async function (
 };
 
 window.calculateRechnungRow = function (index) {
-  const menge =
-    parseFloat(document.querySelector(`[name="menge_${index}"]`)?.value) || 0;
-  const einzelpreis =
-    parseFloat(
-      document.querySelector(`[name="einzelpreis_${index}"]`)?.value
-    ) || 0;
+  const mengeInput = document.querySelector(`input[name="menge_${index}"]`);
+  const einzelpreisInput = document.querySelector(
+    `input[name="einzelpreis_${index}"]`
+  );
+  const gesamtInput = document.querySelector(`input[name="gesamt_${index}"]`);
+
+  if (!mengeInput || !einzelpreisInput || !gesamtInput) return;
+
+  const menge = parseFloat(mengeInput.value) || 0;
+  const einzelpreis = parseFloat(einzelpreisInput.value) || 0;
   const gesamt = menge * einzelpreis;
-  const gesamtInput = document.querySelector(`[name="gesamt_${index}"]`);
-  if (gesamtInput) gesamtInput.value = gesamt.toFixed(2);
-  calculateRechnungTotal();
+
+  gesamtInput.value = gesamt.toFixed(2);
+
+  calculateRechnungGesamt();
 };
 
 window.calculateRechnungTotal = function () {
@@ -447,28 +659,98 @@ window.calculateRechnungTotal = function () {
     elements.gesamtbetrag.textContent = formatCurrency(gesamtbetrag);
 };
 
+window.calculateRechnungGesamt = function () {
+  let zwischensumme = 0;
+  let mwst19Basis = 0;
+  let mwst7Basis = 0;
+
+  // Alle Positionen durchlaufen
+  const tbody = document.getElementById("positionen-tbody");
+  if (!tbody) return;
+
+  Array.from(tbody.children).forEach((row, index) => {
+    const gesamtInput = row.querySelector(`input[name="gesamt_${index}"]`);
+    const mwstSelect = row.querySelector(`select[name="mwst_${index}"]`);
+
+    if (gesamtInput && mwstSelect) {
+      const gesamt = parseFloat(gesamtInput.value) || 0;
+      const mwstSatz = parseInt(mwstSelect.value) || 0;
+
+      zwischensumme += gesamt;
+
+      if (mwstSatz === 19) {
+        mwst19Basis += gesamt;
+      } else if (mwstSatz === 7) {
+        mwst7Basis += gesamt;
+      }
+    }
+  });
+
+  // Rabatt berechnen
+  const rabattInput = document.querySelector('input[name="rabatt_prozent"]');
+  const rabattProzent = rabattInput ? parseFloat(rabattInput.value) || 0 : 0;
+  const rabattBetrag = zwischensumme * (rabattProzent / 100);
+  const nettoNachRabatt = zwischensumme - rabattBetrag;
+
+  // MwSt berechnen
+  const mwst19 = mwst19Basis * (1 - rabattProzent / 100) * 0.19;
+  const mwst7 = mwst7Basis * (1 - rabattProzent / 100) * 0.07;
+  const mwstGesamt = mwst19 + mwst7;
+
+  const gesamtbetrag = nettoNachRabatt + mwstGesamt;
+
+  // Anzeige aktualisieren
+  updateElement("zwischensumme", formatCurrency(zwischensumme));
+  updateElement("rabatt-betrag", formatCurrency(rabattBetrag));
+  updateElement("netto-nach-rabatt", formatCurrency(nettoNachRabatt));
+  updateElement("mwst-gesamt", formatCurrency(mwstGesamt));
+  updateElement("gesamtbetrag", formatCurrency(gesamtbetrag));
+};
+
+// 5. HILFSFUNKTIONEN
+function updateElement(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
+  }
+}
+
+// 6. ERWEITERTE SAVE-FUNKTION MIT RECHNUNGSHINWEISEN
 window.saveRechnung = async function (rechnungId = null) {
   const form = document.getElementById("rechnung-form");
   const formData = new FormData(form);
-  const positionen = [];
 
-  for (let i = 0; i < 8; i++) {
-    const beschreibung = formData.get(`beschreibung_${i}`);
-    const menge = parseFloat(formData.get(`menge_${i}`)) || 0;
-    const einzelpreis = parseFloat(formData.get(`einzelpreis_${i}`)) || 0;
-    const gesamt = parseFloat(formData.get(`gesamt_${i}`)) || 0;
+  // Positionen sammeln
+  const positionen = [];
+  const tbody = document.getElementById("positionen-tbody");
+
+  Array.from(tbody.children).forEach((row, i) => {
+    const beschreibung = row
+      .querySelector(`input[name="beschreibung_${i}"]`)
+      ?.value?.trim();
+    const menge =
+      parseFloat(row.querySelector(`input[name="menge_${i}"]`)?.value) || 0;
+    const einzelpreis =
+      parseFloat(row.querySelector(`input[name="einzelpreis_${i}"]`)?.value) ||
+      0;
+    const gesamt =
+      parseFloat(row.querySelector(`input[name="gesamt_${i}"]`)?.value) || 0;
+
     if (beschreibung && (menge > 0 || gesamt > 0)) {
       positionen.push({
-        kategorie: formData.get(`kategorie_${i}`),
+        kategorie:
+          row.querySelector(`input[name="kategorie_${i}"]`)?.value || "ZUSATZ",
         beschreibung,
         menge,
-        einheit: formData.get(`einheit_${i}`),
+        einheit:
+          row.querySelector(`select[name="einheit_${i}"]`)?.value || "Stk.",
         einzelpreis,
-        mwst_prozent: parseFloat(formData.get(`mwst_${i}`)),
+        mwst_prozent:
+          parseInt(row.querySelector(`select[name="mwst_${i}"]`)?.value) || 19,
         gesamt,
       });
     }
-  }
+  });
 
   const data = {
     kunden_id: parseInt(formData.get("kunden_id")),
@@ -479,6 +761,7 @@ window.saveRechnung = async function (rechnungId = null) {
     status: formData.get("status"),
     zahlungsbedingungen: formData.get("zahlungsbedingungen"),
     gewaehrleistung: formData.get("gewaehrleistung"),
+    rechnungshinweise: formData.get("rechnungshinweise"), // NEU
     positionen,
   };
 
@@ -496,6 +779,10 @@ window.saveRechnung = async function (rechnungId = null) {
     showNotification("Fehler beim Speichern der Rechnung", "error");
   }
 };
+
+console.log(
+  "Erweiterte Rechnungsfunktionen geladen - SKonto, Rechnungshinweise und +Position verfügbar"
+);
 
 async function deleteRechnung(id) {
   if (

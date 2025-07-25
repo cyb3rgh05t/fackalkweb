@@ -830,110 +830,151 @@
     // Zusammenfassung generieren
     generateSummary(type, data) {
       if (type === "rechnung") {
+        // SKonto-Einstellungen prüfen (nur wenn beide gesetzt)
+        const skontoTage = getSetting("skonto_tage", "").trim();
+        const skontoProzent = getSetting("skonto_prozent", "").trim();
+        const showSkonto =
+          skontoTage &&
+          skontoProzent &&
+          skontoTage !== "" &&
+          skontoProzent !== "";
+
+        // SKonto-HTML nur generieren wenn Einstellungen vorhanden
+        let skontoHtml = "";
+        if (showSkonto) {
+          skontoHtml = `
+        <div style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px; padding: 1rem; margin: 1rem 0; color: #1976d2;">
+          <strong>💰 Skonto-Vorteil:</strong> Bei Zahlung innerhalb von ${skontoTage} Tagen erhalten Sie ${skontoProzent}% Skonto.
+        </div>
+      `;
+        }
+
+        // Rechnungshinweise nur anzeigen wenn vorhanden
+        let rechnungshinweiseHtml = "";
+        if (data.rechnungshinweise && data.rechnungshinweise.trim() !== "") {
+          rechnungshinweiseHtml = `
+        <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 1rem; margin: 1rem 0; color: #856404;">
+          <strong>📝 Hinweise:</strong><br>
+          ${data.rechnungshinweise}
+        </div>
+      `;
+        }
+
         return `
-          <div class="summary-section">
-            <table style="width: 300px; margin-left: auto;">
-              <tr>
-                <td>Zwischensumme:</td>
-                <td style="text-align: right;">${formatCurrency(
-                  data.zwischensumme || 0
-                )}</td>
-              </tr>
-              ${
-                data.rabatt_betrag > 0
-                  ? `
-              <tr>
-                <td>Rabatt (${data.rabatt_prozent || 0}%):</td>
-                <td style="text-align: right;">-${formatCurrency(
-                  data.rabatt_betrag || 0
-                )}</td>
-              </tr>
-              <tr>
-                <td>Netto nach Rabatt:</td>
-                <td style="text-align: right;">${formatCurrency(
-                  data.netto_nach_rabatt || 0
-                )}</td>
-              </tr>
-              `
-                  : ""
-              }
-              <tr>
-                <td>MwSt. 19%:</td>
-                <td style="text-align: right;">${formatCurrency(
-                  data.mwst_19 || 0
-                )}</td>
-              </tr>
-              <tr>
-                <td>MwSt. 7%:</td>
-                <td style="text-align: right;">${formatCurrency(
-                  data.mwst_7 || 0
-                )}</td>
-              </tr>
-              <tr style="border-top: 2px solid black; font-weight: bold;">
-                <td>Gesamtbetrag:</td>
-                <td style="text-align: right;" class="total-amount">${formatCurrency(
-                  data.gesamtbetrag || 0
-                )}</td>
-              </tr>
-            </table>
-            
-            <div style="margin-top: 2rem;">
-              <p><strong>Zahlungsbedingungen:</strong><br>
-              ${
-                data.zahlungsbedingungen ||
-                getSetting(
-                  "zahlungstext",
-                  "Zahlbar innerhalb von 14 Tagen ohne Abzug."
-                )
-              }</p>
-              
-              <p><strong>Gewährleistung:</strong><br>
-              ${
-                data.gewaehrleistung ||
-                getSetting(
-                  "gewaehrleistung",
-                  "12 Monate Gewährleistung auf alle Arbeiten."
-                )
-              }</p>
-            </div>
-          </div>
-        `;
+      <div class="summary-section">
+        <table style="width: 300px; margin-left: auto;">
+          <tr>
+            <td>Zwischensumme:</td>
+            <td style="text-align: right;">${formatCurrency(
+              data.zwischensumme || 0
+            )}</td>
+          </tr>
+          ${
+            data.rabatt_betrag > 0
+              ? `
+          <tr>
+            <td>Rabatt (${data.rabatt_prozent || 0}%):</td>
+            <td style="text-align: right;">-${formatCurrency(
+              data.rabatt_betrag || 0
+            )}</td>
+          </tr>
+          <tr>
+            <td>Netto nach Rabatt:</td>
+            <td style="text-align: right;">${formatCurrency(
+              data.netto_nach_rabatt || 0
+            )}</td>
+          </tr>
+          `
+              : ""
+          }
+          <tr>
+            <td>MwSt. 19%:</td>
+            <td style="text-align: right;">${formatCurrency(
+              data.mwst_19 || 0
+            )}</td>
+          </tr>
+          ${
+            data.mwst_7 > 0
+              ? `
+          <tr>
+            <td>MwSt. 7%:</td>
+            <td style="text-align: right;">${formatCurrency(
+              data.mwst_7 || 0
+            )}</td>
+          </tr>
+          `
+              : ""
+          }
+          <tr style="border-top: 2px solid black; font-weight: bold;">
+            <td>Gesamtbetrag:</td>
+            <td style="text-align: right;" class="total-amount">${formatCurrency(
+              data.gesamtbetrag || 0
+            )}</td>
+          </tr>
+        </table>
+        
+        <!-- SKonto-Hinweis (nur wenn gesetzt) -->
+        ${skontoHtml}
+        
+        <!-- Rechnungshinweise (nur wenn vorhanden) -->
+        ${rechnungshinweiseHtml}
+        
+        <div style="margin-top: 2rem;">
+          <p><strong>Zahlungsbedingungen:</strong><br>
+          ${
+            data.zahlungsbedingungen ||
+            getSetting(
+              "zahlungstext",
+              "Zahlbar innerhalb von 14 Tagen ohne Abzug."
+            )
+          }</p>
+          
+          <p><strong>Gewährleistung:</strong><br>
+          ${
+            data.gewaehrleistung ||
+            getSetting(
+              "gewaehrleistung",
+              "12 Monate Gewährleistung auf alle Arbeiten."
+            )
+          }</p>
+        </div>
+      </div>
+    `;
       } else {
+        // Auftrag bleibt unverändert
         return `
-          <div class="summary-section">
-            <table style="width: 300px; margin-left: auto;">
-              <tr>
-                <td>Gesamtzeit:</td>
-                <td style="text-align: right;">${
-                  data.gesamt_zeit || 0
-                } Std.</td>
-              </tr>
-              <tr>
-                <td>Netto-Betrag:</td>
-                <td style="text-align: right;">${formatCurrency(
-                  data.gesamt_kosten || 0
-                )}</td>
-              </tr>
-              <tr>
-                <td>MwSt. (${getSetting("mwst_satz", "19")}%):</td>
-                <td style="text-align: right;">${formatCurrency(
-                  data.mwst_betrag || 0
-                )}</td>
-              </tr>
-              <tr style="border-top: 2px solid black; font-weight: bold;">
-                <td>Gesamtbetrag:</td>
-                <td style="text-align: right;" class="total-amount">${formatCurrency(
-                  (data.gesamt_kosten || 0) + (data.mwst_betrag || 0)
-                )}</td>
-              </tr>
-            </table>
-            
-            <div style="margin-top: 2rem;">
-              <p><strong>Bemerkungen:</strong><br>
-              ${data.bemerkungen || "Keine Bemerkungen"}</p>
-            </div>
-          </div>
-        `;
+      <div class="summary-section">
+        <table style="width: 300px; margin-left: auto;">
+          <tr>
+            <td>Gesamtzeit:</td>
+            <td style="text-align: right;">${data.gesamt_zeit || 0} Std.</td>
+          </tr>
+          <tr>
+            <td>Netto-Betrag:</td>
+            <td style="text-align: right;">${formatCurrency(
+              data.gesamt_kosten || 0
+            )}</td>
+          </tr>
+          <tr>
+            <td>MwSt. (${getSetting("mwst_satz", "19")}%):</td>
+            <td style="text-align: right;">${formatCurrency(
+              data.mwst_betrag || 0
+            )}</td>
+          </tr>
+          <tr style="border-top: 2px solid black; font-weight: bold;">
+            <td>Gesamtbetrag:</td>
+            <td style="text-align: right;" class="total-amount">${formatCurrency(
+              (data.gesamt_kosten || 0) + (data.mwst_betrag || 0)
+            )}</td>
+          </tr>
+        </table>
+        
+        <div style="margin-top: 2rem;">
+          <p><strong>Bemerkungen:</strong><br>
+          ${data.bemerkungen || "Keine Bemerkungen"}</p>
+        </div>
+      </div>
+    `;
       }
     }
 
@@ -1064,6 +1105,253 @@
     }
   }
 
+  async function viewRechnungMitSkonto(id) {
+    try {
+      const rechnung = await safeApiCall(`/api/rechnungen/${id}`);
+
+      if (!rechnung) {
+        safeShowNotification("Rechnung nicht gefunden", "error");
+        return;
+      }
+
+      // SKonto-Einstellungen prüfen (nur wenn beide gesetzt)
+      const skontoTage = getSetting("skonto_tage", "").trim();
+      const skontoProzent = getSetting("skonto_prozent", "").trim();
+      const showSkonto =
+        skontoTage &&
+        skontoProzent &&
+        skontoTage !== "" &&
+        skontoProzent !== "";
+
+      // SKonto-Hinweis nur generieren wenn Einstellungen vorhanden
+      let skontoHinweis = "";
+      if (showSkonto) {
+        skontoHinweis = `
+        <div style="background: rgba(33, 150, 243, 0.1); 
+                    border: 1px solid #2196f3; 
+                    border-radius: 8px; 
+                    padding: 0.75rem 1rem; 
+                    margin: 1rem 0; 
+                    font-size: 0.9em; 
+                    color: #1976d2;">
+          <i class="fas fa-percentage" style="margin-right: 0.5rem;"></i>
+          <strong>Skonto:</strong> Bei Zahlung innerhalb von ${skontoTage} Tagen erhalten Sie ${skontoProzent}% Skonto.
+        </div>
+      `;
+      }
+
+      // Rechnungshinweise nur anzeigen wenn vorhanden
+      let rechnungshinweiseHtml = "";
+      if (
+        rechnung.rechnungshinweise &&
+        rechnung.rechnungshinweise.trim() !== ""
+      ) {
+        rechnungshinweiseHtml = `
+        <div style="margin: 1.5rem 0; padding: 1rem; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+          <h4 style="margin: 0 0 0.5rem 0; color: #856404;">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>Hinweise
+          </h4>
+          <p style="margin: 0; line-height: 1.6; color: #856404;">${rechnung.rechnungshinweise}</p>
+        </div>
+      `;
+      }
+
+      // Positionen HTML generieren
+      const positionenHtml = rechnung.positionen
+        .map(
+          (pos) => `
+        <tr>
+          <td>${pos.beschreibung}</td>
+          <td class="text-right">${pos.menge}</td>
+          <td class="text-right">${formatCurrency(pos.einzelpreis)}</td>
+          <td class="text-right">${pos.mwst_prozent}%</td>
+          <td class="text-right">${formatCurrency(pos.gesamt)}</td>
+        </tr>
+      `
+        )
+        .join("");
+
+      // Firmen-/Steuerinformationen
+      const steuernummer = getSetting("steuernummer", "");
+      const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
+
+      const content = `
+      <!-- Rechnungskopf -->
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+        <div>
+          <h1 style="color: var(--accent-primary); margin: 0 0 0.5rem 0;">RECHNUNG</h1>
+          <div><strong>Rechnung:</strong> ${rechnung.rechnung_nr}<br>
+          ${
+            rechnung.auftrag_nr
+              ? `<strong>Auftrag:</strong> ${rechnung.auftrag_nr}<br>`
+              : ""
+          }
+          </div>
+          <div><strong>Datum:</strong> ${formatDate(
+            rechnung.rechnungsdatum
+          )}</div>
+          ${
+            rechnung.auftragsdatum
+              ? `<div><strong>Auftragsdatum:</strong> ${formatDate(
+                  rechnung.auftragsdatum
+                )}</div>`
+              : ""
+          }
+        </div>
+      </div>
+
+      <!-- Kundendaten -->
+      <div style="margin-bottom: 2rem;">
+        <h3>Rechnungsempfänger:</h3>
+        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+          <strong>${rechnung.kunde_name}</strong>${
+        rechnung.kunden_nr
+          ? ` <small>(Kd.-Nr.: ${rechnung.kunden_nr})</small>`
+          : ""
+      }<br>
+          ${rechnung.strasse || ""}<br>
+          ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
+          ${rechnung.telefon ? `Tel: ${rechnung.telefon}` : ""}
+        </div>
+      </div>
+
+      <!-- Fahrzeugdaten -->
+      <div style="margin-bottom: 2rem;">
+        <h3>Fahrzeug:</h3>
+        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
+          <strong>${rechnung.kennzeichen} - ${rechnung.marke} ${
+        rechnung.modell
+      }</strong><br>
+          ${rechnung.vin ? `VIN: ${rechnung.vin}` : ""}
+          ${
+            rechnung.farbe || rechnung.farbcode
+              ? `<br>Farbe: ${rechnung.farbe || ""} ${
+                  rechnung.farbcode ? `(${rechnung.farbcode})` : ""
+                }`
+              : ""
+          }
+        </div>
+      </div>
+
+      <!-- Positionen -->
+      <h3>Leistungen:</h3>
+      <table class="table" style="margin-bottom: 2rem;">
+        <thead>
+          <tr>
+            <th>Beschreibung</th>
+            <th>Menge</th>
+            <th>Einzelpreis</th>
+            <th>MwSt.</th>
+            <th>Gesamt</th>
+          </tr>
+        </thead>
+        <tbody>${positionenHtml}</tbody>
+      </table>
+
+      <!-- Rechnungssumme -->
+      <div style="margin: 2rem 0; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>Zwischensumme netto:</span>
+          <span>${formatCurrency(rechnung.zwischensumme)}</span>
+        </div>
+        ${
+          rechnung.rabatt_prozent > 0
+            ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: var(--danger-color);">
+            <span>Rabatt (${rechnung.rabatt_prozent}%):</span>
+            <span>-${formatCurrency(rechnung.rabatt_betrag)}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span>Netto nach Rabatt:</span>
+            <span>${formatCurrency(rechnung.netto_nach_rabatt)}</span>
+          </div>
+        `
+            : ""
+        }
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+          <span>MwSt. 19%:</span>
+          <span>${formatCurrency(rechnung.mwst_19)}</span>
+        </div>
+        ${
+          rechnung.mwst_7 > 0
+            ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+            <span>MwSt. 7%:</span>
+            <span>${formatCurrency(rechnung.mwst_7)}</span>
+          </div>
+        `
+            : ""
+        }
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; border-top: 2px solid var(--accent-primary); padding-top: 0.5rem; margin-top: 0.5rem; color: var(--success-color);">
+          <span>GESAMTBETRAG:</span>
+          <span>${formatCurrency(rechnung.gesamtbetrag)}</span>
+        </div>
+      </div>
+
+      <!-- SKonto-Hinweis (nur wenn gesetzt) -->
+      ${skontoHinweis}
+
+      <!-- Rechnungshinweise (nur wenn vorhanden) -->
+      ${rechnungshinweiseHtml}
+
+      <!-- Zahlungsbedingungen -->
+      ${
+        rechnung.zahlungsbedingungen
+          ? `
+        <div style="margin: 1.5rem 0;">
+          <h4>Zahlungsbedingungen:</h4>
+          <p style="line-height: 1.6;">${rechnung.zahlungsbedingungen}</p>
+        </div>
+      `
+          : ""
+      }
+
+      <!-- Gewährleistung -->
+      ${
+        rechnung.gewaehrleistung
+          ? `
+        <div style="margin: 1.5rem 0;">
+          <h4>Gewährleistung:</h4>
+          <p style="line-height: 1.6;">${rechnung.gewaehrleistung}</p>
+        </div>
+      `
+          : ""
+      }
+
+      <!-- Footer mit Steuerinformationen -->
+      ${
+        steuernummer || umsatzsteuerId
+          ? `
+        <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-muted); font-size: 0.9em;">
+          ${steuernummer ? `Steuernummer: ${steuernummer}` : ""}
+          ${steuernummer && umsatzsteuerId ? " | " : ""}
+          ${umsatzsteuerId ? `USt-IdNr.: ${umsatzsteuerId}` : ""}
+        </div>
+      `
+          : ""
+      }
+    `;
+
+      const footer = `
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Schließen</button>
+      <button type="button" class="btn btn-success" onclick="printRechnungDirect(${id})">
+        <i class="fas fa-print"></i> Drucken
+      </button>
+    `;
+
+      // createModal verwenden (sollte global verfügbar sein)
+      if (window.createModal && typeof window.createModal === "function") {
+        createModal(`Rechnung ${rechnung.rechnung_nr}`, content, footer);
+      } else {
+        console.error("createModal Funktion nicht verfügbar");
+        safeShowNotification("Modal-System nicht verfügbar", "error");
+      }
+    } catch (error) {
+      console.error("Fehler beim Laden der Rechnung:", error);
+      safeShowNotification("Fehler beim Laden der Rechnung", "error");
+    }
+  }
+
   // Globale Instanz erstellen
   const enhancedPrint = new EnhancedPrintSystem();
 
@@ -1131,11 +1419,16 @@
     enhancedPrint.loadLayoutSettings();
   }
 
+  if (typeof window.viewRechnung === "function") {
+    window.viewRechnungOriginal = window.viewRechnung; // Backup
+  }
+  window.viewRechnung = viewRechnungMitSkonto;
+
   // Export für debugging
   window.enhancedPrint = enhancedPrint;
 
   console.log(
-    "Enhanced Print System mit erweiterten Daten geladen - " +
+    "✅ Enhanced Print Erweiterungen geladen: SKonto + Rechnungshinweise - " +
       new Date().toISOString()
   );
 })();

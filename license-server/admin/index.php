@@ -10,7 +10,7 @@ requireLogin(); // Diese Zeile schützt die Seite
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🔐 Lizenz-Verwaltung</title>
-    <link rel="stylesheet" href="../assets/style.css?v2">
+    <link rel="stylesheet" href="../assets/style.css?v5">
     <link rel="stylesheet" href="../assets/index.css?v3">
 </head>
 
@@ -134,30 +134,6 @@ requireLogin(); // Diese Zeile schützt die Seite
                                 <div class="form-group">
                                     <label>Ablaufdatum (optional):</label>
                                     <input type="date" name="expires_at" min="<?php echo date('Y-m-d'); ?>">
-                                </div>
-                            </div>
-
-                            <div class="features-section">
-                                <div class="form-group">
-                                    <label>Features:</label>
-                                    <div class="checkbox-group">
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" name="features[]" value="basic" checked id="feat-basic">
-                                            <label for="feat-basic">Basic Features</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" name="features[]" value="backup" id="feat-backup">
-                                            <label for="feat-backup">Backup-Funktion</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" name="features[]" value="export" id="feat-export">
-                                            <label for="feat-export">Export-Funktion</label>
-                                        </div>
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" name="features[]" value="premium" id="feat-premium">
-                                            <label for="feat-premium">Premium Features</label>
-                                        </div>
-                                    </div>
                                 </div>
                             </div>
 

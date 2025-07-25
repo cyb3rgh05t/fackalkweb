@@ -72,7 +72,7 @@ try {
         logActivity('validation_failed', [
             'license_key' => $license_key,
             'hardware_id' => $hardware_id,
-            'reason' => 'license_not_found'
+            'reason' => 'license_not_found_or_deactivated'
         ]);
         
         http_response_code(400);
@@ -108,7 +108,7 @@ try {
     $stmt->execute([$license_key]);
     $activation_count = (int)$stmt->fetchColumn();
 
-    // 4. Hardware-Aktivierungen prüfen (ERWEITERT: Auch deaktivierte suchen)
+    // 4. Hardware-Aktivierungen prüfen (KORRIGIERT: KEINE AUTOMATISCHE REAKTIVIERUNG)
     $stmt = $pdo->prepare("
         SELECT * FROM license_activations 
         WHERE license_key = ? AND hardware_id = ?
@@ -142,51 +142,26 @@ try {
             $current_activations = $activation_count;
             
         } elseif ($existing_activation['status'] === 'deactivated') {
-            // Hardware war deaktiviert - REAKTIVIERUNG prüfen
+            // ===== KORREKTUR: HARDWARE DEAKTIVIERT - KEINE AUTOMATISCHE REAKTIVIERUNG =====
             
-            // Prüfen ob noch Platz für Reaktivierung vorhanden ist
-            if ($activation_count >= $license['max_activations']) {
-                logActivity('reactivation_failed', [
-                    'license_key' => $license_key,
-                    'hardware_id' => $hardware_id,
-                    'reason' => 'max_activations_reached',
-                    'current_count' => $activation_count,
-                    'max_allowed' => (int)$license['max_activations']
-                ]);
-                
-                http_response_code(400);
-                echo json_encode([
-                    'valid' => false,
-                    'error' => 'Maximum Anzahl Aktivierungen erreicht (' . $license['max_activations'] . '). Hardware-ID war zuvor deaktiviert.',
-                    'current_activations' => $activation_count,
-                    'max_activations' => (int)$license['max_activations'],
-                    'reactivation_available' => false
-                ]);
-                exit;
-            }
-            
-            // Hardware REAKTIVIEREN
-            $stmt = $pdo->prepare("
-                UPDATE license_activations 
-                SET status = 'active', 
-                    last_validation = NOW(), 
-                    validation_count = validation_count + 1,
-                    app_version = ?, 
-                    last_ip = ?,
-                    deactivated_at = NULL
-                WHERE id = ?
-            ");
-            $stmt->execute([$app_version, $client_ip, $existing_activation['id']]);
-            
-            logActivity('hardware_reactivated', [
+            logActivity('hardware_deactivated_access_denied', [
                 'license_key' => $license_key,
                 'hardware_id' => $hardware_id,
-                'app_version' => $app_version,
-                'previous_validations' => (int)$existing_activation['validation_count']
+                'deactivated_at' => $existing_activation['deactivated_at'],
+                'reason' => 'hardware_manually_deactivated'
             ]);
             
-            // Nach Reaktivierung: Eine Aktivierung mehr
-            $current_activations = $activation_count + 1;
+            http_response_code(403); // 403 Forbidden statt 400
+            echo json_encode([
+                'valid' => false,
+                'error' => 'Hardware-ID wurde deaktiviert und muss manuell reaktiviert werden',
+                'hardware_deactivated' => true,
+                'deactivated_at' => $existing_activation['deactivated_at'],
+                'current_activations' => $activation_count,
+                'max_activations' => (int)$license['max_activations'],
+                'manual_reactivation_required' => true
+            ]);
+            exit;
         }
         
     } else {
@@ -253,7 +228,7 @@ try {
         'max_activations' => (int)$license['max_activations'],
         'current_activations' => $current_activations,
         'validation_timestamp' => time(),
-        'reactivated' => isset($existing_activation) && $existing_activation['status'] === 'deactivated'
+        'hardware_status' => 'active'
     ];
 
     echo json_encode($response);

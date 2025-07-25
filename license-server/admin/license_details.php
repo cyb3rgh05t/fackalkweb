@@ -92,25 +92,21 @@ if (isset($_GET['error'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lizenz-Details: <?php echo htmlspecialchars($license_key); ?></title>
-    <link rel="stylesheet" href="../assets/style.css">
+    <link rel="stylesheet" href="../assets/style.css?v5">
 </head>
 
 <body>
     <div class="container">
         <div class="navigation-bar">
             <div class="nav-breadcrumb">
-                <a href="index.php">📊 Dashboard</a>
+                <a href="index.php">Dashboard</a>
                 <span>›</span>
                 <span>Lizenz-Details</span>
-            </div>
-            <div class="refresh-status">
-                <div class="refresh-indicator"></div>
-                <span>Live-Daten</span>
             </div>
         </div>
 
         <div class="details-header">
-            <h1>📊 Lizenz-Details</h1>
+            <h1>Lizenz-Details</h1>
             <p>Umfassende Informationen und Hardware-ID Management</p>
             <div class="license-key-hero"><?php echo htmlspecialchars($license_key); ?></div>
         </div>
@@ -205,15 +201,7 @@ if (isset($_GET['error'])) {
         </div>
 
         <!-- Features Card -->
-        <div class="details-card">
-            <h3>⭐ Features</h3>
-            <div class="feature-grid">
-                <?php foreach ($features as $feature): ?>
-                    <span class="feature-tag"><?php echo htmlspecialchars($feature); ?></span>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
+        
         <!-- AKTIVE Aktivierungen -->
         <?php if (!empty($active_activations)): ?>
         <div class="details-card">
@@ -236,7 +224,7 @@ if (isset($_GET['error'])) {
                             <tr>
                                 <td>
                                     <span class="hardware-id" title="<?php echo htmlspecialchars($activation['hardware_id']); ?>">
-                                        <?php echo htmlspecialchars(substr($activation['hardware_id'], 0, 16) . '...'); ?>
+                                        <?php echo htmlspecialchars($activation['hardware_id']); ?>
                                     </span>
                                 </td>
                                 <td><?php echo date('d.m.Y H:i', strtotime($activation['first_activation'])); ?></td>
@@ -259,7 +247,7 @@ if (isset($_GET['error'])) {
             </div>
         </div>
         <?php endif; ?>
-
+         </br>
         <!-- DEAKTIVIERTE Hardware-IDs (NEU!) -->
         <?php if (!empty($deactivated_activations)): ?>
         <div class="details-card" style="border-left: 4px solid var(--accent-warning);">
@@ -328,7 +316,7 @@ if (isset($_GET['error'])) {
             <?php endif; ?>
         </div>
         <?php endif; ?>
-
+        </br>
         <!-- Verwaltungs-Aktionen -->
         <div class="actions-section">
             <h3>⚙️ Verwaltungs-Aktionen</h3>

@@ -323,136 +323,367 @@ function displayRechnungModal(rechnung = null) {
   const rechnungshinweise = getSetting("rechnungshinweise", "");
 
   const content = `
-        <form id="rechnung-form">
-            <div class="form-grid">
-                <div class="form-group">
-                    <label class="form-label">Kunde *</label>
-                    <select class="form-select" name="kunden_id" required onchange="loadKundenFahrzeuge(this.value)">
-                        <option value="">Kunde auswählen</option>
-                        ${kundenOptions}
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Fahrzeug *</label>
-                    <select class="form-select" name="fahrzeug_id" required>
-                        <option value="">Erst Kunde auswählen</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Rechnungsdatum *</label>
-                    <input type="date" class="form-input" name="rechnungsdatum" 
-                           value="${
-                             rechnung?.rechnungsdatum ||
-                             new Date().toISOString().split("T")[0]
-                           }" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Auftragsdatum</label>
-                    <input type="date" class="form-input" name="auftragsdatum" 
-                           value="${rechnung?.auftragsdatum || ""}">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Rabatt (%)</label>
-                    <input type="number" step="0.1" class="form-input" name="rabatt_prozent" 
-                           value="${rechnung?.rabatt_prozent || 0}" 
-                           onchange="calculateRechnungGesamt()" placeholder="0.0">
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Status</label>
-                    <select class="form-select" name="status">
-                        <option value="offen" ${
-                          rechnung?.status === "offen" ? "selected" : ""
-                        }>Offen</option>
-                        <option value="bezahlt" ${
-                          rechnung?.status === "bezahlt" ? "selected" : ""
-                        }>Bezahlt</option>
-                        <option value="mahnung" ${
-                          rechnung?.status === "mahnung" ? "selected" : ""
-                        }>Mahnung</option>
-                        <option value="storniert" ${
-                          rechnung?.status === "storniert" ? "selected" : ""
-                        }>Storniert</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">MwSt-Satz</label>
-                    <input type="text" class="form-input" value="${mwstSatz}%" readonly>
-                    <small class="text-muted">Wird aus den Einstellungen übernommen</small>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Zahlungsziel</label>
-                    <input type="text" class="form-input" value="${zahlungszielTage} Tage" readonly>
-                    <small class="text-muted">Wird aus den Einstellungen übernommen</small>
-                </div>
-            </div>
-            
-            <h3 style="margin: 2rem 0 1rem 0;">Positionen</h3>
-            <div class="table-container">
-                <table class="table" id="positionen-table">
-                    <thead>
-                        <tr>
-                            <th>Beschreibung</th>
-                            <th>Menge</th>
-                            <th>Einheit</th>
-                            <th>Einzelpreis (€)</th>
-                            <th>MwSt %</th>
-                            <th>Gesamt (€)</th>
-                            <th>
-                              <button type="button" class="btn btn-sm btn-success" 
-                                      onclick="addNewPosition()" 
-                                      title="Neue Position hinzufügen">
-                                <i class="fas fa-plus"></i>
-                              </button>
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody id="positionen-tbody">
-                        ${positionenRows}
-                    </tbody>
-                </table>
-            </div>
-            
-            <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>Zwischensumme netto:</span>
-                    <span id="zwischensumme">0,00 €</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>Rabatt:</span>
-                    <span id="rabatt-betrag">0,00 €</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>Netto nach Rabatt:</span>
-                    <span id="netto-nach-rabatt">0,00 €</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                    <span>MwSt. ${mwstSatz}%:</span>
-                    <span id="mwst-gesamt">0,00 €</span>
-                </div>
-                <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1em; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
-                    <span>GESAMTBETRAG:</span>
-                    <span id="gesamtbetrag">0,00 €</span>
-                </div>
-            </div>
+        <form id="rechnung-form" novalidate>
+  <!-- Validation Summary -->
+  <div id="validation-summary" class="validation-summary" style="display: none;">
+    <div class="validation-header">
+      <i class="fas fa-exclamation-triangle"></i>
+      Bitte korrigieren Sie folgende Fehler:
+    </div>
+    <ul id="validation-errors"></ul>
+  </div>
 
-            <h3 style="margin: 2rem 0 1rem 0;">Zahlungsbedingungen & Hinweise</h3>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label class="form-label">Zahlungsbedingungen</label>
-                    <textarea class="form-textarea" name="zahlungsbedingungen" rows="4">${zahlungsbedingungenMitSkonto}</textarea>
-                    <small class="text-muted">Inkl. SKonto: ${skontoProzent}% bei Zahlung innerhalb ${skontoTage} Tagen</small>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Gewährleistung</label>
-                    <textarea class="form-textarea" name="gewaehrleistung" rows="2">${gewaehrleistung}</textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Rechnungshinweise</label>
-                    <textarea class="form-textarea" name="rechnungshinweise" rows="3">${rechnungshinweise}</textarea>
-                    <small class="text-muted">Zusätzliche Hinweise für diese Rechnung</small>
-                </div>
-            </div>
-        </form>
+  <div class="form-grid">
+    <div class="form-group">
+      <label class="form-label">
+        Kunde 
+        <span class="required-indicator">*</span>
+      </label>
+      <select 
+        class="form-select" 
+        name="kunden_id" 
+        required 
+        onchange="loadKundenFahrzeuge(this.value); validateRechnungKundeSelection();"
+        oninvalid="this.setCustomValidity('Bitte wählen Sie einen Kunden aus')"
+        oninput="this.setCustomValidity('')">
+        <option value="">Kunde auswählen...</option>
+        ${kundenOptions}
+      </select>
+      <div class="field-error" id="kunden_id-error"></div>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">
+        Fahrzeug 
+        <span class="required-indicator">*</span>
+      </label>
+      <select 
+        class="form-select" 
+        name="fahrzeug_id" 
+        required
+        onchange="validateRechnungFahrzeugSelection();"
+        oninvalid="this.setCustomValidity('Bitte wählen Sie ein Fahrzeug aus')"
+        oninput="this.setCustomValidity('')"
+        disabled>
+        <option value="">Zuerst Kunde auswählen...</option>
+      </select>
+      <div class="field-error" id="fahrzeug_id-error"></div>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">
+        Rechnungsdatum 
+        <span class="required-indicator">*</span>
+      </label>
+      <input 
+        type="date" 
+        class="form-input" 
+        name="rechnungsdatum" 
+        required
+        value="${
+          rechnung?.rechnungsdatum || new Date().toISOString().split("T")[0]
+        }"
+        onchange="validateRechnungsdatum();"
+        oninvalid="this.setCustomValidity('Bitte geben Sie ein Rechnungsdatum an')"
+        oninput="this.setCustomValidity('')">
+      <div class="field-error" id="rechnungsdatum-error"></div>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Auftragsdatum</label>
+      <input 
+        type="date" 
+        class="form-input"
+        name="auftragsdatum" 
+        value="${rechnung?.auftragsdatum || ""}"
+        placeholder="Optional">
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Rabatt (%)</label>
+      <input 
+        type="number" 
+        step="0.1" 
+        class="form-input" 
+        name="rabatt_prozent" 
+        value="${rechnung?.rabatt_prozent || 0}" 
+        onchange="calculateRechnungGesamt()" 
+        placeholder="0.0"
+        min="0"
+        max="100">
+      <small class="text-muted">Rabatt in Prozent (0-100%)</small>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Status</label>
+      <select class="form-select" name="status">
+        <option value="offen" ${
+          rechnung?.status === "offen" ? "selected" : ""
+        }>Offen</option>
+        <option value="bezahlt" ${
+          rechnung?.status === "bezahlt" ? "selected" : ""
+        }>Bezahlt</option>
+        <option value="mahnung" ${
+          rechnung?.status === "mahnung" ? "selected" : ""
+        }>Mahnung</option>
+        <option value="storniert" ${
+          rechnung?.status === "storniert" ? "selected" : ""
+        }>Storniert</option>
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">MwSt-Satz</label>
+      <input type="text" class="form-input" value="${mwstSatz}%" readonly>
+      <small class="text-muted">Wird aus den Einstellungen übernommen</small>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Zahlungsziel</label>
+      <input type="text" class="form-input" value="${zahlungszielTage} Tage" readonly>
+      <small class="text-muted">Wird aus den Einstellungen übernommen</small>
+    </div>
+  </div>
+  
+  <h3 style="margin: 2rem 0 1rem 0;">Positionen</h3>
+  <div class="positions-info" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-tertiary); border-radius: 8px;">
+    <i class="fas fa-info-circle" style="color: var(--accent-primary);"></i>
+    <small>Mindestens eine Position mit Beschreibung und Menge > 0 muss ausgefüllt werden</small>
+  </div>
+  
+  <div class="table-container">
+    <table class="table" id="positionen-table">
+      <thead>
+        <tr>
+          <th>Beschreibung</th>
+          <th>Menge</th>
+          <th>Einheit</th>
+          <th>Einzelpreis (€)</th>
+          <th>MwSt %</th>
+          <th>Gesamt (€)</th>
+          <th>
+            <button type="button" class="btn btn-sm btn-success" 
+                    onclick="addNewPosition(); validatePositions();" 
+                    title="Neue Position hinzufügen">
+              <i class="fas fa-plus"></i>
+            </button>
+          </th>
+        </tr>
+      </thead>
+      <tbody id="positionen-tbody">
+        ${positionenRows}
+      </tbody>
+    </table>
+  </div>
+  
+  <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+      <span>Zwischensumme netto:</span>
+      <span id="zwischensumme">0,00 €</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+      <span>Rabatt:</span>
+      <span id="rabatt-betrag">0,00 €</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+      <span>Netto nach Rabatt:</span>
+      <span id="netto-nach-rabatt">0,00 €</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+      <span>MwSt. ${mwstSatz}%:</span>
+      <span id="mwst-gesamt">0,00 €</span>
+    </div>
+    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1em; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+      <span>GESAMTBETRAG:</span>
+      <span id="gesamtbetrag">0,00 €</span>
+    </div>
+  </div>
+
+  <h3 style="margin: 2rem 0 1rem 0;">Zahlungsbedingungen & Hinweise</h3>
+  <div class="form-grid">
+    <div class="form-group">
+      <label class="form-label">Zahlungsbedingungen</label>
+      <textarea 
+        class="form-textarea" 
+        name="zahlungsbedingungen" 
+        rows="4"
+        placeholder="Zahlungsbedingungen für diese Rechnung...">${zahlungsbedingungenMitSkonto}</textarea>
+      <small class="text-muted">Inkl. SKonto: ${skontoProzent}% bei Zahlung innerhalb ${skontoTage} Tagen</small>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Gewährleistung</label>
+      <textarea 
+        class="form-textarea" 
+        name="gewaehrleistung" 
+        rows="2"
+        placeholder="Gewährleistungsbestimmungen...">${gewaehrleistung}</textarea>
+    </div>
+    
+    <div class="form-group">
+      <label class="form-label">Rechnungshinweise</label>
+      <textarea 
+        class="form-textarea" 
+        name="rechnungshinweise" 
+        rows="3"
+        placeholder="Zusätzliche Hinweise für diese Rechnung...">${rechnungshinweise}</textarea>
+      <small class="text-muted">Zusätzliche Hinweise für diese Rechnung</small>
+    </div>
+  </div>
+
+  <style>
+  /* VALIDIERUNGS-STYLES für Rechnungen */
+  .required-indicator {
+    color: #ef4444;
+    font-weight: bold;
+  }
+
+  .field-error {
+    color: #ef4444;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+    display: none;
+  }
+
+  .field-error.show {
+    display: block;
+    animation: slideIn 0.3s ease-out;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .validation-summary {
+    background: linear-gradient(135deg, 
+      rgba(239, 68, 68, 0.1) 0%, 
+      rgba(239, 68, 68, 0.05) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    animation: shake 0.5s ease-in-out;
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+
+  .validation-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: #ef4444;
+    margin-bottom: 0.5rem;
+  }
+
+  .validation-summary ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: #ef4444;
+  }
+
+  .validation-summary li {
+    margin-bottom: 0.25rem;
+  }
+
+  /* VERBESSERTE FORM-STYLES */
+  .form-select:invalid,
+  .form-input:invalid {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+  }
+
+  .form-select:valid,
+  .form-input:valid {
+    border-color: #10b981;
+  }
+
+  .form-select:disabled {
+    background-color: var(--clr-surface-a10);
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  /* LOADING BUTTON STYLES */
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .btn .fa-spinner {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* FOCUS IMPROVEMENTS */
+  .form-select:focus,
+  .form-input:focus,
+  .form-textarea:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 2px rgba(175, 234, 180, 0.2);
+  }
+
+  /* PLACEHOLDER IMPROVEMENTS */
+  .form-input::placeholder,
+  .form-textarea::placeholder {
+    color: var(--text-muted);
+    opacity: 0.7;
+  }
+
+  /* POSITIONS INFO STYLING */
+  .positions-info {
+    border-left: 4px solid var(--accent-primary);
+  }
+
+  /* SUCCESS STATES */
+  .form-input:valid:not(:placeholder-shown),
+  .form-select:valid:not([value=""]) {
+    border-color: #10b981;
+    box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
+  }
+
+  /* ENHANCED TABLE STYLING */
+  .table-container {
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+  }
+
+  .table th {
+    background: var(--bg-secondary);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  /* MOBILE RESPONSIVE */
+  @media (max-width: 768px) {
+    .form-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .validation-summary {
+      margin: 0.5rem 0;
+      padding: 0.75rem;
+    }
+    
+    .positions-info {
+      padding: 0.5rem;
+      font-size: 0.875rem;
+    }
+  }
+  </style>
+</form>
     `;
 
   const footer = `
@@ -798,12 +1029,366 @@ function updateElement(id, value) {
 
 // 6. ERWEITERTE SAVE-FUNKTION MIT RECHNUNGSHINWEISEN
 window.saveRechnung = async function (rechnungId = null) {
+  console.log("💾 Speichere Rechnung...");
+
+  // 1. FORM-ELEMENT HOLEN
   const form = document.getElementById("rechnung-form");
+  if (!form) {
+    showNotification("Fehler: Formular nicht gefunden", "error");
+    return;
+  }
+
+  // 2. HTML5-VALIDIERUNG PRÜFEN
+  if (!form.checkValidity()) {
+    console.warn("❌ HTML5-Validierung fehlgeschlagen");
+
+    // Zeige Fehlermeldungen an
+    const firstInvalidElement = form.querySelector(":invalid");
+    if (firstInvalidElement) {
+      firstInvalidElement.focus();
+      firstInvalidElement.reportValidity();
+    }
+
+    showNotification("Bitte füllen Sie alle Pflichtfelder aus", "error");
+    return;
+  }
+
+  // 3. FORMDATA SAMMELN
   const formData = new FormData(form);
 
-  // Positionen sammeln
+  // 4. MANUELLE VALIDIERUNG (zusätzlich zur HTML5-Validierung)
+  const kundenId = parseInt(formData.get("kunden_id"));
+  const fahrzeugId = parseInt(formData.get("fahrzeug_id"));
+  const rechnungsdatum = formData.get("rechnungsdatum");
+
+  // Validierungsfehler sammeln
+  const errors = [];
+
+  if (!kundenId || kundenId <= 0) {
+    errors.push("Kunde muss ausgewählt werden");
+    markFieldAsError("kunden_id", "Kunde muss ausgewählt werden");
+  }
+
+  if (!fahrzeugId || fahrzeugId <= 0) {
+    errors.push("Fahrzeug muss ausgewählt werden");
+    markFieldAsError("fahrzeug_id", "Fahrzeug muss ausgewählt werden");
+  }
+
+  if (!rechnungsdatum || rechnungsdatum.trim() === "") {
+    errors.push("Rechnungsdatum muss angegeben werden");
+    markFieldAsError("rechnungsdatum", "Rechnungsdatum muss angegeben werden");
+  }
+
+  // 5. POSITIONEN VALIDIERUNG UND SAMMLUNG
   const positionen = [];
   const tbody = document.getElementById("positionen-tbody");
+  let hasValidPositions = false;
+
+  if (tbody) {
+    Array.from(tbody.children).forEach((row, i) => {
+      const beschreibung = row
+        .querySelector(`input[name="beschreibung_${i}"]`)
+        ?.value?.trim();
+      const menge =
+        parseFloat(row.querySelector(`input[name="menge_${i}"]`)?.value) || 0;
+      const einzelpreis =
+        parseFloat(
+          row.querySelector(`input[name="einzelpreis_${i}"]`)?.value
+        ) || 0;
+      const gesamt =
+        parseFloat(row.querySelector(`input[name="gesamt_${i}"]`)?.value) || 0;
+
+      if (beschreibung && (menge > 0 || gesamt > 0)) {
+        positionen.push({
+          kategorie:
+            row.querySelector(`input[name="kategorie_${i}"]`)?.value ||
+            "ZUSATZ",
+          beschreibung,
+          menge,
+          einheit:
+            row.querySelector(`select[name="einheit_${i}"]`)?.value || "Stk.",
+          einzelpreis,
+          mwst_prozent:
+            parseInt(row.querySelector(`select[name="mwst_${i}"]`)?.value) ||
+            19,
+          gesamt,
+        });
+        hasValidPositions = true;
+      }
+    });
+  }
+
+  if (!hasValidPositions) {
+    errors.push("Mindestens eine Rechnungsposition muss ausgefüllt werden");
+  }
+
+  // 6. FEHLER ANZEIGEN FALLS VORHANDEN
+  if (errors.length > 0) {
+    console.error("❌ Validierungsfehler:", errors);
+
+    // Validation Summary anzeigen
+    showValidationSummary(errors);
+
+    showNotification(`Validierungsfehler:\n• ${errors.join("\n• ")}`, "error");
+    return;
+  }
+
+  // 7. DATEN-OBJEKT ERSTELLEN
+  const data = {
+    kunden_id: kundenId,
+    fahrzeug_id: fahrzeugId,
+    rechnungsdatum,
+    auftragsdatum: formData.get("auftragsdatum") || null,
+    rabatt_prozent: parseFloat(formData.get("rabatt_prozent")) || 0,
+    status: formData.get("status") || "offen",
+    zahlungsbedingungen: formData.get("zahlungsbedingungen")?.trim() || "",
+    gewaehrleistung: formData.get("gewaehrleistung")?.trim() || "",
+    rechnungshinweise: formData.get("rechnungshinweise")?.trim() || "",
+    positionen,
+  };
+
+  console.log("📋 Rechnungsdaten:", data);
+
+  // 8. SPEICHERN MIT LOADING-INDIKATOR
+  try {
+    // Loading-Zustand anzeigen
+    const saveButton = document.querySelector(
+      'button[onclick*="saveRechnung"]'
+    );
+    const originalText = saveButton?.textContent;
+    if (saveButton) {
+      saveButton.disabled = true;
+      saveButton.innerHTML =
+        '<i class="fas fa-spinner fa-spin"></i> Speichert...';
+    }
+
+    if (rechnungId) {
+      console.log(`📝 Aktualisiere Rechnung ${rechnungId}`);
+      await apiCall(`/api/rechnungen/${rechnungId}`, "PUT", data);
+      showNotification("Rechnung erfolgreich aktualisiert", "success");
+    } else {
+      console.log("➕ Erstelle neue Rechnung");
+      const result = await apiCall("/api/rechnungen", "POST", data);
+      console.log("✅ Rechnung erstellt:", result);
+      showNotification("Rechnung erfolgreich erstellt", "success");
+    }
+
+    closeModal();
+    loadRechnungen();
+  } catch (error) {
+    console.error("❌ Speicherfehler:", error);
+    showNotification(
+      `Fehler beim Speichern: ${error.message || "Unbekannter Fehler"}`,
+      "error"
+    );
+  } finally {
+    // Loading-Zustand zurücksetzen
+    const saveButton = document.querySelector(
+      'button[onclick*="saveRechnung"]'
+    );
+    if (saveButton && originalText) {
+      saveButton.disabled = false;
+      saveButton.textContent = originalText;
+    }
+  }
+};
+
+// VALIDIERUNGS-HILFSFUNKTIONEN für Rechnungen
+
+// Feld als fehlerhaft markieren
+function markFieldAsError(fieldName, message) {
+  const field = document.querySelector(`[name="${fieldName}"]`);
+  if (field) {
+    field.style.borderColor = "#ef4444";
+    field.style.boxShadow = "0 0 0 2px rgba(239, 68, 68, 0.2)";
+
+    // Tooltip mit Fehlermeldung
+    field.title = message;
+
+    // Fehler-Element anzeigen falls vorhanden
+    const errorDiv = document.getElementById(`${fieldName}-error`);
+    if (errorDiv) {
+      errorDiv.textContent = message;
+      errorDiv.classList.add("show");
+    }
+
+    // Nach 5 Sekunden zurücksetzen
+    setTimeout(() => {
+      field.style.borderColor = "";
+      field.style.boxShadow = "";
+      field.title = "";
+      if (errorDiv) {
+        errorDiv.classList.remove("show");
+      }
+    }, 5000);
+  }
+}
+
+// Validation Summary anzeigen
+function showValidationSummary(errors) {
+  let summaryDiv = document.getElementById("validation-summary");
+
+  if (!summaryDiv) {
+    // Summary-Div erstellen falls nicht vorhanden
+    summaryDiv = document.createElement("div");
+    summaryDiv.id = "validation-summary";
+    summaryDiv.className = "validation-summary";
+
+    const form = document.getElementById("rechnung-form");
+    if (form && form.firstChild) {
+      form.insertBefore(summaryDiv, form.firstChild);
+    }
+  }
+
+  summaryDiv.innerHTML = `
+    <div class="validation-header">
+      <i class="fas fa-exclamation-triangle"></i>
+      Bitte korrigieren Sie folgende Fehler:
+    </div>
+    <ul id="validation-errors">
+      ${errors.map((error) => `<li>${error}</li>`).join("")}
+    </ul>
+  `;
+
+  summaryDiv.style.display = "block";
+
+  // Nach 10 Sekunden ausblenden
+  setTimeout(() => {
+    summaryDiv.style.display = "none";
+  }, 10000);
+}
+
+// Echtzeit-Validierung für Kunde-Auswahl
+window.validateRechnungKundeSelection = function () {
+  const kundenSelect = document.querySelector('[name="kunden_id"]');
+  const fahrzeugSelect = document.querySelector('[name="fahrzeug_id"]');
+
+  if (kundenSelect && kundenSelect.value) {
+    kundenSelect.style.borderColor = "#10b981";
+
+    // Fehler-Element verstecken
+    const errorDiv = document.getElementById("kunden_id-error");
+    if (errorDiv) {
+      errorDiv.classList.remove("show");
+    }
+
+    // Fahrzeug-Select aktivieren
+    if (fahrzeugSelect) {
+      fahrzeugSelect.disabled = false;
+      fahrzeugSelect.innerHTML =
+        '<option value="">Fahrzeug auswählen...</option>';
+    }
+  } else {
+    markFieldAsError("kunden_id", "Kunde muss ausgewählt werden");
+
+    // Fahrzeug-Select deaktivieren
+    if (fahrzeugSelect) {
+      fahrzeugSelect.disabled = true;
+      fahrzeugSelect.innerHTML =
+        '<option value="">Zuerst Kunde auswählen...</option>';
+      fahrzeugSelect.value = "";
+    }
+  }
+};
+
+// Echtzeit-Validierung für Fahrzeug-Auswahl
+window.validateRechnungFahrzeugSelection = function () {
+  const fahrzeugSelect = document.querySelector('[name="fahrzeug_id"]');
+
+  if (fahrzeugSelect && fahrzeugSelect.value) {
+    fahrzeugSelect.style.borderColor = "#10b981";
+
+    // Fehler-Element verstecken
+    const errorDiv = document.getElementById("fahrzeug_id-error");
+    if (errorDiv) {
+      errorDiv.classList.remove("show");
+    }
+  } else {
+    markFieldAsError("fahrzeug_id", "Fahrzeug muss ausgewählt werden");
+  }
+};
+
+// Echtzeit-Validierung für Rechnungsdatum
+window.validateRechnungsdatum = function () {
+  const datumInput = document.querySelector('[name="rechnungsdatum"]');
+
+  if (datumInput && datumInput.value) {
+    datumInput.style.borderColor = "#10b981";
+
+    // Fehler-Element verstecken
+    const errorDiv = document.getElementById("rechnungsdatum-error");
+    if (errorDiv) {
+      errorDiv.classList.remove("show");
+    }
+  } else {
+    markFieldAsError("rechnungsdatum", "Rechnungsdatum muss angegeben werden");
+  }
+};
+
+// ERWEITERTE KUNDENFUNKTION mit Validierung für Rechnungen
+window.loadKundenFahrzeuge = async function (
+  kundenId,
+  selectedFahrzeugId = null
+) {
+  console.log(`🚗 Lade Fahrzeuge für Kunde ${kundenId}`);
+
+  // Validierung
+  validateRechnungKundeSelection();
+
+  if (!kundenId) {
+    console.warn("Keine Kunden-ID angegeben");
+    return;
+  }
+
+  try {
+    const fahrzeuge = await apiCall(`/api/fahrzeuge?kunden_id=${kundenId}`);
+    const fahrzeugSelect = document.querySelector('[name="fahrzeug_id"]');
+
+    if (!fahrzeugSelect) {
+      console.error("Fahrzeug-Select nicht gefunden");
+      return;
+    }
+
+    if (fahrzeuge.length === 0) {
+      fahrzeugSelect.innerHTML =
+        '<option value="">Keine Fahrzeuge für diesen Kunden</option>';
+      fahrzeugSelect.disabled = true;
+      return;
+    }
+
+    fahrzeugSelect.disabled = false;
+    fahrzeugSelect.innerHTML = `
+      <option value="">Fahrzeug auswählen...</option>
+      ${fahrzeuge
+        .map(
+          (f) =>
+            `<option value="${f.id}" ${
+              f.id == selectedFahrzeugId ? "selected" : ""
+            }>
+          ${f.kennzeichen} - ${f.marke} ${f.modell}
+        </option>`
+        )
+        .join("")}
+    `;
+
+    console.log(`✅ ${fahrzeuge.length} Fahrzeuge geladen`);
+
+    // Validierung nach dem Laden
+    if (selectedFahrzeugId) {
+      validateRechnungFahrzeugSelection();
+    }
+  } catch (error) {
+    console.error("❌ Fehler beim Laden der Fahrzeuge:", error);
+    showNotification("Fehler beim Laden der Fahrzeuge", "error");
+  }
+};
+
+// ERWEITERTE POSITIONSVALIDIERUNG
+window.validatePositions = function () {
+  const tbody = document.getElementById("positionen-tbody");
+  if (!tbody) return true;
+
+  let hasValidPositions = false;
 
   Array.from(tbody.children).forEach((row, i) => {
     const beschreibung = row
@@ -811,59 +1396,35 @@ window.saveRechnung = async function (rechnungId = null) {
       ?.value?.trim();
     const menge =
       parseFloat(row.querySelector(`input[name="menge_${i}"]`)?.value) || 0;
-    const einzelpreis =
-      parseFloat(row.querySelector(`input[name="einzelpreis_${i}"]`)?.value) ||
-      0;
     const gesamt =
       parseFloat(row.querySelector(`input[name="gesamt_${i}"]`)?.value) || 0;
 
     if (beschreibung && (menge > 0 || gesamt > 0)) {
-      positionen.push({
-        kategorie:
-          row.querySelector(`input[name="kategorie_${i}"]`)?.value || "ZUSATZ",
-        beschreibung,
-        menge,
-        einheit:
-          row.querySelector(`select[name="einheit_${i}"]`)?.value || "Stk.",
-        einzelpreis,
-        mwst_prozent:
-          parseInt(row.querySelector(`select[name="mwst_${i}"]`)?.value) || 19,
-        gesamt,
-      });
+      hasValidPositions = true;
     }
   });
 
-  const data = {
-    kunden_id: parseInt(formData.get("kunden_id")),
-    fahrzeug_id: parseInt(formData.get("fahrzeug_id")),
-    rechnungsdatum: formData.get("rechnungsdatum"),
-    auftragsdatum: formData.get("auftragsdatum"),
-    rabatt_prozent: parseFloat(formData.get("rabatt_prozent")) || 0,
-    status: formData.get("status"),
-    zahlungsbedingungen: formData.get("zahlungsbedingungen"),
-    gewaehrleistung: formData.get("gewaehrleistung"),
-    rechnungshinweise: formData.get("rechnungshinweise"), // NEU
-    positionen,
-  };
+  if (!hasValidPositions) {
+    showNotification(
+      "Mindestens eine Rechnungsposition muss ausgefüllt werden",
+      "warning"
+    );
 
-  try {
-    if (rechnungId) {
-      await apiCall(`/api/rechnungen/${rechnungId}`, "PUT", data);
-      showNotification("Rechnung erfolgreich aktualisiert", "success");
-    } else {
-      await apiCall("/api/rechnungen", "POST", data);
-      showNotification("Rechnung erfolgreich erstellt", "success");
+    // Erste Beschreibung fokussieren
+    const firstBeschreibung = tbody.querySelector(
+      'input[name^="beschreibung_"]'
+    );
+    if (firstBeschreibung) {
+      firstBeschreibung.focus();
+      firstBeschreibung.style.borderColor = "#f59e0b";
+      setTimeout(() => (firstBeschreibung.style.borderColor = ""), 3000);
     }
-    closeModal();
-    loadRechnungen();
-  } catch (error) {
-    showNotification("Fehler beim Speichern der Rechnung", "error");
   }
+
+  return hasValidPositions;
 };
 
-console.log(
-  "Erweiterte Rechnungsfunktionen geladen - SKonto, Rechnungshinweise und +Position verfügbar"
-);
+console.log("✅ Erweiterte Rechnungs-Validierung geladen");
 
 async function deleteRechnung(id) {
   if (

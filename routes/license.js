@@ -1,4 +1,3 @@
-// ===== KORRIGIERTE routes/license.js =====
 const express = require("express");
 const router = express.Router();
 const { LicenseManager } = require("../license/licenseManager");
@@ -14,7 +13,6 @@ router.get("/status", async (req, res) => {
   }
 });
 
-// Lizenz aktivieren - VERBESSERT
 router.post("/activate", async (req, res) => {
   try {
     const { licenseKey } = req.body;
@@ -30,7 +28,6 @@ router.post("/activate", async (req, res) => {
     // Online-Validierung durchführen
     const result = await licenseManager.validateLicenseOnline(licenseKey);
 
-    // WICHTIG: License Key in Antwort-Daten einbauen
     const licenseDataWithKey = {
       license_key: licenseKey, // Original License Key hinzufügen
       ...result.licenseData,
@@ -78,7 +75,6 @@ router.get("/hardware-info", (req, res) => {
   }
 });
 
-// NEU: Debug-Endpunkt für Lizenz-Informationen
 router.get("/debug", async (req, res) => {
   try {
     const licenseManager = new LicenseManager();

@@ -1720,5 +1720,4 @@ function printModalContent(modalContent) {
 window.addEventListener("settingsUpdated", () => {
   console.log("Einstellungen wurden aktualisiert - Rechnungen-Modul reagiert");
 });
-console.log("printRechnung v2.0 loaded - " + new Date().toISOString());
 window.showRechnungModal = showRechnungModal;

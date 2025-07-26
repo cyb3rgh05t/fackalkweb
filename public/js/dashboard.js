@@ -12,7 +12,6 @@ export async function loadDashboard() {
       apiCall("/api/einstellungen"),
     ]);
 
-    // KRITISCH: Bestehende Einstellungen NICHT überschreiben!
     if (!window.einstellungen) {
       window.einstellungen = {};
     }
@@ -99,13 +98,10 @@ function updateStatistics(auftraege, rechnungen, kunden) {
   addExtendedStatistics(auftraege, rechnungen);
 }
 
-// Neue Funktion: Cards klickbar machen
 function makeCardsClickable() {
-  // Alle stat-cards finden und Click-Handler hinzufügen
   const cards = document.querySelectorAll(".stat-card");
 
   cards.forEach((card, index) => {
-    // Card-Styles für bessere Hover-Effekte
     card.style.cursor = "pointer";
     card.style.transition = "all 0.3s ease";
     card.style.userSelect = "none";
@@ -383,7 +379,6 @@ function addExtendedStatistics(auftraege, rechnungen) {
     );
   }
 
-  // 🔧 FIX: Aufträge in Bearbeitung - korrekter Status "in_bearbeitung"
   const auftraegeInBearbeitung = auftraege.filter(
     (a) => a.status === "in_bearbeitung"
   ).length;
@@ -411,7 +406,6 @@ function addExtendedStatistics(auftraege, rechnungen) {
     return diffDays > zahlungszielTage;
   }).length;
 
-  // 💡 VERBESSERT: Durchschnittlicher Auftragswert mit besserer Berechnung
   const auftraegeWithCosts = auftraege.filter(
     (a) => a.gesamt_kosten && a.gesamt_kosten > 0
   );
@@ -430,7 +424,6 @@ function addExtendedStatistics(auftraege, rechnungen) {
     })
     .reduce((sum, r) => sum + (r.gesamtbetrag || 0), 0);
 
-  // 🎨 VERBESSERTE Karten mit besseren Tooltips und Farben
   extendedStatsContainer.innerHTML = `
     <div class="stat-card" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed);" title="Aufträge mit Status 'in_bearbeitung'">
       <div class="stat-number">${auftraegeInBearbeitung}</div>

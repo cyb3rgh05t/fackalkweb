@@ -1,4 +1,3 @@
-// models/auftrag.js - KOMPLETT UND KORRIGIERT
 const db = require("../db");
 
 const Auftrag = {
@@ -175,7 +174,6 @@ const Auftrag = {
       );
     }),
 
-  // KORRIGIERTE REMOVE-FUNKTION
   remove: (id) =>
     new Promise((resolve, reject) => {
       console.log(`🗑️ Lösche Auftrag mit ID: ${id}`);
@@ -208,7 +206,6 @@ const Auftrag = {
       );
     }),
 
-  // ALIAS für Kompatibilität
   delete: function (id) {
     console.warn(
       "⚠️ Verwendung von deprecated Auftrag.delete() - verwende stattdessen Auftrag.remove()"
@@ -217,5 +214,4 @@ const Auftrag = {
   },
 };
 
-// WICHTIG: Alle Funktionen exportieren
 module.exports = Auftrag;

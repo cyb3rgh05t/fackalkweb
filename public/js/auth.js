@@ -1,6 +1,3 @@
-// ===== SOFORTIGE SESSION-CHECK public/js/auth.js =====
-// Frontend Authentication Management mit sofortiger Hardware-Deaktivierungs-Erkennung
-
 class AuthManager {
   constructor() {
     this.currentUser = null;
@@ -13,7 +10,7 @@ class AuthManager {
   // Initialisierung
   init() {
     this.loadUserInfo();
-    this.startImmediateSessionMonitoring(); // NEU: Sofortige Session-Checks
+    this.startImmediateSessionMonitoring();
     this.setupKeyboardShortcuts();
     this.checkForLicenseNotifications();
   }
@@ -179,7 +176,6 @@ class AuthManager {
     }
   }
 
-  // SPEZIELLE HARDWARE-DEAKTIVIERUNGS-BEHANDLUNG (VERBESSERT)
   handleHardwareDeactivationError(errorData) {
     console.error("🚨 HARDWARE-DEAKTIVIERUNG ERKANNT:", errorData);
 
@@ -251,7 +247,6 @@ Zur Lizenz-Verwaltung gehen?`;
     }
   }
 
-  // NORMALE LIZENZ-FEHLER-BEHANDLUNG
   handleStrictLicenseError(errorData) {
     console.error("Lizenz-Fehler:", errorData);
 
@@ -279,7 +274,6 @@ Zur Lizenz-Verwaltung gehen?`;
     this.showStandardLicenseError(title, message, severity);
   }
 
-  // KRITISCHE ALERT-ANZEIGE (NEU)
   showCriticalAlert(message, type = "critical") {
     console.error(`🚨 KRITISCHER ALERT: ${message}`);
 
@@ -331,23 +325,20 @@ Zur Lizenz-Verwaltung gehen?`;
     }
   }
 
-  // SOFORTIGE SESSION-ÜBERWACHUNG (NEU)
+  // SOFORTIGE SESSION-ÜBERWACHUNG
   startImmediateSessionMonitoring() {
     console.log(
       "⚡ SOFORTIGE Session-Überwachung gestartet (Hardware-Deaktivierung wird SOFORT erkannt)"
     );
 
-    // 1. SCHNELLER SESSION CHECK (alle 30 Sekunden)
     this.sessionCheckInterval = setInterval(async () => {
       await this.performSessionCheck("30sec");
     }, 30 * 1000);
 
-    // 2. SUPER-SCHNELLER LICENSE CHECK (alle 15 Sekunden)
     this.quickCheckInterval = setInterval(async () => {
       await this.performSessionCheck("15sec");
     }, 15 * 1000);
 
-    // 3. SOFORTIGER VISIBILITY CHANGE CHECK
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) {
         console.log("👁️ Tab wieder aktiv - SOFORTIGER Session-Check...");
@@ -355,13 +346,11 @@ Zur Lizenz-Verwaltung gehen?`;
       }
     });
 
-    // 4. SOFORTIGER FOCUS CHECK
     window.addEventListener("focus", () => {
       console.log("🎯 Fenster Focus - SOFORTIGER Session-Check...");
       setTimeout(() => this.performSessionCheck("focus"), 50); // 50ms statt 500ms
     });
 
-    // 5. MOUSE-MOVEMENT CHECK (bei Aktivität)
     let lastActivity = Date.now();
     document.addEventListener("mousemove", () => {
       const now = Date.now();
@@ -373,7 +362,6 @@ Zur Lizenz-Verwaltung gehen?`;
       }
     });
 
-    // 6. KEYBOARD-ACTIVITY CHECK
     document.addEventListener("keydown", () => {
       const now = Date.now();
       if (now - lastActivity > 60000) {
@@ -385,7 +373,6 @@ Zur Lizenz-Verwaltung gehen?`;
     });
   }
 
-  // ERWEITERTE SESSION-PRÜFUNG MIT SOFORTIGER HARDWARE-ERKENNUNG
   async performSessionCheck(type = "normal") {
     try {
       // Bei bestimmten Check-Typen zusätzliche Logs

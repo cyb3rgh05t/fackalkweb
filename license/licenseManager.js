@@ -12,7 +12,6 @@ class LicenseManager {
     this.serverPath = this.extractPathFromUrl(this.serverUrl);
     this.endpoint = process.env.LICENSE_ENDPOINT || "validate.php";
 
-    // VERSCHIEDENE VALIDIERUNGS-INTERVALLE
     this.onlineValidationInterval = 5 * 60 * 1000; // 5 Minuten für normale API-Calls
     this.lastOnlineValidation = 0;
 
@@ -74,7 +73,6 @@ class LicenseManager {
       .substring(0, 32);
   }
 
-  // KLARTEXT-Speichern (deine Version beibehalten)
   async saveLicenseLocally(licenseData) {
     const dataDir = path.dirname(this.licenseFile);
     if (!fs.existsSync(dataDir)) {
@@ -91,7 +89,6 @@ class LicenseManager {
     this.lastOnlineValidation = Date.now();
   }
 
-  // STRIKTE LIZENZ-VALIDIERUNG
   async loadLocalLicense() {
     try {
       if (!fs.existsSync(this.licenseFile)) {
@@ -234,7 +231,6 @@ class LicenseManager {
                 }`
               );
 
-              // SPEZIELLE BEHANDLUNG FÜR HARDWARE-DEAKTIVIERUNG
               if (response.hardware_deactivated) {
                 console.error("🚨 HARDWARE-ID WURDE DEAKTIVIERT!");
                 console.error(
@@ -299,7 +295,6 @@ class LicenseManager {
     });
   }
 
-  // NORMALE ONLINE-VALIDIERUNG (mit 5-Minuten-Intervall)
   async mustValidateOnline() {
     const localLicense = await this.loadLocalLicense();
     if (!localLicense) {
@@ -348,7 +343,6 @@ class LicenseManager {
           onlineError.message
         );
 
-        // SPEZIELLE BEHANDLUNG FÜR HARDWARE-DEAKTIVIERUNG
         if (onlineError.hardwareDeactivated) {
           console.error("🚨 HARDWARE-DEAKTIVIERUNG ERKANNT!");
           return {
@@ -397,7 +391,6 @@ class LicenseManager {
     }
   }
 
-  // NEU: SOFORTIGE ONLINE-VALIDIERUNG (IGNORIERT 5-Minuten-Intervall)
   async forceValidateOnline() {
     const localLicense = await this.loadLocalLicense();
     if (!localLicense) {
@@ -540,7 +533,6 @@ class LicenseManager {
           onlineError.message
         );
 
-        // SPEZIELLE BEHANDLUNG FÜR HARDWARE-DEAKTIVIERUNG
         if (onlineError.hardwareDeactivated) {
           console.error("🚨 HARDWARE-DEAKTIVIERUNG beim Login erkannt!");
           return {
@@ -589,7 +581,6 @@ class LicenseManager {
     }
   }
 
-  // SESSION-VALIDIERUNG (IMMER SOFORT ONLINE - DAS WAR DAS PROBLEM!)
   async validateLicenseForSession() {
     console.log(
       "🔄 SOFORTIGE Session-Lizenz-Validierung (ignoriert 5-Min-Intervall)..."

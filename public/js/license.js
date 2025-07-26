@@ -29,7 +29,6 @@ class LicenseUI {
   }
 
   showActivationDialog() {
-    // Komplett ohne Inline-Styles, alles über CSS-Klassen!
     const dialog = `
       <div id="license-modal" class="license-modal-bg">
         <div class="license-modal-content">

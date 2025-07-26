@@ -1,20 +1,8 @@
-// utils.js - Komplette Utility-Funktionen für KFZ-System
-// Erweitert um moderne Sidebar-Navigation
-
-// =============================================================================
-// 1. GLOBALE STATE-OBJEKTE
-// =============================================================================
-
-// Globale State-Objekte als window-Property, damit Eventhandler aus anderen Modulen Zugriff haben
 export let kunden = window.kunden || [];
 export let fahrzeuge = window.fahrzeuge || [];
 export let auftraege = window.auftraege || [];
 export let rechnungen = window.rechnungen || [];
 export let einstellungen = window.einstellungen || {};
-
-// =============================================================================
-// 2. API-FUNKTIONEN
-// =============================================================================
 
 /**
  * Zentrale API-Call Funktion mit Error Handling
@@ -55,10 +43,6 @@ export async function apiCall(url, method = "GET", data = null) {
   }
 }
 
-// =============================================================================
-// 3. NOTIFICATION-FUNKTIONEN
-// =============================================================================
-
 /**
  * Zeigt Benachrichtigungen an
  * @param {string} message - Nachricht
@@ -68,10 +52,6 @@ export async function apiCall(url, method = "GET", data = null) {
 export function showNotification(message, type = "info") {
   return window.showNotification(message, type);
 }
-
-// =============================================================================
-// 4. FORMATIERUNGS-FUNKTIONEN
-// =============================================================================
 
 /**
  * Formatiert Datum für deutsche Anzeige
@@ -122,10 +102,6 @@ export function formatPLZ(plz) {
   const cleaned = plz.replace(/\D/g, "");
   return cleaned.slice(0, 5); // Deutsche PLZ max 5 Stellen
 }
-
-// =============================================================================
-// 5. NAVIGATION & SECTIONS
-// =============================================================================
 
 /**
  * Zentrale Funktion für Section-Navigation (erweitert für Sidebar)
@@ -244,10 +220,6 @@ async function loadSectionData(sectionId) {
   }
 }
 
-// =============================================================================
-// 6. SIDEBAR-FUNKTIONEN
-// =============================================================================
-
 /**
  * Togglet die Sidebar zwischen collapsed und expanded
  */
@@ -309,10 +281,6 @@ export function initializeSidebar() {
     // Ignoriere localStorage-Fehler
   }
 }
-
-// =============================================================================
-// 7. MOBILE & RESPONSIVE FUNKTIONEN
-// =============================================================================
 
 /**
  * Behandelt Mobile-spezifische Sidebar-Funktionen
@@ -420,10 +388,6 @@ function hideMobileOverlay() {
   }
 }
 
-// =============================================================================
-// 8. URL & ROUTING FUNKTIONEN
-// =============================================================================
-
 /**
  * Initialisiert URL-basiertes Routing
  */
@@ -453,10 +417,6 @@ export function navigateToSection(sectionId) {
   window.location.hash = sectionId;
   // hashchange Event wird automatisch showSection aufrufen
 }
-
-// =============================================================================
-// 9. FORM & VALIDATION FUNKTIONEN
-// =============================================================================
 
 /**
  * Validiert ein Formular
@@ -517,10 +477,6 @@ export function fillForm(formId, data) {
     }
   });
 }
-
-// =============================================================================
-// 10. UTILITY & HELPER FUNKTIONEN
-// =============================================================================
 
 /**
  * Debounce-Funktion für Performance-Optimierung
@@ -603,10 +559,6 @@ export function scrollToElement(target, offset = 0) {
   });
 }
 
-// =============================================================================
-// 11. EVENT LISTENER & INITIALIZATION
-// =============================================================================
-
 /**
  * Initialisiert alle Utility-Funktionen
  */
@@ -637,20 +589,12 @@ export function initializeUtils() {
   console.log("✅ Utils initialisiert");
 }
 
-// =============================================================================
-// 12. GLOBAL EXPORTS FÜR LEGACY SUPPORT
-// =============================================================================
-
 // Für Kompatibilität mit bestehenden HTML-onclick-Events
 window.showSection = showSection;
 window.toggleSidebar = toggleSidebar;
 window.openMobileSidebar = openMobileSidebar;
 window.closeMobileSidebar = closeMobileSidebar;
 window.navigateToSection = navigateToSection;
-
-// =============================================================================
-// 13. INITIALIZATION
-// =============================================================================
 
 // Auto-Initialisierung wenn DOM bereit ist
 if (document.readyState === "loading") {

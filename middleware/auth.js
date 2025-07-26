@@ -1,4 +1,3 @@
-// middleware/auth.js - Authentication Middleware
 const requireAuth = (req, res, next) => {
   // Prüfen ob Benutzer eingeloggt ist
   if (req.session && req.session.userId) {
@@ -16,7 +15,6 @@ const requireAuth = (req, res, next) => {
   }
 };
 
-// Optional: Admin-Rechte prüfen
 const requireAdmin = (req, res, next) => {
   if (req.session && req.session.userId && req.session.userRole === "admin") {
     return next();

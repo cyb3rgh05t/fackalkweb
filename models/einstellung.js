@@ -9,7 +9,6 @@ module.exports = {
       });
     }),
 
-  // **NEU: UPSERT-Funktion (UPDATE or INSERT)**
   upsert: (key, value) =>
     new Promise((resolve, reject) => {
       // Prüfen ob Key existiert
@@ -54,7 +53,6 @@ module.exports = {
       );
     }),
 
-  // **ALT: Nur für Backwards-Compatibility**
   update: (key, value) =>
     new Promise((resolve, reject) => {
       db.run(

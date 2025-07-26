@@ -1,10 +1,8 @@
-// ===== HARDWARE-DEAKTIVIERUNGS-AWARE controllers/authController.js =====
 const bcrypt = require("bcrypt");
 const User = require("../models/user");
 const { LicenseManager } = require("../license/licenseManager");
 
 const authController = {
-  // Login-Verarbeitung MIT HARDWARE-DEAKTIVIERUNGS-BEHANDLUNG
   login: async (req, res) => {
     try {
       const { username, password } = req.body;
@@ -35,7 +33,6 @@ const authController = {
         });
       }
 
-      // ===== HARDWARE-DEAKTIVIERUNGS-AWARE LIZENZ-VALIDIERUNG =====
       console.log(
         "🔑 HARDWARE-DEAKTIVIERUNGS-AWARE Lizenz-Validierung beim Login..."
       );
@@ -89,7 +86,6 @@ const authController = {
           licenseStatus.message
         );
 
-        // Lizenz-Info in Session speichern - SICHER
         const licenseData = licenseStatus.licenseData || {};
         req.session.licenseInfo = {
           validated: true,
@@ -131,8 +127,6 @@ const authController = {
           details: licenseError.message,
         });
       }
-
-      // ===== LOGIN ERFOLGREICH =====
 
       // Session erstellen
       req.session.userId = user.id;
@@ -182,10 +176,8 @@ const authController = {
     });
   },
 
-  // HARDWARE-DEAKTIVIERUNGS-AWARE SESSION-CHECK
   getCurrentUser: async (req, res) => {
     if (req.session && req.session.userId) {
-      // ===== HARDWARE-DEAKTIVIERUNGS-AWARE SESSION-VALIDIERUNG =====
       console.log("🔄 HARDWARE-DEAKTIVIERUNGS-AWARE Session-Check...");
 
       const licenseManager = new LicenseManager();
@@ -227,7 +219,6 @@ const authController = {
 
         console.log("✅ Session-Lizenz-Check erfolgreich");
 
-        // Lizenz-Info in Session aktualisieren
         const licenseData = licenseStatus.licenseData || {};
         req.session.licenseInfo = {
           validated: true,

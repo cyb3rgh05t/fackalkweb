@@ -6,8 +6,6 @@ const compression = require("compression");
 const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const fs = require("fs");
-
-// ===== NEUE IMPORTS FÜR LOGIN-SYSTEM =====
 const session = require("express-session");
 const SQLiteStore = require("connect-sqlite3")(session);
 const { requireAuth, attachUser } = require("./middleware/auth");
@@ -66,7 +64,6 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// ===== SESSION-KONFIGURATION FÜR LOGIN-SYSTEM =====
 app.use(
   session({
     store: new SQLiteStore({
@@ -88,8 +85,6 @@ app.use(
 
 // User-Informationen an alle Requests anhängen
 app.use(attachUser);
-
-// OPTIMIERTE RATE LIMITS (ORIGINAL-KONFIGURATION BEIBEHALTEN)
 
 // Allgemeines Rate Limit - erhöht für normale Nutzung
 const generalLimiter = rateLimit({
@@ -139,7 +134,7 @@ const exportLimiter = rateLimit({
   message: { error: "Export-Limit erreicht, versuchen Sie es später erneut" },
 });
 
-// ALTERNATIVE: Conditional Rate Limiting basierend auf Request-Typ
+// Conditional Rate Limiting basierend auf Request-Typ
 const smartLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: (req) => {
@@ -164,7 +159,7 @@ const smartLimiter = rateLimit({
   }),
 });
 
-// FEHLERBEHANDLUNG für Rate Limits
+// Rate Limits
 app.use((err, req, res, next) => {
   if (err.status === 429) {
     console.error(`Rate Limit Fehler: ${req.method} ${req.url}`, {
@@ -183,10 +178,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// ===== AUTHENTIFIZIERUNGS-ROUTEN (ÖFFENTLICH) =====
 app.use("/api/auth", loginLimiter, require("./routes/auth"));
 
-// ===== LOGIN-SEITE (ÖFFENTLICH) =====
 app.get("/login", (req, res) => {
   // Wenn bereits eingeloggt, zur Hauptseite weiterleiten
   if (req.session && req.session.userId) {
@@ -208,17 +201,12 @@ app.get("/logout", (req, res) => {
 
 app.use("/api/license", require("./routes/license"));
 
-// RATE LIMITER ANWENDEN - RICHTIGE REIHENFOLGE WICHTIG!
-
-// 1. Spezifische Limits zuerst (werden zuerst geprüft)
 app.use("/api/einstellungen", settingsLimiter);
 app.use("/api/upload", uploadLimiter);
 app.use("/api/*/export", exportLimiter);
 
-// 2. Allgemeines Limit für alle anderen API-Calls (NUR für geschützte Routen)
 app.use("/api/", generalLimiter);
 
-// DEBUGGING: Rate Limit Status loggen
 app.use("/api/", (req, res, next) => {
   // Rate Limit Headers für Debugging
   res.on("finish", () => {
@@ -231,7 +219,6 @@ app.use("/api/", (req, res, next) => {
   next();
 });
 
-// ===== ÖFFENTLICHE API-ENDPUNKTE (ohne Auth) =====
 // Health Check
 app.get("/api/health", (req, res) => {
   res.json({
@@ -242,9 +229,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// ===== GESCHÜTZTE API-ENDPUNKTE (ab hier Auth erforderlich) =====
-
-// Logo-Upload-Endpunkt (GESCHÜTZT)
+// Logo-Upload-Endpunkt
 app.post(
   "/api/upload/logo",
   requireAuth,
@@ -279,7 +264,7 @@ app.post(
   }
 );
 
-// Backup-Endpunkt (GESCHÜTZT)
+// Backup-Endpunkt
 app.post(
   "/api/backup/create",
   requireAuth,
@@ -332,7 +317,7 @@ app.post(
   }
 );
 
-// Backup-Wiederherstellung (GESCHÜTZT)
+// Backup-Wiederherstellung
 app.post(
   "/api/backup/restore",
   requireAuth,
@@ -368,7 +353,7 @@ app.post(
   }
 );
 
-// Systemstatus-Endpunkt (GESCHÜTZT)
+// Systemstatus-Endpunkt
 app.get("/api/system/status", requireAuth, requireValidLicense, (req, res) => {
   const db = require("./db");
 
@@ -399,7 +384,6 @@ app.get("/api/system/status", requireAuth, requireValidLicense, (req, res) => {
   });
 });
 
-// ===== HAUPTANWENDUNGS-API-ROUTEN (ALLE GESCHÜTZT) =====
 app.use(
   "/api/kunden",
   requireAuth,
@@ -440,7 +424,6 @@ app.use(
   })
 );
 
-// ===== HAUPT-ROUTE (GESCHÜTZT) =====
 app.get("/", requireAuth, requireValidLicense, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
@@ -497,7 +480,7 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Server-Start-Funktion (statt sofort starten)
+// Server-Start-Funktion
 function startServer(port = PORT) {
   return new Promise((resolve, reject) => {
     const server = app.listen(port, (err) => {

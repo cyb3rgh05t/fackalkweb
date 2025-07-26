@@ -1,6 +1,3 @@
-// Verbesserte Notification-System
-// Ersetzt alle bestehenden showNotification Implementierungen
-
 class NotificationManager {
   constructor() {
     this.container = null;

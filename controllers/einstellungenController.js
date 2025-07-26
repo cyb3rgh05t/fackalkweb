@@ -1,6 +1,5 @@
 const Einstellung = require("../models/einstellung");
 
-// Validierungsregeln für verschiedene Einstellungstypen
 const validationRules = {
   firmenname: { required: true, maxLength: 100 },
   firmen_email: { type: "email", maxLength: 100 },
@@ -26,17 +25,14 @@ const validationRules = {
 function validateValue(key, value, rule) {
   if (!rule) return { isValid: true };
 
-  // Required validation
   if (rule.required && (!value || value.toString().trim() === "")) {
     return { isValid: false, error: `${key} ist erforderlich` };
   }
 
-  // Skip further validation if value is empty and not required
   if (!value || value.toString().trim() === "") {
     return { isValid: true };
   }
 
-  // Type-specific validation
   switch (rule.type) {
     case "email":
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -49,7 +45,6 @@ function validateValue(key, value, rule) {
       break;
 
     case "url":
-      // NEUE FLEXIBLE URL-VALIDIERUNG
       const flexibleUrlRegex =
         /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/i;
 
@@ -59,7 +54,6 @@ function validateValue(key, value, rule) {
         normalizedUrl = "http://" + normalizedUrl;
       }
 
-      // Prüfe ob URL gültig ist (sehr flexibel)
       const simpleCheck =
         /^(https?:\/\/)?([\w\-]+(\.[\w\-]+)+)([\w\-\.,@?^=%&:/~\+#]*[\w\-\@?^=%&/~\+#])?$/i;
 
@@ -117,7 +111,6 @@ function validateValue(key, value, rule) {
       break;
 
     case "iban":
-      // Einfache IBAN-Validierung
       const ibanRegex = /^[A-Z]{2}\d{2}[A-Z0-9]{4}\d{7}([A-Z0-9]?){0,16}$/;
       const cleanIban = value.replace(/\s/g, "").toUpperCase();
       if (!ibanRegex.test(cleanIban)) {
@@ -126,7 +119,6 @@ function validateValue(key, value, rule) {
       break;
 
     case "bic":
-      // BIC-Validierung
       const bicRegex = /^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/;
       if (!bicRegex.test(value.toUpperCase())) {
         return { isValid: false, error: `${key} muss ein gültiger BIC sein` };
@@ -134,7 +126,6 @@ function validateValue(key, value, rule) {
       break;
 
     case "base64":
-      // Base64-Validierung für Logos
       if (rule.maxSize) {
         const base64Data = value.replace(/^data:image\/[a-z]+;base64,/, "");
         const size =
@@ -163,7 +154,6 @@ function validateValue(key, value, rule) {
   return { isValid: true };
 }
 
-// GET /api/einstellungen - Alle Einstellungen laden
 exports.list = async (req, res) => {
   try {
     const einstellungen = await Einstellung.findAll();
@@ -173,7 +163,6 @@ exports.list = async (req, res) => {
   }
 };
 
-// PUT /api/einstellungen/:key - Einzelne Einstellung aktualisieren
 exports.update = async (req, res) => {
   try {
     const { key } = req.params;
@@ -228,7 +217,6 @@ exports.update = async (req, res) => {
   }
 };
 
-// PUT /api/einstellungen/ - Multiple Einstellungen aktualisieren (Legacy)
 exports.updateMultiple = async (req, res) => {
   try {
     const updates = req.body;
@@ -287,7 +275,6 @@ exports.updateMultiple = async (req, res) => {
   }
 };
 
-// PUT /api/einstellungen/batch - NEUE BATCH-UPDATE FUNKTION
 exports.updateBatch = async (req, res) => {
   try {
     const { settings } = req.body;
@@ -311,7 +298,6 @@ exports.updateBatch = async (req, res) => {
       failed: 0,
     };
 
-    // Alle Updates sequenziell abarbeiten (verhindert DB-Locks)
     for (const [key, value] of Object.entries(settings)) {
       try {
         // Validierung
@@ -349,7 +335,6 @@ exports.updateBatch = async (req, res) => {
           processedValue = value.toUpperCase();
         }
 
-        // **WICHTIG: UPSERT statt UPDATE verwenden**
         const result = await Einstellung.upsert(key, processedValue);
 
         results.success.push({
@@ -395,7 +380,6 @@ exports.updateBatch = async (req, res) => {
   }
 };
 
-// GET /api/einstellungen/export - Einstellungen exportieren
 exports.export = async (req, res) => {
   try {
     const einstellungen = await Einstellung.findAll();
@@ -430,7 +414,6 @@ exports.export = async (req, res) => {
   }
 };
 
-// POST /api/einstellungen/import - Einstellungen importieren
 exports.import = async (req, res) => {
   try {
     const { settings, overwrite = false } = req.body;
@@ -500,10 +483,8 @@ exports.import = async (req, res) => {
   }
 };
 
-// POST /api/einstellungen/reset - Einstellungen zurücksetzen
 exports.reset = async (req, res) => {
   try {
-    // Hier könnten Sie Standard-Einstellungen wiederherstellen
     // Für jetzt nur eine einfache Bestätigung
     res.json({
       success: true,

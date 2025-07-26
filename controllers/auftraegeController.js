@@ -1,4 +1,3 @@
-// controllers/auftraegeController.js - ERWEITERTE VERSION
 const Auftrag = require("../models/auftrag");
 const { generateNextNumber } = require("../utils/numbering");
 const db = require("../db");
@@ -23,7 +22,6 @@ exports.get = async (req, res) => {
   }
 };
 
-// ERWEITERTE CREATE-FUNKTION mit Zuschlagsberechnung
 exports.create = async (req, res) => {
   try {
     const auftrag_nr = await generateNextNumber("auftrag");
@@ -91,7 +89,6 @@ exports.create = async (req, res) => {
       gesamt_zeit,
       gesamt_kosten,
       mwst_betrag,
-      // Zuschlag-Flags und Beträge speichern
       anfahrt_aktiv: req.body.anfahrt_aktiv || false,
       express_aktiv: req.body.express_aktiv || false,
       wochenend_aktiv: req.body.wochenend_aktiv || false,
@@ -108,7 +105,6 @@ exports.create = async (req, res) => {
   }
 };
 
-// ERWEITERTE UPDATE-FUNKTION mit Zuschlagsberechnung
 exports.update = async (req, res) => {
   try {
     // Einstellungen für Berechnungen holen
@@ -173,7 +169,6 @@ exports.update = async (req, res) => {
       gesamt_zeit,
       gesamt_kosten,
       mwst_betrag,
-      // Zuschlag-Flags und Beträge speichern
       anfahrt_aktiv: req.body.anfahrt_aktiv || false,
       express_aktiv: req.body.express_aktiv || false,
       wochenend_aktiv: req.body.wochenend_aktiv || false,
@@ -192,7 +187,7 @@ exports.update = async (req, res) => {
 
 exports.remove = async (req, res) => {
   try {
-    const result = await Auftrag.remove(req.params.id); // ← .remove() nicht .delete()
+    const result = await Auftrag.remove(req.params.id);
     if (result.changes === 0)
       return res.status(404).json({ error: "Auftrag nicht gefunden" });
     res.json({ success: true });

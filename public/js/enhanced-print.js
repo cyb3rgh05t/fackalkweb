@@ -1,6 +1,3 @@
-// Enhanced Print System - Fixed für direkte Script-Integration
-// Erweiterte Print-Funktionen mit Layout-Editor Integration
-
 (function () {
   "use strict";
 
@@ -557,7 +554,7 @@
       `;
     }
 
-    // Header generieren - ERWEITERT mit zusätzlichen Daten
+    // Header generieren
     generateHeader(type, data) {
       const firmenname = getSetting("firmenname", "Meine Firma");
       const logoData = getSetting("firmen_logo", "");
@@ -607,7 +604,6 @@
       const documentNumber =
         type === "rechnung" ? data.rechnung_nr : data.auftrag_nr;
 
-      // ERWEITERT: Zusätzliche Informationen für Header
       let additionalHeaderInfo = "";
 
       // Bei Rechnungen: Auftragsnummer und Auftragsdatum anzeigen (falls vorhanden)
@@ -677,11 +673,9 @@
 
     // Kundeninformationen generieren - ERWEITERT mit Kundennummer und Fahrzeugfarbe
     generateCustomerInfo(data) {
-      // ERWEITERT: Kundennummer hinzufügen
       let customerName = data.kunde_name || data.name || "Unbekannter Kunde";
       //let customerNumber = data.kunden_nr || "Unbekannte Kundennr.";
 
-      // ERWEITERT: Fahrzeugfarbe und Farbcode hinzufügen
       let vehicleInfo = `Marke - Modell: <strong>${data.marke || ""} - ${
         data.modell || ""
       }</strong><br>`;
@@ -739,92 +733,134 @@
 
       const headers =
         type === "rechnung"
-          ? [
-              "Beschreibung",
-              "Menge",
-              "Einheit",
-              "Einzelpreis",
-              "MwSt.",
-              "Gesamt",
-            ]
-          : ["Beschreibung", "Zeit", "Stundenpreis", "Gesamt"];
+          ? `<th>Beschreibung</th><th>Menge</th><th>Einzelpreis</th><th>MwSt.</th><th>Gesamt</th>`
+          : `<th>Beschreibung</th><th>Zeit</th><th>Stundenpreis</th><th>Gesamt</th>`;
 
-      const positionsRows = data.positionen
+      // Normale Positionen
+      let positionsHtml = data.positionen
         .map((pos) => {
+          const menge = pos.zeit || pos.menge || 0;
+          const preis = pos.stundenpreis || pos.einzelpreis || 0;
+          const gesamt = pos.gesamt || menge * preis;
+
           if (type === "rechnung") {
             return `
-            <tr>
-              <td style="text-align: left;">${pos.beschreibung || ""}</td>
-              <td style="text-align: center;">${pos.menge || 0}</td>
-              <td style="text-align: center;">${pos.einheit || ""}</td>
-              <td style="text-align: right;">${formatCurrency(
-                pos.einzelpreis
-              )}</td>
-              <td style="text-align: center;">${pos.mwst_prozent || 0}%</td>
-              <td style="text-align: right; font-weight: bold;">${formatCurrency(
-                pos.gesamt
-              )}</td>
-            </tr>
-          `;
+        <tr>
+          <td>${pos.beschreibung || ""}</td>
+          <td>${menge} ${pos.einheit || ""}</td>
+          <td style="text-align: right;">${this.formatCurrency(preis)}</td>
+          <td style="text-align: center;">${pos.mwst_prozent || 19}%</td>
+          <td style="text-align: right;">${this.formatCurrency(gesamt)}</td>
+        </tr>`;
           } else {
             return `
-            <tr>
-              <td style="text-align: left;">${pos.beschreibung || ""}</td>
-              <td style="text-align: center;">${pos.zeit || 0} Std.</td>
-              <td style="text-align: right;">${formatCurrency(
-                pos.stundenpreis
-              )}</td>
-              <td style="text-align: right; font-weight: bold;">${formatCurrency(
-                pos.gesamt || pos.kosten || 0
-              )}</td>
-            </tr>
-          `;
+        <tr>
+          <td>${pos.beschreibung || ""}</td>
+          <td style="text-align: center;">${menge} ${pos.einheit || ""}</td>
+          <td style="text-align: right;">${this.formatCurrency(preis)}</td>
+          <td style="text-align: right;">${this.formatCurrency(gesamt)}</td>
+        </tr>`;
           }
         })
         .join("");
 
+      // ZUSCHLÄGE für Aufträge hinzufügen
+      if (type === "auftrag") {
+        const zuschlaege = this.generateZuschlaegeRows(data);
+        if (zuschlaege) {
+          positionsHtml +=
+            `
+        <tr style="border-top: 2px solid #007bff;">
+          <td colspan="4" style="padding: 0.5rem 0; font-weight: bold; color: #007bff;">
+            ➕ Zuschläge und Zusatzleistungen
+          </td>
+        </tr>` + zuschlaege;
+        }
+      }
+
       return `
-        <div class="positions-section" style="margin-bottom: ${
-          this.layoutSettings.layout_section_spacing
-        };">
-          <h3 style="color: ${
-            this.layoutSettings.layout_color_primary
-          }; margin-bottom: 1rem; font-size: ${
-        this.layoutSettings.layout_font_size_h3
-      };">
-            ${type === "rechnung" ? "Rechnungspositionen" : "Arbeitsleistungen"}
-          </h3>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: ${
-            this.layoutSettings.layout_section_spacing
-          };">
-            <thead>
-              <tr style="background-color: ${
-                this.layoutSettings.layout_table_header_bg
-              };">
-                ${headers
-                  .map(
-                    (h) =>
-                      `<th style="padding: ${
-                        this.layoutSettings.layout_table_padding
-                      }; border: ${
-                        this.layoutSettings.layout_table_border
-                      }; font-weight: bold; text-align: ${
-                        h === "Beschreibung"
-                          ? "left"
-                          : h.includes("preis") || h === "Gesamt"
-                          ? "right"
-                          : "center"
-                      };">${h}</th>`
-                  )
-                  .join("")}
-              </tr>
-            </thead>
-            <tbody>
-              ${positionsRows}
-            </tbody>
-          </table>
-        </div>
-      `;
+    <h3 style="color: ${
+      this.layoutSettings.layout_color_primary
+    }; margin-bottom: 1rem;">
+      ${
+        type === "rechnung"
+          ? "Rechnungspositionen:"
+          : "Arbeitszeiten und Leistungen:"
+      }
+    </h3>
+    <table class="positions-table" style="width: 100%; border-collapse: collapse; margin-bottom: 2rem;">
+      <thead>
+        <tr style="background-color: ${
+          this.layoutSettings.layout_color_primary
+        }; color: white;">
+          ${headers}
+        </tr>
+      </thead>
+      <tbody>${positionsHtml}</tbody>
+    </table>`;
+    }
+
+    generateZuschlaegeRows(data) {
+      let html = "";
+
+      // Anfahrtspauschale
+      if (data.anfahrt_aktiv && data.anfahrt_betrag > 0) {
+        html += `
+      <tr style="background-color: #f8f9fa; border-left: 4px solid #28a745;">
+        <td>Anfahrtspauschale</td>
+        <td style="text-align: center;">1 Pauschal</td>
+        <td style="text-align: right;">${this.formatCurrency(
+          data.anfahrt_betrag
+        )}</td>
+        <td style="text-align: right; font-weight: bold;">${this.formatCurrency(
+          data.anfahrt_betrag
+        )}</td>
+      </tr>`;
+      }
+
+      // Express-Zuschlag
+      if (data.express_aktiv && data.express_betrag > 0) {
+        const expressProz = this.layoutSettings.express_zuschlag || "25";
+        html += `
+      <tr style="background-color: #f8f9fa; border-left: 4px solid #ffc107;">
+        <td>⚡ Express-Zuschlag (+${expressProz}%)</td>
+        <td style="text-align: center;">1 Pauschal</td>
+        <td style="text-align: right;">${this.formatCurrency(
+          data.express_betrag
+        )}</td>
+        <td style="text-align: right; font-weight: bold;">${this.formatCurrency(
+          data.express_betrag
+        )}</td>
+      </tr>`;
+      }
+
+      // Wochenend-Zuschlag
+      if (data.wochenend_aktiv && data.wochenend_betrag > 0) {
+        const wochenendProz = this.layoutSettings.wochenend_zuschlag || "20";
+        html += `
+      <tr style="background-color: #f8f9fa; border-left: 4px solid #dc3545;">
+        <td>Wochenend-Zuschlag (+${wochenendProz}%)</td>
+        <td style="text-align: center;">1 Pauschal</td>
+        <td style="text-align: right;">${this.formatCurrency(
+          data.wochenend_betrag
+        )}</td>
+        <td style="text-align: right; font-weight: bold;">${this.formatCurrency(
+          data.wochenend_betrag
+        )}</td>
+      </tr>`;
+      }
+
+      return html;
+    }
+
+    formatCurrency(amount) {
+      if (typeof amount !== "number") {
+        amount = parseFloat(amount) || 0;
+      }
+      return new Intl.NumberFormat("de-DE", {
+        style: "currency",
+        currency: "EUR",
+      }).format(amount);
     }
 
     // Zusammenfassung generieren
@@ -844,7 +880,7 @@
         if (showSkonto) {
           skontoHtml = `
         <div style="background: #e3f2fd; border: 1px solid #2196f3; border-radius: 8px; padding: 1rem; margin: 1rem 0; color: #1976d2;">
-          <strong>💰 Skonto-Vorteil:</strong> Bei Zahlung innerhalb von ${skontoTage} Tagen erhalten Sie ${skontoProzent}% Skonto.
+          <strong>Skonto-Vorteil:</strong> Bei Zahlung innerhalb von ${skontoTage} Tagen erhalten Sie ${skontoProzent}% Skonto.
         </div>
       `;
         }
@@ -1426,9 +1462,4 @@
 
   // Export für debugging
   window.enhancedPrint = enhancedPrint;
-
-  console.log(
-    "✅ Enhanced Print Erweiterungen geladen: SKonto + Rechnungshinweise - " +
-      new Date().toISOString()
-  );
 })();

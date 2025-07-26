@@ -1,4 +1,3 @@
-// middleware/licenseAuth.js
 const { LicenseManager } = require("../license/licenseManager");
 
 const requireValidLicense = async (req, res, next) => {

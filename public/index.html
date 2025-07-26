@@ -87,7 +87,7 @@
       </div>
     </div>
 
-    <!-- Main Content Wrapper (um deine bestehenden Sections) -->
+    <!-- Main Content Wrapper -->
     <div class="main-content">
       <!-- Top Bar -->
       <div class="top-bar">
@@ -512,12 +512,10 @@
                       </div>
                     </div>
 
-                    <!-- Ersetzen Sie die bestehende Logo-Sektion in public/index.html -->
                     <h3 style="margin: 2rem 0 1rem 0">Firmenlogo</h3>
                     <div class="form-group">
                       <label class="form-label">Logo hochladen</label>
 
-                      <!-- Alternativer Upload-Button -->
                       <button
                         type="button"
                         onclick="uploadLogo()"
@@ -541,7 +539,6 @@
                       <!-- Hidden Input für Formular -->
                       <input type="hidden" name="firmen_logo" />
 
-                      <!-- Logo-Vorschau Bereich mit verbessertem Styling -->
                       <div
                         id="logo-preview"
                         style="
@@ -1301,18 +1298,15 @@
             showNotification("Erfolgreich abgemeldet", "success");
           }
 
-          // LÖSUNG FÜR ELECTRON: Force reload statt einfache Navigation
           setTimeout(() => {
             console.log("🔄 Weiterleitung zur Login-Seite...");
 
-            // Überprüfe ob wir in Electron laufen
             const isElectron =
               typeof window !== "undefined" &&
               window.process &&
               window.process.type === "renderer";
 
             if (isElectron) {
-              // In Electron: Verwende window.location.replace mit Cache-Clearing
               console.log(
                 "🔧 Electron erkannt - verwende optimierte Navigation"
               );

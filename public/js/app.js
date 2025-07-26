@@ -1,5 +1,3 @@
-// ===== VERBESSERTE APP-INITIALISIERUNG =====
-
 import { showSection } from "./utils.js";
 import { loadDashboard } from "./dashboard.js";
 import { loadKunden } from "./kunden.js";
@@ -79,18 +77,14 @@ async function initializeApp() {
   console.log("🚀 App-Initialisierung gestartet...");
 
   try {
-    // 1. Modal-Container sofort erstellen
     ensureModalContainer();
 
-    // 2. Einstellungen ZUERST laden (kritisch!)
     console.log("📋 Phase 1: Einstellungen laden");
     await loadModuleSafely("einstellungen", loadEinstellungen);
 
-    // 3. Dashboard laden
     console.log("📊 Phase 2: Dashboard laden");
     await loadModuleSafely("dashboard", loadDashboard);
 
-    // 4. Kern-Module parallel laden
     console.log("⚡ Phase 3: Kern-Module parallel laden");
     const coreModules = [
       ["kunden", loadKunden],
@@ -99,15 +93,12 @@ async function initializeApp() {
       ["rechnungen", loadRechnungen],
     ];
 
-    // Parallel, aber mit individuellem Error-Handling
     await Promise.allSettled(
       coreModules.map(([name, loader]) => loadModuleSafely(name, loader))
     );
 
-    // 5. App als initialisiert markieren
     appInitialized = true;
 
-    // 6. Status ausgeben
     console.log("📈 Module-Status:", moduleStatus);
     const successfulModules =
       Object.values(moduleStatus).filter(Boolean).length;
@@ -117,7 +108,6 @@ async function initializeApp() {
       } Module erfolgreich geladen`
     );
 
-    // 7. Event für andere Teile der App
     window.dispatchEvent(
       new CustomEvent("appInitialized", {
         detail: { moduleStatus, success: successfulModules >= 4 },
@@ -125,7 +115,6 @@ async function initializeApp() {
     );
   } catch (error) {
     console.error("💥 Kritischer Fehler bei App-Initialisierung:", error);
-    // Fallback-Modus aktivieren
     activateFallbackMode();
   }
 }
@@ -215,5 +204,3 @@ window.debugApp = {
   reinit: initializeApp,
   forceModal: () => ensureModalContainer(),
 };
-
-console.log("📦 Verbesserte App-Initialisierung geladen");

@@ -1,7 +1,5 @@
-// Erweiterte Einstellungen-Verwaltung mit Layout-Editor Integration
 import { apiCall, showNotification } from "./utils.js";
 
-// Layout-Editor Import
 let layoutEditorModule = null;
 
 // Debounce-Timer für das Speichern
@@ -12,7 +10,6 @@ export async function loadEinstellungen() {
     console.log("🔧 Lade Einstellungen...");
     const settings = await apiCall("/api/einstellungen");
 
-    // KRITISCH: Bestehende Einstellungen NICHT überschreiben!
     if (!window.einstellungen) {
       window.einstellungen = {};
     }
@@ -158,21 +155,18 @@ window.showSettingsTab = function (tabName) {
   }
 };
 
-// VERBESSERTE BATCH-SAVE FUNKTION
 async function saveSettingsBatch(formId) {
   const form = document.getElementById(formId);
   const formData = new FormData(form);
   const updates = {};
 
-  // **KORRIGIERT:** Alle Formularwerte sammeln (auch leere)
   for (const [key, value] of formData.entries()) {
     if (key && value !== undefined) {
       // Nur undefined ausschließen
-      updates[key] = value.toString().trim(); // Leerzeichen entfernen
+      updates[key] = value.toString().trim();
     }
   }
 
-  // **NEU:** Explizit alle Eingabefelder durchgehen
   const inputs = form.querySelectorAll(
     "input[name], select[name], textarea[name]"
   );
@@ -318,20 +312,16 @@ window.uploadLogo = async function () {
       const base64Data = e.target.result;
 
       try {
-        // 1. API-Call zum Speichern
         await apiCall("/api/einstellungen/firmen_logo", "PUT", {
           value: base64Data,
         });
 
-        // 2. SICHER: window.einstellungen erstellen falls nicht vorhanden
         if (!window.einstellungen) {
           window.einstellungen = {};
         }
 
-        // 3. Logo setzen
         window.einstellungen.firmen_logo = base64Data;
 
-        // 4. VALIDATION: Prüfen ob Logo wirklich gesetzt wurde
         const logoCheck = window.einstellungen?.firmen_logo;
         console.log("✅ Logo-Upload VALIDATION:", {
           logoExists: !!logoCheck,
@@ -339,7 +329,6 @@ window.uploadLogo = async function () {
           timestamp: new Date().toISOString(),
         });
 
-        // 5. UI updates
         const logoPreview = document.getElementById("logo-preview");
         if (logoPreview) {
           logoPreview.innerHTML = `<img src="${base64Data}" alt="Firmenlogo" style="max-width: 200px; max-height: 100px;">`;
@@ -348,7 +337,6 @@ window.uploadLogo = async function () {
         updateLogoButtonVisibility();
         showNotification("Logo erfolgreich hochgeladen", "success");
 
-        // 6. Events für andere Module
         window.dispatchEvent(
           new CustomEvent("logoUpdated", {
             detail: { logo: base64Data },
@@ -389,7 +377,6 @@ window.removeLogo = async function () {
         '<div class="no-logo">Kein Logo hochgeladen</div>';
     }
 
-    // **NEUE ZEILEN:** Browser-Cache für das Logo löschen
     if (window.einstellungen.firmen_logo) {
       window.einstellungen.firmen_logo = null;
     }
@@ -407,7 +394,6 @@ window.removeLogo = async function () {
     // Event senden
     window.dispatchEvent(new CustomEvent("logoRemoved", { detail: {} }));
 
-    // **WICHTIG:** Seite neu laden um alle Caches zu löschen
     setTimeout(() => {
       window.location.reload();
     }, 1000);
@@ -768,8 +754,3 @@ window.saveSettings = function (formId) {
 window.handleSettingChange = function (key, value) {
   return saveSingleSetting(key, value);
 };
-
-console.log(
-  "Einstellungen-Modul v2.0 mit Layout-Editor geladen - " +
-    new Date().toISOString()
-);

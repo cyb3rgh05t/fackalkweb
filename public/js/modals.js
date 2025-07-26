@@ -1,9 +1,5 @@
-// ===== FINALE MODAL-LÖSUNG =====
-// Basiert auf deinem funktionierenden Test - umgeht modal-container komplett
-
 let activeModal = null;
 
-// Modal erstellen - direkt an body anhängen (wie dein Test)
 export function createModal(title, content, footer = "") {
   console.log(`🚀 Erstelle Modal: "${title}"`);
 
@@ -163,5 +159,3 @@ document.addEventListener("DOMContentLoaded", () => {
     // oldContainer.remove(); // Auskommentiert, falls andere Teile ihn brauchen
   }
 });
-
-console.log("🎯 FINALE Modal-Lösung geladen - funktioniert auf ALLEN Tabs");

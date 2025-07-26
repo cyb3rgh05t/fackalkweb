@@ -1,4 +1,3 @@
-// public/js/auftraege.js - ERWEITERTE VERSION mit korrektem +Position System
 import {
   apiCall,
   showNotification,
@@ -73,7 +72,6 @@ async function loadAuftraege() {
   }
 }
 
-// ERWEITERTE Funktion für das Auftragsmodal mit korrektem +Position System
 async function showAuftragModal(auftragId = null) {
   const isEdit = !!auftragId;
   let auftrag = null;
@@ -187,8 +185,6 @@ async function showAuftragModal(auftragId = null) {
     }
   ).join("");
 
-  // Ersetze die ZUSCHLAG-SEKTION in showAuftragModal() mit diesem schönen Design:
-
   const content = `
   <form id="auftrag-form" novalidate>
   <div class="form-grid">
@@ -270,7 +266,6 @@ async function showAuftragModal(auftragId = null) {
     <ul id="validation-errors"></ul>
   </div>
 
-    <!-- NEUE SCHÖNE ZUSCHLAG-SEKTION -->
     <h3 style="margin: 2rem 0 1rem 0; color: var(--accent-primary); display: flex; align-items: center; gap: 0.5rem;">
       <i class="fas fa-plus-circle"></i>
       Zuschläge und Zusatzleistungen
@@ -388,7 +383,6 @@ async function showAuftragModal(auftragId = null) {
     }</textarea>
   </div>
     
-    <!-- ERWEITERTE KOSTENÜBERSICHT -->
     <div class="cost-summary">
       <div class="cost-row">
         <span>Arbeitszeiten (netto):</span>
@@ -721,9 +715,7 @@ async function showAuftragModal(auftragId = null) {
   setTimeout(updateAuftragCalculations, 100);
 }
 
-// NEUE FUNKTION: Position hinzufügen (wie im Rechnungsmodal)
 window.addNewPosition = function () {
-  // AUTOMATISCHE ERKENNUNG: Auftrags- oder Rechnungsmodal?
   let tbody = document.getElementById("arbeitszeiten-tbody"); // Auftragsmodal
   let isAuftragModal = true;
 
@@ -802,7 +794,6 @@ window.addNewPosition = function () {
 
     console.log(`✅ Neue Arbeitszeit-Position ${newIndex} hinzugefügt`);
   } else {
-    // RECHNUNGSMODAL: Rechnungsposition hinzufügen
     const newRow = document.createElement("tr");
     newRow.id = `position-row-${newIndex}`;
     newRow.innerHTML = `
@@ -872,7 +863,6 @@ window.addNewPosition = function () {
   }
 };
 
-// NEUE FUNKTION: Position entfernen (wie im Rechnungsmodal)
 window.removePosition = function (index) {
   const row = document.getElementById(`position-row-${index}`);
   if (row) {
@@ -897,7 +887,6 @@ window.removePosition = function (index) {
   }
 };
 
-// ERWEITERTE Berechnungsfunktion für einzelne Zeilen
 window.calculateAuftragRow = function (index) {
   const stundenpreis =
     parseFloat(
@@ -914,7 +903,6 @@ window.calculateAuftragRow = function (index) {
   updateAuftragCalculations();
 };
 
-// ERWEITERTE Berechnungsfunktion mit Zuschlägen
 window.updateAuftragCalculations = function () {
   // Basis-Arbeitszeiten berechnen
   let arbeitszeitenNetto = 0;
@@ -1013,18 +1001,15 @@ window.updateAuftragCalculations = function () {
   if (gesamtMwstEl) gesamtMwstEl.textContent = formatCurrency(gesamtMitMwst);
 };
 
-// ERWEITERTE Speicherfunktion
 window.saveAuftrag = async function (auftragId = null) {
   console.log("💾 Speichere Auftrag...");
 
-  // 1. FORM-ELEMENT HOLEN
   const form = document.getElementById("auftrag-form");
   if (!form) {
     showNotification("Fehler: Formular nicht gefunden", "error");
     return;
   }
 
-  // 2. HTML5-VALIDIERUNG PRÜFEN
   if (!form.checkValidity()) {
     console.warn("❌ HTML5-Validierung fehlgeschlagen");
 
@@ -1039,10 +1024,8 @@ window.saveAuftrag = async function (auftragId = null) {
     return;
   }
 
-  // 3. FORMDATA SAMMELN
   const formData = new FormData(form);
 
-  // 4. MANUELLE VALIDIERUNG (zusätzlich zur HTML5-Validierung)
   const kundenId = parseInt(formData.get("kunden_id"));
   const fahrzeugId = parseInt(formData.get("fahrzeug_id"));
   const datum = formData.get("datum");
@@ -1080,7 +1063,6 @@ window.saveAuftrag = async function (auftragId = null) {
     }
   }
 
-  // 5. POSITIONEN VALIDIERUNG
   const beschreibungInputs = document.querySelectorAll(
     '[name^="beschreibung_"]'
   );
@@ -1118,14 +1100,12 @@ window.saveAuftrag = async function (auftragId = null) {
     errors.push("Mindestens eine Arbeitsposition muss ausgefüllt werden");
   }
 
-  // 6. FEHLER ANZEIGEN FALLS VORHANDEN
   if (errors.length > 0) {
     console.error("❌ Validierungsfehler:", errors);
     showNotification(`Validierungsfehler:\n• ${errors.join("\n• ")}`, "error");
     return;
   }
 
-  // 7. ZUSCHLÄGE SAMMELN
   const anfahrtAktiv =
     document.querySelector('[name="anfahrt_aktiv"]')?.checked || false;
   const expressAktiv =
@@ -1133,7 +1113,6 @@ window.saveAuftrag = async function (auftragId = null) {
   const wochenendAktiv =
     document.querySelector('[name="wochenend_aktiv"]')?.checked || false;
 
-  // 8. DATEN-OBJEKT ERSTELLEN
   const data = {
     kunden_id: kundenId,
     fahrzeug_id: fahrzeugId,
@@ -1149,7 +1128,6 @@ window.saveAuftrag = async function (auftragId = null) {
 
   console.log("📋 Auftragsdaten:", data);
 
-  // 9. SPEICHERN MIT LOADING-INDIKATOR
   try {
     // Loading-Zustand anzeigen
     const saveButton = document.querySelector('button[onclick*="saveAuftrag"]');
@@ -1188,8 +1166,6 @@ window.saveAuftrag = async function (auftragId = null) {
     }
   }
 };
-
-// VERBESSERTE VALIDIERUNGS-HILFSFUNKTIONEN
 
 // Feld als fehlerhaft markieren
 function markFieldAsError(fieldName, message) {
@@ -1247,7 +1223,6 @@ window.validateFahrzeugSelection = function () {
   }
 };
 
-// ERWEITERTE KUNDENFUNKTION mit Validierung
 window.loadKundenFahrzeuge = async function (
   kundenId,
   selectedFahrzeugId = null
@@ -1307,7 +1282,6 @@ window.loadKundenFahrzeuge = async function (
   }
 };
 
-// ERWEITERTE createRechnungFromAuftrag Funktion - MIT ZUSCHLÄGEN!
 async function createRechnungFromAuftrag(auftragId) {
   try {
     const auftrag = await apiCall(`/api/auftraege/${auftragId}`);
@@ -1329,7 +1303,6 @@ async function createRechnungFromAuftrag(auftragId) {
     // Rechnungspositionen zusammenstellen
     let rechnungsPositionen = [];
 
-    // 1. ARBEITSZEITEN hinzufügen
     if (auftrag.positionen && auftrag.positionen.length > 0) {
       auftrag.positionen.forEach((pos) => {
         rechnungsPositionen.push({
@@ -1344,7 +1317,6 @@ async function createRechnungFromAuftrag(auftragId) {
       });
     }
 
-    // 2. ANFAHRTSPAUSCHALE hinzufügen (falls aktiv)
     if (auftrag.anfahrt_aktiv) {
       const anfahrtspauschale = parseFloat(
         getSetting("anfahrtspauschale", "0")
@@ -1362,7 +1334,6 @@ async function createRechnungFromAuftrag(auftragId) {
       }
     }
 
-    // 3. EXPRESS-ZUSCHLAG hinzufügen (falls aktiv)
     if (auftrag.express_aktiv) {
       const expressZuschlag = parseFloat(getSetting("express_zuschlag", "0"));
       const arbeitsKosten = (auftrag.positionen || []).reduce(
@@ -1384,7 +1355,6 @@ async function createRechnungFromAuftrag(auftragId) {
       }
     }
 
-    // 4. WOCHENEND-ZUSCHLAG hinzufügen (falls aktiv)
     if (auftrag.wochenend_aktiv) {
       const wochenendZuschlag = parseFloat(
         getSetting("wochenend_zuschlag", "0")
@@ -1594,7 +1564,3 @@ window.loadKundenFahrzeuge = async function (
 
 // Load-Funktion exportieren
 export { loadAuftraege };
-
-console.log(
-  "✅ auftraege.js v4.0 mit korrektem +Position System und Zuschlag-Integration geladen"
-);

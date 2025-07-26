@@ -1,12 +1,5 @@
-// models/rechnung.js
-// Vollständiges Rechnungsmodel mit SKonto und Rechnungshinweise-Support
-
 const db = require("../db");
 
-/**
- * Rechnung Model
- * Verwaltet alle Rechnungsdaten inklusive Positionen, SKonto und Rechnungshinweise
- */
 const Rechnung = {
   /**
    * Alle Rechnungen mit Grunddaten abrufen
@@ -252,7 +245,6 @@ const Rechnung = {
    */
   remove: (id) =>
     new Promise((resolve, reject) => {
-      // Durch CASCADE werden die Positionen automatisch gelöscht
       const sql = "DELETE FROM rechnungen WHERE id = ?";
 
       db.run(sql, [id], function (err) {

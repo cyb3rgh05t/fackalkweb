@@ -1,4 +1,3 @@
-// models/user.js
 const db = require("../db/index");
 
 const User = {

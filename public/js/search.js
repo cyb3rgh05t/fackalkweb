@@ -1,6 +1,3 @@
-// Verbesserte search.js mit intelligenter Status-Filterung
-
-// Status-Mapping für bessere Filterung
 const statusMapping = {
   // Aufträge
   offen: ["offen", "Offen"],

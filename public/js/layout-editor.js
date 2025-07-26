@@ -1,6 +1,3 @@
-// Layout-Editor für Rechnungen und Aufträge
-// Integriert sich nahtlos in das bestehende Einstellungen-System
-
 import { apiCall, showNotification } from "./utils.js";
 import { getSetting, setSetting } from "./einstellungen.js";
 

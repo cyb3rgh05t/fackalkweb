@@ -21,16 +21,17 @@ const User = {
   },
 
   // Benutzer nach ID suchen
-  findById: function (id) {
-    return new Promise(function (resolve, reject) {
-      const query = `
-        SELECT id, username, password_hash, role, created_at, last_login_at, is_active
-        FROM users 
-        WHERE id = ? AND is_active = 1
-      `;
+  findById: async (id) => {
+    return new Promise((resolve, reject) => {
+      const sql = `
+      SELECT id, username, role, is_active, created_at, last_login_at 
+      FROM users 
+      WHERE id = ?
+    `;
 
-      db.get(query, [id], function (err, row) {
+      db.get(sql, [id], (err, row) => {
         if (err) {
+          console.error("❌ Database error in User.findById:", err);
           reject(err);
         } else {
           resolve(row);
@@ -40,18 +41,20 @@ const User = {
   },
 
   // Alle Benutzer abrufen (ohne Passwort-Hash)
-  findAll: function () {
-    return new Promise(function (resolve, reject) {
-      const query = `
-        SELECT id, username, role, created_at, last_login_at, is_active
-        FROM users 
-        ORDER BY created_at DESC
-      `;
+  findAll: async () => {
+    return new Promise((resolve, reject) => {
+      const sql = `
+      SELECT id, username, role, is_active, created_at, last_login_at 
+      FROM users 
+      ORDER BY created_at DESC
+    `;
 
-      db.all(query, [], function (err, rows) {
+      db.all(sql, [], (err, rows) => {
         if (err) {
+          console.error("❌ Database error in User.findAll:", err);
           reject(err);
         } else {
+          console.log(`📊 User.findAll: ${rows.length} Benutzer gefunden`);
           resolve(rows);
         }
       });
@@ -75,6 +78,24 @@ const User = {
           reject(err);
         } else {
           resolve(this.lastID);
+        }
+      });
+    });
+  },
+
+  delete: async (id) => {
+    return new Promise((resolve, reject) => {
+      const sql = "DELETE FROM users WHERE id = ?";
+
+      db.run(sql, [id], function (err) {
+        if (err) {
+          console.error("❌ Database error in User.delete:", err);
+          reject(err);
+        } else {
+          console.log(
+            `✅ User.delete: Benutzer ID ${id} gelöscht (${this.changes} Zeilen betroffen)`
+          );
+          resolve(this.changes > 0);
         }
       });
     });
@@ -151,6 +172,26 @@ const User = {
           reject(err);
         } else {
           resolve(this.changes);
+        }
+      });
+    });
+  },
+
+  setActiveStatus: async (id, isActive) => {
+    return new Promise((resolve, reject) => {
+      const sql = "UPDATE users SET is_active = ? WHERE id = ?";
+
+      db.run(sql, [isActive ? 1 : 0, id], function (err) {
+        if (err) {
+          console.error("❌ Database error in User.setActiveStatus:", err);
+          reject(err);
+        } else {
+          console.log(
+            `✅ User.setActiveStatus: Benutzer ID ${id} auf ${
+              isActive ? "aktiv" : "inaktiv"
+            } gesetzt`
+          );
+          resolve(this.changes > 0);
         }
       });
     });

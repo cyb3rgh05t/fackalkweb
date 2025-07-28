@@ -416,6 +416,127 @@ const authController = {
       res.status(500).json({ error: "Passwort-Änderung fehlgeschlagen" });
     }
   },
+
+  // Alle Benutzer abrufen (nur für Admins)
+  getAllUsers: async (req, res) => {
+    try {
+      console.log("🔄 getAllUsers aufgerufen von Admin:", req.session.username);
+
+      const users = await User.findAll();
+      console.log(`📊 ${users.length} Benutzer gefunden`);
+
+      res.json(users);
+    } catch (error) {
+      console.error("❌ Fehler beim Laden aller Benutzer:", error);
+      res.status(500).json({ error: "Fehler beim Laden der Benutzer" });
+    }
+  },
+
+  // Benutzer aktivieren
+  activateUser: async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log(`🔄 activateUser aufgerufen für ID: ${id}`);
+
+      // Prüfen ob User existiert
+      const user = await User.findById(id);
+      if (!user) {
+        return res.status(404).json({ error: "Benutzer nicht gefunden" });
+      }
+
+      // Benutzer aktivieren
+      await User.setActiveStatus(id, true);
+      console.log(`✅ Benutzer ${user.username} (ID: ${id}) aktiviert`);
+
+      res.json({
+        success: true,
+        message: "Benutzer erfolgreich aktiviert",
+      });
+    } catch (error) {
+      console.error("❌ Fehler beim Aktivieren des Benutzers:", error);
+      res.status(500).json({ error: "Fehler beim Aktivieren des Benutzers" });
+    }
+  },
+
+  // Benutzer deaktivieren (nur Admin)
+  deactivateUser: async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log(`🔄 deactivateUser aufgerufen für ID: ${id}`);
+
+      // Prüfen ob User existiert
+      const user = await User.findById(id);
+      if (!user) {
+        return res.status(404).json({ error: "Benutzer nicht gefunden" });
+      }
+
+      // Admin-Schutz: Admins können nicht deaktiviert werden
+      if (user.role === "admin") {
+        return res.status(403).json({
+          error: "Administrator-Accounts können nicht deaktiviert werden",
+        });
+      }
+
+      // Selbst-Deaktivierung verhindern
+      if (parseInt(id) === req.session.userId) {
+        return res.status(403).json({
+          error: "Sie können sich nicht selbst deaktivieren",
+        });
+      }
+
+      // Benutzer deaktivieren
+      await User.setActiveStatus(id, false);
+      console.log(`✅ Benutzer ${user.username} (ID: ${id}) deaktiviert`);
+
+      res.json({
+        success: true,
+        message: "Benutzer erfolgreich deaktiviert",
+      });
+    } catch (error) {
+      console.error("❌ Fehler beim Deaktivieren des Benutzers:", error);
+      res.status(500).json({ error: "Fehler beim Deaktivieren des Benutzers" });
+    }
+  },
+
+  // Benutzer löschen (soft delete)
+  deleteUser: async (req, res) => {
+    try {
+      const { id } = req.params;
+      console.log(`🔄 deleteUser aufgerufen für ID: ${id}`);
+
+      // Prüfen ob User existiert
+      const user = await User.findById(id);
+      if (!user) {
+        return res.status(404).json({ error: "Benutzer nicht gefunden" });
+      }
+
+      // Admin-Schutz: Admins können nicht gelöscht werden
+      if (user.role === "admin") {
+        return res.status(403).json({
+          error: "Administrator-Accounts können nicht gelöscht werden",
+        });
+      }
+
+      // Selbst-Löschung verhindern
+      if (parseInt(id) === req.session.userId) {
+        return res.status(403).json({
+          error: "Sie können sich nicht selbst löschen",
+        });
+      }
+
+      // Benutzer löschen
+      await User.delete(id);
+      console.log(`✅ Benutzer ${user.username} (ID: ${id}) gelöscht`);
+
+      res.json({
+        success: true,
+        message: "Benutzer erfolgreich gelöscht",
+      });
+    } catch (error) {
+      console.error("❌ Fehler beim Löschen des Benutzers:", error);
+      res.status(500).json({ error: "Fehler beim Löschen des Benutzers" });
+    }
+  },
 };
 
 module.exports = authController;

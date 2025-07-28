@@ -353,6 +353,67 @@ app.post(
   }
 );
 
+// Backup-Liste abrufen
+app.get(
+  "/api/backup/list",
+  requireAuth,
+  requireValidLicense,
+  async (req, res) => {
+    try {
+      const backupDir = path.join(__dirname, "backups");
+
+      if (!fs.existsSync(backupDir)) {
+        return res.json({ backups: [] });
+      }
+
+      const files = fs.readdirSync(backupDir);
+      const backups = files
+        .filter((file) => file.endsWith(".db") && file.startsWith("backup_"))
+        .map((file) => {
+          const filePath = path.join(backupDir, file);
+          const stats = fs.statSync(filePath);
+
+          // Extrahiere Datum aus Dateiname (backup_2024-01-28T15-30-45.db)
+          const dateMatch = file.match(
+            /backup_(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})/
+          );
+          let created = new Date();
+
+          if (dateMatch) {
+            // Konvertiere Dateiname zurück zu ISO-String
+            const dateStr = dateMatch[1].replace(
+              /T(\d{2})-(\d{2})-(\d{2})/,
+              "T$1:$2:$3"
+            );
+            created = new Date(dateStr);
+          } else {
+            // Fallback auf Datei-Erstellungsdatum
+            created = stats.birthtime;
+          }
+
+          return {
+            filename: file,
+            path: filePath,
+            size: stats.size,
+            created: created.toISOString(),
+            sizeFormatted:
+              Math.round((stats.size / 1024 / 1024) * 100) / 100 + " MB",
+          };
+        })
+        .sort((a, b) => new Date(b.created) - new Date(a.created)); // Neueste zuerst
+
+      res.json({
+        success: true,
+        backups: backups,
+        count: backups.length,
+      });
+    } catch (error) {
+      console.error("Backup-Liste Fehler:", error);
+      res.status(500).json({ error: "Fehler beim Laden der Backup-Liste" });
+    }
+  }
+);
+
 // Systemstatus-Endpunkt
 app.get("/api/system/status", requireAuth, requireValidLicense, (req, res) => {
   const db = require("./db");
@@ -454,66 +515,6 @@ app.use("/api/*", (req, res) => {
     ],
   });
 });
-
-// Backup-Liste abrufen
-app.use(
-  "/api/backup/list",
-  requireAuth,
-  requireValidLicense,
-  async (req, res) => {
-    try {
-      const backupDir = path.join(__dirname, "backups");
-
-      if (!fs.existsSync(backupDir)) {
-        return res.json({ backups: [] });
-      }
-
-      const files = fs.readdirSync(backupDir);
-      const backups = files
-        .filter((file) => file.endsWith(".db") && file.startsWith("backup_"))
-        .map((file) => {
-          const filePath = path.join(backupDir, file);
-          const stats = fs.statSync(filePath);
-
-          // Extrahiere Datum aus Dateiname (backup_2024-01-28T15-30-45.db)
-          const dateMatch = file.match(
-            /backup_(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})/
-          );
-          let created = new Date();
-
-          if (dateMatch) {
-            // Konvertiere Dateiname zurück zu ISO-String
-            const dateStr = dateMatch[1]
-              .replace(/-/g, ":")
-              .replace(/T(\d{2}):(\d{2}):(\d{2})/, "T$1:$2:$3");
-            created = new Date(dateStr + ".000Z");
-          } else {
-            // Fallback auf Datei-Erstellungsdatum
-            created = stats.birthtime;
-          }
-
-          return {
-            filename: file,
-            path: filePath,
-            size: stats.size,
-            created: created.toISOString(),
-            sizeFormatted:
-              Math.round((stats.size / 1024 / 1024) * 100) / 100 + " MB",
-          };
-        })
-        .sort((a, b) => new Date(b.created) - new Date(a.created)); // Neueste zuerst
-
-      res.json({
-        success: true,
-        backups: backups,
-        count: backups.length,
-      });
-    } catch (error) {
-      console.error("Backup-Liste Fehler:", error);
-      res.status(500).json({ error: "Fehler beim Laden der Backup-Liste" });
-    }
-  }
-);
 
 // Globaler Error Handler
 app.use((err, req, res, next) => {

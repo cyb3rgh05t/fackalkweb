@@ -383,8 +383,8 @@ const authController = {
         });
       }
 
-      // Aktuellen Benutzer laden
-      const user = await User.findById(userId);
+      // Aktuellen Benutzer laden MIT password_hash
+      const user = await User.findById(userId, true); // <- HIER: true für password_hash
       if (!user) {
         return res.status(404).json({ error: "Benutzer nicht gefunden" });
       }

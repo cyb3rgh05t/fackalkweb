@@ -21,10 +21,19 @@ const User = {
   },
 
   // Benutzer nach ID suchen
-  findById: async (id) => {
+  findById: async (id, includePasswordHash = false) => {
     return new Promise((resolve, reject) => {
+      // Basis-Felder
+      let selectFields =
+        "id, username, role, is_active, created_at, last_login_at";
+
+      // Optional password_hash hinzufügen
+      if (includePasswordHash) {
+        selectFields += ", password_hash";
+      }
+
       const sql = `
-      SELECT id, username, role, is_active, created_at, last_login_at 
+      SELECT ${selectFields}
       FROM users 
       WHERE id = ?
     `;

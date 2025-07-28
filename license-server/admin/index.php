@@ -234,22 +234,28 @@ requireLogin(); // Diese Zeile schützt die Seite
                                     </td>
                                     <td><span class="status-badge <?php echo $status_class; ?>"><?php echo $status_text; ?></span></td>
                                     <td><?php echo date('d.m.Y H:i', strtotime($license['created_at'])); ?></td>
-                                    <td>
-                                        <div class="actions-group">
-                                            <a href="license_details.php?key=<?php echo $license['license_key']; ?>" class="btn btn-sm btn-primary">
-                                                📊 Details
-                                            </a>
-                                            <?php if ($license['status'] === 'active'): ?>
-                                                <button class="btn btn-sm btn-danger" onclick="suspendLicense('<?php echo $license['license_key']; ?>')">
-                                                    🚫 Sperren
-                                                </button>
-                                            <?php else: ?>
-                                                <button class="btn btn-sm btn-success" onclick="activateLicense('<?php echo $license['license_key']; ?>')">
-                                                    ✅ Aktivieren
-                                                </button>
-                                            <?php endif; ?>
-                                        </div>
-                                    </td>
+                                   <td>
+    <div class="actions-group">
+        <a href="license_details.php?key=<?php echo $license['license_key']; ?>" class="btn btn-sm btn-primary">
+            📊 Details
+        </a>
+        <?php if ($license['status'] === 'active'): ?>
+            <button class="btn btn-sm btn-danger" onclick="suspendLicense('<?php echo $license['license_key']; ?>')">
+                🚫 Sperren
+            </button>
+        <?php else: ?>
+            <button class="btn btn-sm btn-success" onclick="activateLicense('<?php echo $license['license_key']; ?>')">
+                ✅ Aktivieren
+            </button>
+        <?php endif; ?>
+        
+        <!-- NEU: LÖSCHEN-BUTTON -->
+        <button class="btn btn-sm btn-danger" onclick="deleteLicense('<?php echo $license['license_key']; ?>')" 
+                style="background: #dc2626;" title="Lizenz komplett löschen">
+            🗑️ Löschen
+        </button>
+    </div>
+</td>
                                 </tr>
                             <?php endwhile; ?>
                         </tbody>
@@ -356,6 +362,34 @@ requireLogin(); // Diese Zeile schützt die Seite
                 section.classList.add('active');
             }
         }
+        
+        function deleteLicense(licenseKey) {
+    if (confirm(`❌ Lizenz PERMANENT löschen?\n\nLizenz: ${licenseKey}\n\n⚠️ ACHTUNG: Diese Aktion kann NICHT rückgängig gemacht werden!\nAlle Aktivierungen und Daten werden gelöscht.`)) {
+        if (confirm('🔥 Sind Sie absolut sicher?\n\nAlle Daten zu dieser Lizenz werden unwiderruflich gelöscht!')) {
+            fetch('admin_actions.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    action: 'delete_license',
+                    license_key: licenseKey
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('success', '✅ Lizenz erfolgreich gelöscht');
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    showNotification('error', '❌ Fehler: ' + data.error);
+                }
+            })
+            .catch(error => showNotification('error', '❌ Netzwerkfehler: ' + error));
+        }
+    }
+}
+
 
         function suspendLicense(licenseKey) {
             if (confirm(`Lizenz ${licenseKey} wirklich sperren?`)) {

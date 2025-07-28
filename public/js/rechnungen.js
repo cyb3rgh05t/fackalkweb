@@ -1427,16 +1427,269 @@ window.validatePositions = function () {
 console.log("✅ Erweiterte Rechnungs-Validierung geladen");
 
 async function deleteRechnung(id) {
-  if (
-    confirm(
-      "Rechnung wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
-    )
-  ) {
+  try {
+    // Versuche Rechnung-Details zu laden für bessere Bestätigung
+    let rechnung = null;
     try {
+      rechnung = await apiCall(`/api/rechnungen/${id}`);
+
+      // Debug: Zeige verfügbare Felder in der Konsole
+      console.log("🔍 Rechnung-Daten für Dialog:", rechnung);
+      console.log("📋 Verfügbare Felder:", Object.keys(rechnung));
+    } catch (loadError) {
+      console.warn("Rechnung-Details konnten nicht geladen werden:", loadError);
+    }
+
+    // Bestätigungs-Dialog erstellen
+    let confirmMessage;
+    let dialogTitle;
+
+    if (rechnung) {
+      // Mit Rechnung-Details - Verschiedene mögliche Feldnamen prüfen
+      const möglicheBetragFelder = [
+        "gesamt_betrag",
+        "betrag",
+        "total",
+        "amount",
+        "gesamtbetrag",
+        "summe",
+        "brutto",
+        "netto",
+      ];
+      let betragWert = null;
+
+      for (const feld of möglicheBetragFelder) {
+        if (rechnung[feld] !== undefined && rechnung[feld] !== null) {
+          betragWert = rechnung[feld];
+          break;
+        }
+      }
+
+      const betrag = betragWert
+        ? `€ ${parseFloat(betragWert).toFixed(2)}`
+        : "Betrag unbekannt";
+
+      // Status mit verschiedenen möglichen Feldnamen
+      const möglicheStatusFelder = [
+        "status",
+        "state",
+        "zustand",
+        "rechnungsstatus",
+      ];
+      let statusWert = "Status unbekannt";
+
+      for (const feld of möglicheStatusFelder) {
+        if (rechnung[feld]) {
+          statusWert = rechnung[feld];
+          break;
+        }
+      }
+
+      const istBezahlt =
+        statusWert.toLowerCase().includes("bezahlt") ||
+        statusWert.toLowerCase().includes("paid") ||
+        statusWert.toLowerCase().includes("completed") ||
+        statusWert.toLowerCase().includes("erledigt");
+
+      // Datum mit verschiedenen möglichen Feldnamen
+      const möglicheDatumFelder = [
+        "datum",
+        "created_at",
+        "erstellt_am",
+        "date",
+        "rechnungsdatum",
+        "erstellungsdatum",
+        "timestamp",
+      ];
+      let datumWert = null;
+
+      for (const feld of möglicheDatumFelder) {
+        if (rechnung[feld]) {
+          datumWert = rechnung[feld];
+          break;
+        }
+      }
+
+      const datum = datumWert
+        ? new Date(datumWert).toLocaleDateString("de-DE")
+        : "Datum unbekannt";
+
+      // Rechnungsnummer mit verschiedenen möglichen Feldnamen
+      const möglicheNummerFelder = [
+        "nummer",
+        "number",
+        "rechnungsnummer",
+        "invoice_number",
+        "id",
+      ];
+      let nummerWert = id; // Fallback zur ID
+
+      for (const feld of möglicheNummerFelder) {
+        if (rechnung[feld]) {
+          nummerWert = rechnung[feld];
+          break;
+        }
+      }
+
+      // Kundenname mit verschiedenen möglichen Feldnamen
+      const möglicheKundenFelder = [
+        "kunde_name",
+        "customer_name",
+        "kundenname",
+        "name",
+        "kunde",
+      ];
+      let kundenname = "Kunde unbekannt";
+
+      for (const feld of möglicheKundenFelder) {
+        if (rechnung[feld]) {
+          kundenname = rechnung[feld];
+          break;
+        }
+      }
+
+      confirmMessage = `🧾 RECHNUNG LÖSCHEN
+
+Rechnung-Details:
+• Rechnung-Nr: ${nummerWert}
+• Betrag: ${betrag}
+• Kunde: ${kundenname}
+• Datum: ${datum}
+• Status: ${statusWert}`;
+
+      // Spezielle Warnung je nach Status
+      if (istBezahlt) {
+        confirmMessage += `\n\n🚨 ACHTUNG: BEZAHLTE RECHNUNG!
+
+Diese Rechnung wurde bereits bezahlt!
+• Buchhaltungsrelevante Daten gehen verloren
+• Steuerliche Dokumentation wird gelöscht
+• Zahlungshistorie geht verloren
+• Kann Probleme bei Steuerprüfung verursachen`;
+        dialogTitle = "🚨 Bezahlte Rechnung löschen";
+      } else {
+        confirmMessage += `\n\n⚠️ BUCHHALTUNGS-WARNUNG:
+
+• Rechnungsdaten gehen verloren
+• Auftragszuordnung wird entfernt
+• Steuerliche Dokumentation wird gelöscht`;
+        dialogTitle = "🧾 Rechnung löschen";
+      }
+
+      confirmMessage += `\n\n🔥 DIESE AKTION KANN NICHT RÜCKGÄNGIG GEMACHT WERDEN!
+
+Für die Buchhaltung sollten Rechnungen normalerweise storniert statt gelöscht werden.
+
+Trotzdem löschen?`;
+    } else {
+      // Ohne Details (Fallback)
+      confirmMessage = `Rechnung (ID: ${id}) wirklich löschen?
+
+⚠️ BUCHHALTUNGS-WARNUNG:
+• Rechnungsdaten gehen unwiderruflich verloren
+• Steuerliche Dokumentation wird gelöscht
+• Kann Probleme bei Buchprüfung verursachen
+
+Diese Aktion kann nicht rückgängig gemacht werden.
+
+Normalerweise sollten Rechnungen storniert statt gelöscht werden.`;
+      dialogTitle = "🧾 Rechnung löschen";
+    }
+
+    const confirmed = await customConfirm(confirmMessage, dialogTitle);
+
+    if (confirmed) {
+      // Bei bezahlten Rechnungen zusätzliche Bestätigung
+      if (
+        rechnung &&
+        statusWert &&
+        statusWert.toLowerCase().includes("bezahlt")
+      ) {
+        const betragText = betragWert
+          ? `€ ${parseFloat(betragWert).toFixed(2)}`
+          : "Unbekannter Betrag";
+
+        const secondConfirm = await customConfirm(
+          `Letzte Warnung für bezahlte Rechnung!
+
+Rechnung: ${nummerWert || id}
+Betrag: ${betragText}
+
+Das Löschen einer bezahlten Rechnung kann:
+• Steuerliche Probleme verursachen
+• Buchhaltung durcheinanderbringen
+• Bei Prüfungen Schwierigkeiten bereiten
+
+Sind Sie sich absolut sicher?`,
+          "🚨 Finale Warnung"
+        );
+
+        if (!secondConfirm) {
+          await customAlert(
+            "Löschung abgebrochen.\n\nÜberlegen Sie eine Stornierung statt Löschung.",
+            "info",
+            "Abgebrochen"
+          );
+          return;
+        }
+      }
+
+      // Loading-Notification während Löschung
+      if (typeof showNotification === "function") {
+        showNotification("Rechnung wird gelöscht...", "info");
+      }
+
       await apiCall(`/api/rechnungen/${id}`, "DELETE");
-      showNotification("Rechnung erfolgreich gelöscht", "success");
+
+      // Erfolgs-Dialog
+      const erfolgsBetrag = betragWert
+        ? `\nBetrag: € ${parseFloat(betragWert).toFixed(2)}`
+        : "";
+
+      await customAlert(
+        `Rechnung erfolgreich gelöscht!${
+          nummerWert && nummerWert !== id
+            ? `\n\nRechnung-Nr: ${nummerWert}`
+            : ""
+        }${erfolgsBetrag}
+
+⚠️ Hinweis: Stellen Sie sicher, dass diese Löschung in Ihrer Buchhaltung vermerkt wird.`,
+        "success",
+        "Rechnung gelöscht"
+      );
+
+      if (typeof showNotification === "function") {
+        showNotification("Rechnung erfolgreich gelöscht", "success");
+      }
+
       loadRechnungen();
-    } catch (error) {
+    }
+  } catch (error) {
+    console.error("Fehler beim Löschen der Rechnung:", error);
+
+    // Fehler-Dialog mit Details
+    await customAlert(
+      `Fehler beim Löschen der Rechnung:
+
+${error.message || "Unbekannter Fehler"}
+
+Mögliche Ursachen:
+• Netzwerk-Problem
+• Server-Fehler
+• Rechnung ist mit Zahlungen verknüpft
+• Buchhaltungssystem verhindert Löschung
+• Unzureichende Berechtigung
+• Rechnung bereits storniert/gelöscht
+
+WICHTIG: Die Rechnung wurde möglicherweise NICHT gelöscht.
+Prüfen Sie den Status und versuchen Sie es erneut.
+
+Bei Problemen mit Buchhaltungsdaten kontaktieren Sie den Support.`,
+      "error",
+      "Löschung fehlgeschlagen"
+    );
+
+    if (typeof showNotification === "function") {
       showNotification("Fehler beim Löschen der Rechnung", "error");
     }
   }

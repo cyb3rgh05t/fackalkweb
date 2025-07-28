@@ -448,21 +448,86 @@ window.deleteFahrzeug = async function (id) {
     const auftraege = await apiCall("/api/auftraege");
     const fahrzeugAuftraege = auftraege.filter((a) => a.fahrzeug_id === id);
 
-    let confirmMessage = `Fahrzeug "${fahrzeug?.kennzeichen}" wirklich löschen?`;
+    let confirmMessage;
+    let dialogTitle;
 
     if (fahrzeugAuftraege.length > 0) {
-      confirmMessage += `\n\nACHTUNG: Es existieren ${fahrzeugAuftraege.length} Aufträge für dieses Fahrzeug!\nAlle zugehörigen Aufträge und Rechnungen werden ebenfalls gelöscht!`;
+      // Warnung bei vorhandenen Aufträgen
+      confirmMessage = `Fahrzeug "${fahrzeug?.kennzeichen}" wirklich löschen?
+
+⚠️ ACHTUNG: DATEN GEHEN VERLOREN!
+
+Dieses Fahrzeug hat ${fahrzeugAuftraege.length} verknüpfte Aufträge:
+• Alle Aufträge werden gelöscht
+• Alle zugehörigen Rechnungen werden gelöscht
+• Alle Reparatur-Historie geht verloren
+
+Diese Aktion kann NICHT rückgängig gemacht werden!
+
+Trotzdem löschen?`;
+      dialogTitle = "⚠️ Fahrzeug mit Aufträgen löschen";
+    } else {
+      // Standard-Löschung ohne Aufträge
+      confirmMessage = `Fahrzeug "${fahrzeug?.kennzeichen}" wirklich löschen?
+
+Fahrzeug-Details:
+• Kennzeichen: ${fahrzeug?.kennzeichen || "Unbekannt"}
+• Marke: ${fahrzeug?.marke || "Unbekannt"}
+• Modell: ${fahrzeug?.modell || "Unbekannt"}
+
+Diese Aktion kann nicht rückgängig gemacht werden.`;
+      dialogTitle = "Fahrzeug löschen";
     }
 
-    confirmMessage += "\n\nDiese Aktion kann nicht rückgängig gemacht werden.";
+    const confirmed = await customConfirm(confirmMessage, dialogTitle);
 
-    if (confirm(confirmMessage)) {
+    if (confirmed) {
+      // Loading-Notification während Löschung
+      if (typeof showNotification === "function") {
+        showNotification("Fahrzeug wird gelöscht...", "info");
+      }
+
       await apiCall(`/api/fahrzeuge/${id}`, "DELETE");
-      showNotification("Fahrzeug erfolgreich gelöscht", "success");
+
+      // Erfolgs-Dialog und Notification
+      await customAlert(
+        `Fahrzeug "${fahrzeug?.kennzeichen}" wurde erfolgreich gelöscht!${
+          fahrzeugAuftraege.length > 0
+            ? `\n\n${fahrzeugAuftraege.length} Aufträge wurden ebenfalls entfernt.`
+            : ""
+        }`,
+        "success",
+        "Fahrzeug gelöscht"
+      );
+
+      if (typeof showNotification === "function") {
+        showNotification("Fahrzeug erfolgreich gelöscht", "success");
+      }
+
       loadFahrzeuge();
     }
   } catch (err) {
-    showNotification("Fehler beim Löschen des Fahrzeugs", "error");
+    console.error("Fehler beim Löschen des Fahrzeugs:", err);
+
+    // Fehler-Dialog mit Details
+    await customAlert(
+      `Fehler beim Löschen des Fahrzeugs "${fahrzeug?.kennzeichen}":
+
+${err.message || "Unbekannter Fehler"}
+
+Mögliche Ursachen:
+• Netzwerk-Problem
+• Server-Fehler
+• Fahrzeug wird noch verwendet
+
+Versuchen Sie es erneut oder kontaktieren Sie den Support.`,
+      "error",
+      "Löschung fehlgeschlagen"
+    );
+
+    if (typeof showNotification === "function") {
+      showNotification("Fehler beim Löschen des Fahrzeugs", "error");
+    }
   }
 };
 

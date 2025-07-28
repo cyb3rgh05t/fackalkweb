@@ -176,53 +176,25 @@ class AuthManager {
     }
   }
 
-  handleHardwareDeactivationError(errorData) {
-    console.error("🚨 HARDWARE-DEAKTIVIERUNG ERKANNT:", errorData);
+  async handleHardwareDeactivationError(errorData) {
+    console.error("🚨 HARDWARE DEAKTIVIERT:", errorData);
 
-    // Session sofort beenden
+    // Session komplett beenden
     this.stopAllMonitoring();
-    this.currentUser = null;
-    this.licenseInfo = null;
 
-    const deactivatedAt = errorData.deactivatedAt
-      ? new Date(errorData.deactivatedAt).toLocaleString()
-      : "Unbekannt";
+    const actionMessage = `🚨 HARDWARE DEAKTIVIERT!
 
-    // SOFORTIGE SICHTBARE WARNUNG
-    this.showCriticalAlert("🚨 HARDWARE-DEAKTIVIERUNG ERKANNT!", "critical");
+Ihre Hardware-ID wurde vom Server deaktiviert.
 
-    const criticalMessage = `🚨 KRITISCHER SICHERHEITSALARM!
+GRUND: ${errorData.details || errorData.error}
+HARDWARE-ID: ${errorData.hardware_id || "Unbekannt"}
+ZEITPUNKT: ${new Date().toLocaleString("de-DE")}
 
-HARDWARE-ID DEAKTIVIERT
-
-Ihre Hardware-ID wurde auf dem License-Server deaktiviert.
-
-📅 Deaktiviert am: ${deactivatedAt}
-
-⚠️ GRUND DER DEAKTIVIERUNG:
-Ihre Hardware-ID wurde vom Administrator manuell deaktiviert.
-
-🔒 SOFORTIGE SICHERHEITSMASSNAHMEN:
-• Alle Sessions wurden beendet
-• Zugriff auf das System ist gesperrt
-• Keine weitere Nutzung möglich
-
-📞 ERFORDERLICHE SCHRITTE:
-1. Kontaktieren Sie sofort Ihren Administrator
-2. Klären Sie den Grund der Deaktivierung
-3. Beantragen Sie eine manuelle Reaktivierung
-
-Details: ${errorData.details || errorData.error}
-
-Sie werden zur Lizenz-Verwaltung weitergeleitet.`;
-
-    // Mehrere Alerts für maximale Sichtbarkeit
-    alert(criticalMessage);
-
-    // Zweite Bestätigung
-    const actionMessage = `🔧 REAKTIVIERUNGS-ANWEISUNGEN:
-
-WICHTIG: Die Hardware-ID wurde vom Administrator deaktiviert!
+MÖGLICHE URSACHEN:
+• Lizenz abgelaufen oder ungültig
+• Zu viele gleichzeitige Aktivierungen
+• Hardware-Fingerprint-Änderung
+• Administrator-Deaktivierung
 
 KONTAKT-OPTIONEN:
 • Administrator: admin@meinefirma.dev
@@ -236,18 +208,32 @@ Falls Sie berechtigt sind, können Sie versuchen:
 
 Zur Lizenz-Verwaltung gehen?`;
 
-    if (confirm(actionMessage)) {
+    const confirmed = await customConfirm(
+      actionMessage,
+      "🚨 Hardware-Reaktivierung erforderlich"
+    );
+
+    if (confirmed) {
       window.location.href = "/license-activation";
     } else {
-      // Nochmalige Warnung
-      alert(
-        "⚠️ ZUGRIFF GESPERRT!\n\nSie können sich erst nach der Hardware-Reaktivierung wieder anmelden.\n\nKontaktieren Sie Ihren Administrator!"
+      // Nochmalige Warnung mit Dialog
+      await customAlert(
+        `⚠️ ZUGRIFF GESPERRT!
+
+Sie können sich erst nach der Hardware-Reaktivierung wieder anmelden.
+
+Kontaktieren Sie Ihren Administrator!
+
+Hardware-ID: ${errorData.hardware_id || "Unbekannt"}
+Fehler-Code: ${errorData.code || "HARDWARE_DEACTIVATED"}`,
+        "error",
+        "Zugriff gesperrt"
       );
       window.location.href = "/login";
     }
   }
 
-  handleStrictLicenseError(errorData) {
+  async handleStrictLicenseError(errorData) {
     console.error("Lizenz-Fehler:", errorData);
 
     // Session beenden
@@ -264,20 +250,28 @@ Zur Lizenz-Verwaltung gehen?`;
       severity = "warning";
     } else if (errorData.needsReactivation) {
       title = "🔄 Lizenz-Reaktivierung erforderlich";
-      message = `Ihre Lizenz muss reaktiviert werden.\n\nDetails: ${
-        errorData.details || errorData.error
-      }`;
+      message = `Ihre Lizenz muss reaktiviert werden.
+
+Details: ${errorData.details || errorData.error}
+
+Möchten Sie zur Lizenz-Verwaltung wechseln?`;
       severity = "error";
     }
 
-    // Standard-Lizenz-Fehler-Dialog
-    this.showStandardLicenseError(title, message, severity);
+    // Custom Dialog statt Standard-Lizenz-Fehler-Dialog
+    const goToLicense = await customConfirm(message, title);
+
+    if (goToLicense) {
+      window.location.href = "/license-activation";
+    } else {
+      window.location.href = "/login";
+    }
   }
 
-  showCriticalAlert(message, type = "critical") {
+  async showCriticalAlert(message, type = "critical") {
     console.error(`🚨 KRITISCHER ALERT: ${message}`);
 
-    // Versuche Browser-Benachrichtigung
+    // Browser-Benachrichtigung versuchen
     if ("Notification" in window) {
       if (Notification.permission === "granted") {
         new Notification("🚨 SICHERHEITSALARM - KFZ-App", {
@@ -286,7 +280,7 @@ Zur Lizenz-Verwaltung gehen?`;
           requireInteraction: true,
         });
       } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then((permission) => {
+        await Notification.requestPermission().then((permission) => {
           if (permission === "granted") {
             new Notification("🚨 SICHERHEITSALARM - KFZ-App", {
               body: message,
@@ -298,27 +292,34 @@ Zur Lizenz-Verwaltung gehen?`;
       }
     }
 
-    // Zusätzlich: Titel des Browser-Tabs ändern
+    // Titel des Browser-Tabs ändern
     if (document.title) {
       document.title = "🚨 HARDWARE DEAKTIVIERT - " + document.title;
     }
+
+    // Custom Dialog statt alert()
+    await customAlert(message, "error", "🚨 Sicherheitsalarm");
   }
 
-  // Standard-Lizenz-Fehler-Dialog
-  showStandardLicenseError(title, message, severity = "error") {
+  // Standard-Lizenz-Fehler-Dialog - AKTUALISIERT mit Custom Dialogs
+  async showStandardLicenseError(title, message, severity = "error") {
     const icon = severity === "error" ? "❌" : "⚠️";
     const fullMessage = `${icon} ${title}\n\n${message}\n\nSie werden zur Lizenz-Verwaltung weitergeleitet.`;
 
-    alert(fullMessage);
+    await customAlert(fullMessage, severity, title);
 
-    const actionMessage =
-      `Möchten Sie zur Lizenz-Verwaltung?\n\n` +
-      `Dort können Sie:\n` +
-      `• Eine neue Lizenz aktivieren\n` +
-      `• Bestehende Lizenz reaktivieren\n` +
-      `• Support-Informationen finden`;
+    const actionMessage = `Möchten Sie zur Lizenz-Verwaltung?
 
-    if (confirm(actionMessage)) {
+Dort können Sie:
+• Eine neue Lizenz aktivieren
+• Bestehende Lizenz reaktivieren
+• Support-Informationen finden
+
+Jetzt zur Lizenz-Verwaltung wechseln?`;
+
+    const goToLicense = await customConfirm(actionMessage, "Lizenz-Verwaltung");
+
+    if (goToLicense) {
       window.location.href = "/license-activation";
     } else {
       window.location.href = "/login";
@@ -444,9 +445,14 @@ Zur Lizenz-Verwaltung gehen?`;
     this.stopAllMonitoring();
   }
 
-  // Logout-Funktionalität (unverändert)
+  // Logout-Funktionalität - AKTUALISIERT mit Custom Dialog
   async handleLogout() {
-    if (!confirm("Möchten Sie sich wirklich abmelden?")) {
+    const confirmed = await customConfirm(
+      "Möchten Sie sich wirklich abmelden?",
+      "Abmeldung bestätigen"
+    );
+
+    if (!confirmed) {
       return;
     }
 
@@ -603,5 +609,14 @@ document.addEventListener("DOMContentLoaded", () => {
       e.preventDefault();
       window.authManager.handleLogout();
     });
+  }
+
+  // Prüfen ob Custom Dialogs verfügbar sind
+  if (typeof customAlert === "undefined") {
+    console.error(
+      "❌ Custom Dialogs nicht geladen! Fügen Sie customDialogs.js vor auth.js ein."
+    );
+  } else {
+    console.log("✅ Custom Dialogs in auth.js verfügbar");
   }
 });

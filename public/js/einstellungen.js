@@ -363,11 +363,21 @@ window.uploadLogo = async function () {
   fileInput.click();
 };
 
-// Logo entfernen
+// Logo entfernen - BEREITS mit Custom Dialogs
 window.removeLogo = async function () {
-  if (!confirm("Möchten Sie das Logo wirklich entfernen?")) return;
+  const confirmed = await customConfirm(
+    "Möchten Sie das Firmenlogo wirklich entfernen?",
+    "Logo entfernen"
+  );
+
+  if (!confirmed) return;
 
   try {
+    // Loading-Anzeige in Notification
+    if (typeof showNotification === "function") {
+      showNotification("Logo wird entfernt...", "info");
+    }
+
     await apiCall("/api/einstellungen/firmen_logo", "PUT", { value: "" });
     window.einstellungen.firmen_logo = "";
 
@@ -377,6 +387,7 @@ window.removeLogo = async function () {
         '<div class="no-logo">Kein Logo hochgeladen</div>';
     }
 
+    // Browser-Cache für das Logo löschen
     if (window.einstellungen.firmen_logo) {
       window.einstellungen.firmen_logo = null;
     }
@@ -389,41 +400,89 @@ window.removeLogo = async function () {
     });
 
     updateLogoButtonVisibility();
-    showNotification("Logo entfernt", "success");
+
+    // Erfolgs-Dialog anzeigen
+    await customAlert("Logo wurde erfolgreich entfernt!", "success");
 
     // Event senden
     window.dispatchEvent(new CustomEvent("logoRemoved", { detail: {} }));
 
+    // Seite neu laden nach kurzer Verzögerung
     setTimeout(() => {
       window.location.reload();
     }, 1000);
   } catch (error) {
-    showNotification("Fehler beim Entfernen des Logos", "error");
+    console.error("Logo-Entfernung Fehler:", error);
+    await customAlert(
+      `Fehler beim Entfernen des Logos:
+
+${error.message || "Unbekannter Fehler"}
+
+Versuchen Sie es erneut oder kontaktieren Sie den Support.`,
+      "error"
+    );
   }
 };
 
-// Einstellungen exportieren
+// Einstellungen exportieren - BEREITS mit Custom Dialogs
 window.exportEinstellungen = async function () {
   try {
-    const response = await fetch("/api/einstellungen/export");
-    const blob = await response.blob();
+    // Bestätigung vor Export
+    const confirmed = await customConfirm(
+      `Alle Einstellungen exportieren?
 
+Dies erstellt eine JSON-Datei mit:
+• Firmen-Einstellungen
+• Benutzer-Präferenzen  
+• System-Konfiguration
+
+⚠️ Die Datei kann sensible Daten enthalten.`,
+      "Einstellungen exportieren"
+    );
+
+    if (!confirmed) return;
+
+    if (typeof showNotification === "function") {
+      showNotification("Export wird erstellt...", "info");
+    }
+
+    const response = await fetch("/api/einstellungen/export");
+
+    if (!response.ok) {
+      throw new Error(
+        `Export-Fehler: ${response.status} ${response.statusText}`
+      );
+    }
+
+    const blob = await response.blob();
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
+
     a.href = url;
-    a.download = `faf-einstellungen-export-${
+    a.download = `kfzfacpro-einstellungen-${
       new Date().toISOString().split("T")[0]
     }.json`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
 
     window.URL.revokeObjectURL(url);
-    showNotification("Einstellungen erfolgreich exportiert", "success");
+
+    await customAlert("✅ Einstellungen erfolgreich exportiert!", "success");
   } catch (error) {
-    showNotification("Fehler beim Exportieren der Einstellungen", "error");
+    console.error("Export-Fehler:", error);
+    await customAlert(
+      `Fehler beim Exportieren:
+
+${error.message}
+
+Versuchen Sie es erneut oder kontaktieren Sie den Support.`,
+      "error"
+    );
   }
 };
 
-// Einstellungen importieren
+// Einstellungen importieren - BEREITS mit Custom Dialogs
 window.importEinstellungen = function () {
   const fileInput = document.createElement("input");
   fileInput.type = "file";
@@ -439,29 +498,82 @@ window.importEinstellungen = function () {
       const importData = JSON.parse(text);
 
       if (!importData.settings || typeof importData.settings !== "object") {
-        throw new Error("Ungültige Import-Datei");
+        throw new Error("Ungültige Import-Datei - Einstellungs-Struktur fehlt");
       }
 
-      const overwrite = confirm(
-        "Sollen bestehende Einstellungen überschrieben werden?"
+      // Vorschau der zu importierenden Einstellungen
+      const settingsCount = Object.keys(importData.settings).length;
+      const createdDate = importData.exported_at
+        ? new Date(importData.exported_at).toLocaleString("de-DE")
+        : "Unbekannt";
+
+      const confirmed = await customConfirm(
+        `Einstellungen importieren?
+
+Datei: ${file.name}
+Einstellungen: ${settingsCount} Einträge
+Erstellt: ${createdDate}
+
+⚠️ Bestehende Einstellungen werden überschrieben!`,
+        "Einstellungen importieren"
       );
 
-      const response = await apiCall("/api/einstellungen/import", "POST", {
-        settings: importData.settings,
-        overwrite,
+      if (!confirmed) return;
+
+      // Import durchführen
+      if (typeof showNotification === "function") {
+        showNotification("Einstellungen werden importiert...", "info");
+      }
+
+      const response = await fetch("/api/einstellungen/import", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(importData),
       });
 
-      showNotification(
-        `Import abgeschlossen: ${
-          response.successes?.length || 0
-        } erfolgreich, ${response.errors?.length || 0} Fehler`,
-        response.errors?.length > 0 ? "warning" : "success"
-      );
+      if (!response.ok) {
+        throw new Error(`Server-Fehler: ${response.status}`);
+      }
 
-      // Einstellungen neu laden
-      await loadEinstellungen();
+      const result = await response.json();
+
+      if (result.success) {
+        await customAlert(
+          `✅ Einstellungen erfolgreich importiert!
+
+Importierte Einstellungen: ${result.imported_count || settingsCount}
+${result.skipped_count ? `Übersprungen: ${result.skipped_count}` : ""}
+
+Die Seite wird jetzt neu geladen.`,
+          "success"
+        );
+
+        // Seite neu laden
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        throw new Error(result.error || "Import fehlgeschlagen");
+      }
     } catch (error) {
-      showNotification(`Import-Fehler: ${error.message}`, "error");
+      console.error("Import-Fehler:", error);
+
+      let errorMessage = "Fehler beim Importieren der Einstellungen:";
+
+      if (error instanceof SyntaxError) {
+        errorMessage += "\n\n❌ Ungültige JSON-Datei";
+      } else if (error.message.includes("fetch")) {
+        errorMessage += "\n\n🌐 Netzwerk-Fehler - Server nicht erreichbar";
+      } else {
+        errorMessage += `\n\n${error.message}`;
+      }
+
+      errorMessage +=
+        "\n\nStellen Sie sicher, dass die Datei korrekt exportiert wurde.";
+
+      await customAlert(errorMessage, "error");
     }
   };
 
@@ -564,6 +676,13 @@ document.addEventListener("DOMContentLoaded", function () {
         reader.readAsDataURL(file);
       }
     });
+  }
+
+  // Prüfen ob Custom Dialogs verfügbar sind
+  if (typeof customAlert === "undefined") {
+    console.error("❌ Custom Dialogs nicht geladen in einstellungen.js!");
+  } else {
+    console.log("✅ Custom Dialogs in einstellungen.js verfügbar");
   }
 });
 

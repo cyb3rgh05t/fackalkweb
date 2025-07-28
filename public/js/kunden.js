@@ -387,16 +387,176 @@ async function viewKundenDetails(id) {
 
 window.deleteKunde = async function (id) {
   const kunde = window.kunden.find((k) => k.id === id);
-  if (
-    confirm(
-      `Kunde "${kunde?.name}" wirklich löschen?\n\nAlle zugehörigen Fahrzeuge, Aufträge und Rechnungen werden ebenfalls gelöscht!\n\nDiese Aktion kann nicht rückgängig gemacht werden.`
-    )
-  ) {
+
+  try {
+    // Sammle Informationen über verknüpfte Daten
+    let fahrzeugCount = 0;
+    let auftragCount = 0;
+    let rechnungCount = 0;
+    let fahrzeugDetails = [];
+
     try {
+      // Fahrzeuge zählen
+      const fahrzeuge = await apiCall("/api/fahrzeuge");
+      const kundenFahrzeuge = fahrzeuge.filter((f) => f.kunde_id === id);
+      fahrzeugCount = kundenFahrzeuge.length;
+      fahrzeugDetails = kundenFahrzeuge.map((f) => f.kennzeichen).slice(0, 3); // Nur erste 3 anzeigen
+
+      // Aufträge zählen
+      const auftraege = await apiCall("/api/auftraege");
+      auftragCount = auftraege.filter((a) => a.kunde_id === id).length;
+
+      // Rechnungen zählen
+      const rechnungen = await apiCall("/api/rechnungen");
+      rechnungCount = rechnungen.filter((r) => r.kunde_id === id).length;
+    } catch (dataError) {
+      console.warn(
+        "Konnte verknüpfte Daten nicht vollständig laden:",
+        dataError
+      );
+    }
+
+    // Bestätigungs-Dialog erstellen
+    let confirmMessage = `🚨 KUNDE KOMPLETT LÖSCHEN
+
+Kunde: "${kunde?.name || "Unbekannt"}"
+${kunde?.email ? `E-Mail: ${kunde.email}` : ""}
+${kunde?.telefon ? `Telefon: ${kunde.telefon}` : ""}
+
+⚠️ WARNUNG: ALLE DATEN GEHEN VERLOREN!
+
+Dies wird unwiderruflich löschen:`;
+
+    if (fahrzeugCount > 0) {
+      confirmMessage += `\n• ${fahrzeugCount} Fahrzeug${
+        fahrzeugCount > 1 ? "e" : ""
+      }`;
+      if (fahrzeugDetails.length > 0) {
+        confirmMessage += ` (${fahrzeugDetails.join(", ")}${
+          fahrzeugCount > 3 ? "..." : ""
+        })`;
+      }
+    }
+
+    if (auftragCount > 0) {
+      confirmMessage += `\n• ${auftragCount} Auftrag/Aufträge`;
+    }
+
+    if (rechnungCount > 0) {
+      confirmMessage += `\n• ${rechnungCount} Rechnung${
+        rechnungCount > 1 ? "en" : ""
+      }`;
+    }
+
+    const totalItems = fahrzeugCount + auftragCount + rechnungCount;
+
+    if (totalItems === 0) {
+      confirmMessage += `\n• Nur Kundendaten (keine verknüpften Daten)`;
+    } else {
+      confirmMessage += `\n\nGESAMT: ${totalItems} verknüpfte Datensätze werden gelöscht!`;
+    }
+
+    confirmMessage += `\n\n🔥 DIESE AKTION KANN NICHT RÜCKGÄNGIG GEMACHT WERDEN!
+
+Alle Buchhaltungsdaten, Reparatur-Historie und Kundenkommunikation gehen permanent verloren.
+
+Wirklich fortfahren?`;
+
+    const dialogTitle =
+      totalItems > 0 ? `🚨 ${totalItems} Datensätze löschen` : "Kunde löschen";
+
+    const confirmed = await customConfirm(confirmMessage, dialogTitle);
+
+    if (confirmed) {
+      // Zusätzliche Sicherheitsabfrage bei vielen Daten
+      if (totalItems > 5) {
+        const secondConfirm = await customConfirm(
+          `Letzte Warnung!
+
+Sie sind dabei ${totalItems} Datensätze zu löschen für:
+"${kunde?.name}"
+
+Geben Sie zur Bestätigung den Kundennamen ein:`,
+          "Sicherheitsabfrage"
+        );
+
+        const nameConfirmation = await customPrompt(
+          `Geben Sie "${kunde?.name}" ein um fortzufahren:`,
+          "",
+          "Name zur Bestätigung"
+        );
+
+        if (nameConfirmation !== kunde?.name) {
+          await customAlert(
+            "Löschung abgebrochen - Name stimmt nicht überein.",
+            "info",
+            "Abgebrochen"
+          );
+          return;
+        }
+      }
+
+      // Loading-Notification während Löschung
+      if (typeof showNotification === "function") {
+        showNotification("Kunde wird gelöscht...", "info");
+      }
+
       await apiCall(`/api/kunden/${id}`, "DELETE");
-      showNotification("Kunde erfolgreich gelöscht", "success");
+
+      // Erfolgs-Dialog
+      await customAlert(
+        `Kunde "${kunde?.name}" wurde erfolgreich gelöscht!
+
+Gelöschte Daten:
+• Kundendaten
+${
+  fahrzeugCount > 0
+    ? `• ${fahrzeugCount} Fahrzeug${fahrzeugCount > 1 ? "e" : ""}`
+    : ""
+}
+${auftragCount > 0 ? `• ${auftragCount} Auftrag/Aufträge` : ""}
+${
+  rechnungCount > 0
+    ? `• ${rechnungCount} Rechnung${rechnungCount > 1 ? "en" : ""}`
+    : ""
+}
+
+Alle verknüpften Daten wurden entfernt.`,
+        "success",
+        "Kunde gelöscht"
+      );
+
+      if (typeof showNotification === "function") {
+        showNotification("Kunde erfolgreich gelöscht", "success");
+      }
+
       loadKunden();
-    } catch (err) {
+    }
+  } catch (err) {
+    console.error("Fehler beim Löschen des Kunden:", err);
+
+    // Fehler-Dialog mit Details
+    await customAlert(
+      `Fehler beim Löschen des Kunden "${kunde?.name}":
+
+${err.message || "Unbekannter Fehler"}
+
+Mögliche Ursachen:
+• Netzwerk-Problem
+• Server-Fehler
+• Datenbank-Constraints verhindern Löschung
+• Unzureichende Berechtigung
+• Kunde wird von anderen Systemen referenziert
+
+WICHTIG: Es wurden möglicherweise keine oder nur teilweise Daten gelöscht.
+Prüfen Sie den Kundenstatus und versuchen Sie es erneut.
+
+Bei wiederholten Problemen kontaktieren Sie den Support.`,
+      "error",
+      "Löschung fehlgeschlagen"
+    );
+
+    if (typeof showNotification === "function") {
       showNotification("Fehler beim Löschen des Kunden", "error");
     }
   }

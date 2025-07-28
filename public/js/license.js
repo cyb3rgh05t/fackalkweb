@@ -29,6 +29,7 @@ class LicenseUI {
   }
 
   showActivationDialog() {
+    // Komplett ohne Inline-Styles, alles über CSS-Klassen!
     const dialog = `
       <div id="license-modal" class="license-modal-bg">
         <div class="license-modal-content">
@@ -112,9 +113,21 @@ class LicenseUI {
     });
   }
 
-  showReactivationDialog() {
-    alert(
-      "Ihre Lizenz muss erneut validiert werden. Bitte überprüfen Sie Ihre Internetverbindung."
+  // AKTUALISIERT: Verwende Custom Dialog statt alert()
+  async showReactivationDialog() {
+    await customAlert(
+      `🔄 Lizenz-Reaktivierung erforderlich
+
+Ihre Lizenz muss erneut validiert werden.
+
+Mögliche Ursachen:
+• Internetverbindung unterbrochen
+• Lizenz-Server nicht erreichbar
+• Hardware-Änderung erkannt
+
+Bitte überprüfen Sie Ihre Internetverbindung.`,
+      "warning",
+      "Reaktivierung erforderlich"
     );
     this.showActivationDialog();
   }
@@ -122,4 +135,11 @@ class LicenseUI {
 
 document.addEventListener("DOMContentLoaded", () => {
   new LicenseUI();
+
+  // Prüfen ob Custom Dialogs verfügbar sind
+  if (typeof customAlert === "undefined") {
+    console.error("❌ Custom Dialogs nicht geladen in license.js!");
+  } else {
+    console.log("✅ Custom Dialogs in license.js verfügbar");
+  }
 });

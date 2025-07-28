@@ -1519,16 +1519,117 @@ async function viewAuftrag(id) {
 
 // Delete-Funktion
 async function deleteAuftrag(id) {
-  if (
-    confirm(
-      "Auftrag wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden."
-    )
-  ) {
+  try {
+    // Versuche Auftrag-Details zu laden für bessere Bestätigung
+    let auftrag = null;
     try {
+      auftrag = await apiCall(`/api/auftraege/${id}`);
+    } catch (loadError) {
+      console.warn("Auftrag-Details konnten nicht geladen werden:", loadError);
+    }
+
+    // Prüfe auch auf verknüpfte Rechnungen
+    let hasInvoices = false;
+    try {
+      const rechnungen = await apiCall("/api/rechnungen");
+      hasInvoices = rechnungen.some((r) => r.auftrag_id === id);
+    } catch (invoiceError) {
+      console.warn("Rechnungen konnten nicht geprüft werden:", invoiceError);
+    }
+
+    // Bestätigungs-Dialog erstellen
+    let confirmMessage;
+    let dialogTitle;
+
+    if (auftrag) {
+      // Mit Auftrag-Details
+      confirmMessage = `Auftrag wirklich löschen?
+
+Auftrag-Details:
+• Auftrag-Nr: ${auftrag.nummer || id}
+• Kunde: ${auftrag.kunde_name || "Unbekannt"}
+• Fahrzeug: ${auftrag.fahrzeug_kennzeichen || "Unbekannt"}
+• Status: ${auftrag.status || "Unbekannt"}
+• Erstellt: ${
+        auftrag.erstellt_am
+          ? new Date(auftrag.erstellt_am).toLocaleDateString("de-DE")
+          : "Unbekannt"
+      }`;
+
+      if (hasInvoices) {
+        confirmMessage += `\n\n⚠️ WARNUNG: Verknüpfte Rechnungen gefunden!
+• Alle zugehörigen Rechnungen werden ebenfalls gelöscht
+• Buchhaltungsdaten gehen verloren`;
+        dialogTitle = "⚠️ Auftrag mit Rechnungen löschen";
+      } else {
+        dialogTitle = "Auftrag löschen";
+      }
+
+      confirmMessage += `\n\nDiese Aktion kann NICHT rückgängig gemacht werden.`;
+    } else {
+      // Ohne Details (Fallback)
+      confirmMessage = `Auftrag (ID: ${id}) wirklich löschen?`;
+
+      if (hasInvoices) {
+        confirmMessage += `\n\n⚠️ WARNUNG: Verknüpfte Rechnungen werden ebenfalls gelöscht!`;
+        dialogTitle = "⚠️ Auftrag mit Rechnungen löschen";
+      } else {
+        dialogTitle = "Auftrag löschen";
+      }
+
+      confirmMessage += `\n\nDiese Aktion kann nicht rückgängig gemacht werden.`;
+    }
+
+    const confirmed = await customConfirm(confirmMessage, dialogTitle);
+
+    if (confirmed) {
+      // Loading-Notification während Löschung
+      if (typeof showNotification === "function") {
+        showNotification("Auftrag wird gelöscht...", "info");
+      }
+
       await apiCall(`/api/auftraege/${id}`, "DELETE");
-      showNotification("Auftrag erfolgreich gelöscht", "success");
+
+      // Erfolgs-Dialog
+      await customAlert(
+        `Auftrag erfolgreich gelöscht!${
+          auftrag?.nummer ? `\n\nAuftrag-Nr: ${auftrag.nummer}` : ""
+        }${
+          hasInvoices
+            ? "\n\nVerknüpfte Rechnungen wurden ebenfalls entfernt."
+            : ""
+        }`,
+        "success",
+        "Auftrag gelöscht"
+      );
+
+      if (typeof showNotification === "function") {
+        showNotification("Auftrag erfolgreich gelöscht", "success");
+      }
+
       loadAuftraege();
-    } catch (error) {
+    }
+  } catch (error) {
+    console.error("Fehler beim Löschen des Auftrags:", error);
+
+    // Fehler-Dialog mit Details
+    await customAlert(
+      `Fehler beim Löschen des Auftrags:
+
+${error.message || "Unbekannter Fehler"}
+
+Mögliche Ursachen:
+• Netzwerk-Problem
+• Server-Fehler  
+• Auftrag wird noch von anderen Daten referenziert
+• Unzureichende Berechtigung
+
+Versuchen Sie es erneut oder kontaktieren Sie den Support.`,
+      "error",
+      "Löschung fehlgeschlagen"
+    );
+
+    if (typeof showNotification === "function") {
       showNotification("Fehler beim Löschen des Auftrags", "error");
     }
   }

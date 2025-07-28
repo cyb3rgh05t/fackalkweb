@@ -1,0 +1,393 @@
+/* ========================================
+   CUSTOM DIALOGS CSS FÜR KFZFACPRO
+   Speichern als: public/css/custom-dialogs.css
+   ======================================== */
+
+/* Dialog Overlay */
+.custom-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(4px);
+}
+
+.custom-dialog-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Dialog Container */
+.custom-dialog {
+  background: var(--clr-surface-a20, #282828);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--border-color, #575757);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow: hidden;
+  transform: scale(0.9) translateY(-20px);
+  transition: all 0.3s ease;
+}
+
+.custom-dialog-overlay.show .custom-dialog {
+  transform: scale(1) translateY(0);
+}
+
+/* Dialog Header */
+.dialog-header {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color, #575757);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dialog-icon {
+  font-size: 24px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dialog-icon.info {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+
+.dialog-icon.success {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--accent-success, #22c55e);
+}
+
+.dialog-icon.warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--accent-warning, #f59e0b);
+}
+
+.dialog-icon.error {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--accent-danger, #ef4444);
+}
+
+.dialog-icon.confirm {
+  background: rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+}
+
+.dialog-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary, #caf1cd);
+  margin: 0;
+  flex: 1;
+}
+
+/* Dialog Body */
+.dialog-body {
+  padding: 20px;
+  color: var(--text-secondary, #a1e6a8);
+  line-height: 1.6;
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-line; /* Für Zeilenumbrüche in Nachrichten */
+}
+
+/* Dialog Input (für Prompt) */
+.dialog-input {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid var(--border-color, #575757);
+  border-radius: 8px;
+  background: var(--clr-surface-a10, #1a1a1a);
+  color: var(--text-primary, #caf1cd);
+  font-size: 16px;
+  margin-top: 12px;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.dialog-input:focus {
+  outline: none;
+  border-color: var(--accent-primary, #afeab4);
+  box-shadow: 0 0 0 3px rgba(175, 234, 180, 0.1);
+}
+
+/* Dialog Footer */
+.dialog-footer {
+  padding: 20px;
+  border-top: 1px solid var(--border-color, #575757);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Buttons */
+.dialog-btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dialog-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.dialog-btn-primary {
+  background: var(--accent-primary, #afeab4);
+  color: #000;
+}
+
+.dialog-btn-primary:hover:not(:disabled) {
+  background: var(--accent-secondary, #bdedc0);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(175, 234, 180, 0.3);
+}
+
+.dialog-btn-secondary {
+  background: var(--clr-surface-a30, #575757);
+  color: var(--text-primary, #caf1cd);
+  border: 1px solid var(--border-color, #575757);
+}
+
+.dialog-btn-secondary:hover:not(:disabled) {
+  background: var(--border-color, #6a6a6a);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(87, 87, 87, 0.3);
+}
+
+.dialog-btn-danger {
+  background: var(--accent-danger, #ef4444);
+  color: white;
+}
+
+.dialog-btn-danger:hover:not(:disabled) {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* Button Click Animation */
+.dialog-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* Button Loading State */
+.dialog-btn.loading {
+  pointer-events: none;
+}
+
+.dialog-btn.loading::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border: 2px solid transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 50%;
+  animation: dialog-btn-spin 1s linear infinite;
+}
+
+@keyframes dialog-btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Scrollbar Styling */
+.dialog-body::-webkit-scrollbar {
+  width: 8px;
+}
+
+.dialog-body::-webkit-scrollbar-track {
+  background: var(--clr-surface-a10, #1a1a1a);
+  border-radius: 4px;
+}
+
+.dialog-body::-webkit-scrollbar-thumb {
+  background: var(--accent-primary, #afeab4);
+  border-radius: 4px;
+}
+
+.dialog-body::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-secondary, #bdedc0);
+}
+
+/* Mobile Optimierung */
+@media (max-width: 640px) {
+  .custom-dialog {
+    margin: 20px;
+    width: calc(100% - 40px);
+    max-height: calc(100vh - 40px);
+  }
+
+  .dialog-header {
+    padding: 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .dialog-title {
+    font-size: 16px;
+  }
+
+  .dialog-body {
+    padding: 16px;
+    max-height: 200px;
+  }
+
+  .dialog-footer {
+    padding: 16px;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .dialog-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Sehr kleine Bildschirme */
+@media (max-width: 480px) {
+  .custom-dialog {
+    margin: 10px;
+    width: calc(100% - 20px);
+    max-height: calc(100vh - 20px);
+  }
+
+  .dialog-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 20px;
+  }
+}
+
+/* Dark Mode Support (falls Sie das verwenden) */
+@media (prefers-color-scheme: dark) {
+  .custom-dialog-overlay {
+    background: rgba(0, 0, 0, 0.9);
+  }
+}
+
+/* High Contrast Mode Support */
+@media (prefers-contrast: high) {
+  .custom-dialog {
+    border: 2px solid var(--accent-primary, #afeab4);
+  }
+
+  .dialog-btn {
+    border: 1px solid currentColor;
+  }
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  .custom-dialog-overlay,
+  .custom-dialog,
+  .dialog-btn {
+    transition: none;
+  }
+
+  .custom-dialog-overlay.show .custom-dialog {
+    transform: none;
+  }
+
+  .dialog-btn:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* Focus Styles für Accessibility */
+.dialog-btn:focus {
+  outline: 2px solid var(--accent-primary, #afeab4);
+  outline-offset: 2px;
+}
+
+.dialog-input:focus {
+  outline: 2px solid var(--accent-primary, #afeab4);
+  outline-offset: 2px;
+}
+
+/* Print Styles */
+@media print {
+  .custom-dialog-overlay {
+    display: none !important;
+  }
+}
+
+/* Animation für sanftes Erscheinen */
+.custom-dialog-overlay {
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+/* Spezielle Styles für KFZFacPro Integration */
+.custom-dialog .license-hint,
+.custom-dialog .license-support {
+  margin: 16px 0;
+  padding: 12px;
+  background: var(--clr-surface-a30, #575757);
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-primary, #afeab4);
+}
+
+.custom-dialog .license-hint h4,
+.custom-dialog .license-support h4 {
+  margin: 0 0 8px 0;
+  color: var(--accent-primary, #afeab4);
+  font-size: 14px;
+}
+
+.custom-dialog .license-hint p,
+.custom-dialog .license-support p {
+  margin: 0;
+  color: var(--text-secondary, #a1e6a8);
+  font-size: 13px;
+}
+
+.custom-dialog code {
+  background: var(--clr-surface-a10, #1a1a1a);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--accent-primary, #afeab4);
+  font-family: "Courier New", monospace;
+  font-size: 12px;
+}

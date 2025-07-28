@@ -537,6 +537,41 @@ const authController = {
       res.status(500).json({ error: "Fehler beim Löschen des Benutzers" });
     }
   },
+
+  logoutAll: (req, res) => {
+    try {
+      console.log(
+        `🔄 Logout-All für Benutzer: ${req.session.username} (ID: ${req.session.userId})`
+      );
+
+      // Aktuelle Session zerstören
+      req.session.destroy((err) => {
+        if (err) {
+          console.error("❌ Logout-All Fehler:", err);
+          return res.status(500).json({
+            error: "Logout-All fehlgeschlagen",
+            details: err.message,
+          });
+        }
+
+        // Cookie löschen
+        res.clearCookie("connect.sid");
+
+        console.log("✅ Logout-All erfolgreich - Alle Sitzungen beendet");
+
+        res.json({
+          success: true,
+          message: "Erfolgreich von allen Geräten abgemeldet",
+        });
+      });
+    } catch (error) {
+      console.error("❌ Logout-All kritischer Fehler:", error);
+      res.status(500).json({
+        error: "Interner Serverfehler beim Logout-All",
+        details: error.message,
+      });
+    }
+  },
 };
 
 module.exports = authController;

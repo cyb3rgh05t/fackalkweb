@@ -10,6 +10,7 @@ router.get("/status", authController.getCurrentUser);
 
 // Geschützte Routen (Authentifizierung erforderlich)
 router.post("/logout", requireAuth, authController.logout);
+router.post("/logout-all", requireAuth, authController.logoutAll);
 router.post("/change-password", requireAuth, authController.changePassword);
 router.post("/change-username", requireAuth, authController.changeUsername);
 

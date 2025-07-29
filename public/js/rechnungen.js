@@ -8,6 +8,20 @@ import { addSearchToTable } from "./search.js";
 import { createModal, closeModal } from "./modals.js";
 import { getSetting, getSettings } from "./einstellungen.js";
 
+// ✅ FUNKTIONEN ZUERST DEFINIEREN UND SOFORT EXPORTIEREN
+async function updateRechnungStatus(id, status) {
+  try {
+    const rechnung = await apiCall(`/api/rechnungen/${id}`);
+    rechnung.status = status;
+    await apiCall(`/api/rechnungen/${id}`, "PUT", rechnung);
+    showNotification("Status erfolgreich aktualisiert", "success");
+    loadRechnungen();
+  } catch (error) {
+    showNotification("Fehler beim Aktualisieren des Status", "error");
+    loadRechnungen();
+  }
+}
+
 // Rechnungen laden und Tabelle füllen
 export async function loadRechnungen() {
   try {

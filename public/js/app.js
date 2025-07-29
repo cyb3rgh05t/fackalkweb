@@ -597,7 +597,7 @@ function showInitializationComplete(successful, total) {
       type = "error";
     }
 
-    window.showNotification(message, type, 3000);
+    //window.showNotification(message, type, 3000);
   }
 }
 

@@ -1546,9 +1546,11 @@ async function deleteAuftrag(id) {
       confirmMessage = `Auftrag wirklich löschen?
 
 Auftrag-Details:
-• Auftrag-Nr: ${auftrag.nummer || id}
-• Kunde: ${auftrag.kunde_name || "Unbekannt"}
-• Fahrzeug: ${auftrag.fahrzeug_kennzeichen || "Unbekannt"}
+• Auftrag-Nr: ${auftrag.auftrag_nr || auftrag.nummer || id}
+• Kunde: ${auftrag.name || auftrag.kunde_name || "Unbekannt"}
+• Fahrzeug: ${
+        auftrag.kennzeichen || auftrag.fahrzeug_kennzeichen || "Unbekannt"
+      }
 • Status: ${auftrag.status || "Unbekannt"}
 • Erstellt: ${
         auftrag.erstellt_am

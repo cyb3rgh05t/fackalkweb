@@ -1,10 +1,5 @@
 #!/usr/bin/env node
 
-/**
- * KFZFacPRO - Vollständiges Setup-Script V3.0
- * Komplette Version mit allen Features der ursprünglichen Datei
- */
-
 const sqlite3 = require("sqlite3").verbose();
 const path = require("path");
 const fs = require("fs").promises;

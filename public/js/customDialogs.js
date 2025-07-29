@@ -1,8 +1,3 @@
-// ========================================
-// CUSTOM DIALOGS FÜR KFZFACPRO
-// Speichern als: public/js/customDialogs.js
-// ========================================
-
 class CustomDialogs {
   constructor() {
     this.currentDialog = null;

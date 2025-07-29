@@ -1,4 +1,12 @@
 const Einstellung = require("../models/einstellung");
+const fs = require("fs");
+const path = require("path");
+
+// Package.json laden
+// Package.json laden
+const packagePath = path.join(__dirname, "../package.json");
+const packageInfo = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+const APP_VERSION = packageInfo.version;
 
 const validationRules = {
   firmenname: { required: true, maxLength: 100 },
@@ -406,7 +414,7 @@ exports.export = async (req, res) => {
 
     res.json({
       exportDate: new Date().toISOString(),
-      version: "1.0",
+      version: APP_VERSION,
       settings: exportData,
     });
   } catch (err) {

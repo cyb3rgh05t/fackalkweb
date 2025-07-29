@@ -1428,8 +1428,14 @@ console.log("✅ Erweiterte Rechnungs-Validierung geladen");
 
 async function deleteRechnung(id) {
   try {
-    // Versuche Rechnung-Details zu laden für bessere Bestätigung
+    // ✅ Variablen außerhalb der if-Blöcke deklarieren (Function-Scope)
     let rechnung = null;
+    let statusWert = null;
+    let betragWert = null;
+    let nummerWert = id; // Fallback zur ID
+    let kundenname = "Kunde unbekannt";
+
+    // Versuche Rechnung-Details zu laden für bessere Bestätigung
     try {
       rechnung = await apiCall(`/api/rechnungen/${id}`);
 
@@ -1456,7 +1462,6 @@ async function deleteRechnung(id) {
         "brutto",
         "netto",
       ];
-      let betragWert = null;
 
       for (const feld of möglicheBetragFelder) {
         if (rechnung[feld] !== undefined && rechnung[feld] !== null) {
@@ -1476,7 +1481,7 @@ async function deleteRechnung(id) {
         "zustand",
         "rechnungsstatus",
       ];
-      let statusWert = "Status unbekannt";
+      statusWert = "Status unbekannt"; // ✅ Fallback-Wert setzen
 
       for (const feld of möglicheStatusFelder) {
         if (rechnung[feld]) {
@@ -1522,7 +1527,6 @@ async function deleteRechnung(id) {
         "invoice_number",
         "id",
       ];
-      let nummerWert = id; // Fallback zur ID
 
       for (const feld of möglicheNummerFelder) {
         if (rechnung[feld]) {
@@ -1539,7 +1543,6 @@ async function deleteRechnung(id) {
         "name",
         "kunde",
       ];
-      let kundenname = "Kunde unbekannt";
 
       for (const feld of möglicheKundenFelder) {
         if (rechnung[feld]) {
@@ -1599,7 +1602,7 @@ Normalerweise sollten Rechnungen storniert statt gelöscht werden.`;
     const confirmed = await customConfirm(confirmMessage, dialogTitle);
 
     if (confirmed) {
-      // Bei bezahlten Rechnungen zusätzliche Bestätigung
+      // ✅ Bei bezahlten Rechnungen zusätzliche Bestätigung - statusWert ist jetzt verfügbar
       if (
         rechnung &&
         statusWert &&
@@ -1662,7 +1665,91 @@ Sind Sie sich absolut sicher?`,
         showNotification("Rechnung erfolgreich gelöscht", "success");
       }
 
-      loadRechnungen();
+      console.log("🔄 Aktualisiere Tabelle nach Löschung...");
+
+      // Kleine Verzögerung für Server-Sync
+      setTimeout(async () => {
+        try {
+          // Force-Reload der Rechnungen mit Cache-Busting
+          const cacheBuster = Date.now();
+          window.rechnungen = await apiCall(`/api/rechnungen?_=${cacheBuster}`);
+
+          // Tabelle leeren und neu befüllen
+          const tableBody = document.querySelector("#rechnungen-table tbody");
+          if (tableBody) {
+            tableBody.innerHTML = window.rechnungen
+              .map(
+                (rechnung) => `
+          <tr data-rechnung-id="${rechnung.id}">
+            <td>${rechnung.rechnung_nr}</td>
+            <td>${rechnung.kunde_name || "-"}</td>
+            <td>${rechnung.kennzeichen || ""} ${rechnung.marke || ""}</td>
+            <td>${formatDate(rechnung.rechnungsdatum)}</td>
+            <td>
+              <select class="status status-${rechnung.status}" 
+                      onchange="updateRechnungStatus(${
+                        rechnung.id
+                      }, this.value)" 
+                      style="background: transparent; border: none; color: inherit;">
+                <option value="offen" ${
+                  rechnung.status === "offen" ? "selected" : ""
+                }>Offen</option>
+                <option value="bezahlt" ${
+                  rechnung.status === "bezahlt" ? "selected" : ""
+                }>Bezahlt</option>
+                <option value="mahnung" ${
+                  rechnung.status === "mahnung" ? "selected" : ""
+                }>Mahnung</option>
+                <option value="storniert" ${
+                  rechnung.status === "storniert" ? "selected" : ""
+                }>Storniert</option>
+              </select>
+            </td>
+            <td>${formatCurrency(rechnung.gesamtbetrag)}</td>
+            <td>
+              <button class="btn btn-sm btn-secondary" onclick="viewRechnung(${
+                rechnung.id
+              })" title="Anzeigen">
+                <i class="fas fa-eye"></i>
+              </button>
+              <button class="btn btn-sm btn-primary" onclick="editRechnung(${
+                rechnung.id
+              })" title="Bearbeiten">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-sm btn-success" onclick="printRechnung(${
+                rechnung.id
+              })" title="Drucken">
+                <i class="fas fa-print"></i>
+              </button>
+              <button class="btn btn-sm btn-danger" onclick="deleteRechnung(${
+                rechnung.id
+              })" title="Löschen">
+                <i class="fas fa-trash"></i>
+              </button>
+            </td>
+          </tr>
+        `
+              )
+              .join("");
+
+            // Suchfunktion neu aktivieren
+            setTimeout(() => {
+              addSearchToTable("rechnungen-table", "rechnungen-search");
+              console.log("✅ Tabelle erfolgreich aktualisiert");
+            }, 100);
+          }
+        } catch (refreshError) {
+          console.error(
+            "❌ Fehler beim Aktualisieren der Tabelle:",
+            refreshError
+          );
+          // Fallback: Original loadRechnungen aufrufen
+          if (typeof loadRechnungen === "function") {
+            loadRechnungen();
+          }
+        }
+      }, 300);
     }
   } catch (error) {
     console.error("Fehler beim Löschen der Rechnung:", error);

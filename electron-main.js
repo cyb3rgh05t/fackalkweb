@@ -2,6 +2,7 @@ const { app, BrowserWindow, Menu, shell, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
+const { getAppVersion, getBuildInfo, getPackageInfo } = require("./version");
 
 // Server-Referenz
 let server;
@@ -483,13 +484,13 @@ F12 - Entwicklertools
                 title: "Systeminformationen",
                 message: "KFZ-Verwaltungssystem",
                 detail: `
-Version: 1.0.0
+Version: ${getAppVersion()}
 Electron: ${process.versions.electron}
 Chrome: ${process.versions.chrome}
 Node.js: ${process.versions.node}
 Betriebssystem: ${os.platform()} ${os.release()}
 Architektur: ${os.arch()}
-                `.trim(),
+`.trim(),
                 buttons: ["OK"],
               });
             }
@@ -504,7 +505,7 @@ Architektur: ${os.arch()}
                 title: "Über KFZ-Verwaltung",
                 message: "KFZ-Verwaltungssystem",
                 detail: `
-Version 1.0.0
+Version ${getAppVersion()}
 
 Ein professionelles System zur Verwaltung von:
 • Rechnungen

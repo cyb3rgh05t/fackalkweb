@@ -11,7 +11,14 @@ const SQLiteStore = require("connect-sqlite3")(session);
 const { requireAuth, attachUser } = require("./middleware/auth");
 const { requireValidLicense } = require("./middleware/licenseauth");
 
+const { getAppVersion, getBuildInfo } = require("./version");
+
 const DB_PATH = process.env.DB_PATH || path.join(__dirname, "data", "kfz.db");
+
+const packageInfo = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "package.json"), "utf8")
+);
+const APP_VERSION = packageInfo.version;
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -224,9 +231,31 @@ app.get("/api/health", (req, res) => {
   res.json({
     status: "healthy",
     timestamp: new Date().toISOString(),
-    version: "2.0",
+    version: APP_VERSION,
     authenticated: !!req.session?.userId,
   });
+});
+
+app.get("/api/version", (req, res) => {
+  try {
+    const buildInfo = getBuildInfo();
+
+    res.json({
+      success: true,
+      version: buildInfo.version,
+      name: buildInfo.name,
+      buildDate: buildInfo.buildDate,
+      nodeVersion: buildInfo.nodeVersion,
+      platform: buildInfo.platform,
+      arch: buildInfo.arch,
+    });
+  } catch (error) {
+    console.error("Fehler beim Abrufen der Version:", error);
+    res.status(500).json({
+      success: false,
+      error: "Version konnte nicht geladen werden",
+    });
+  }
 });
 
 // Logo-Upload-Endpunkt
@@ -293,7 +322,7 @@ app.post(
 
       const settingsData = {
         created: new Date().toISOString(),
-        version: "1.0",
+        version: APP_VERSION,
         settings: einstellungen.reduce((acc, setting) => {
           acc[setting.key] = setting.value;
           return acc;
@@ -544,13 +573,17 @@ app.use((err, req, res, next) => {
 // Server-Start-Funktion
 function startServer(port = PORT) {
   return new Promise((resolve, reject) => {
+    const version = getAppVersion();
     const server = app.listen(port, (err) => {
       if (err) {
         reject(err);
         return;
       }
 
-      console.log(`🚀 Server läuft auf Port ${port}`);
+      console.log(`🚀 KFZ Fac Pro v${version} Server gestartet`);
+      console.log(`📅 Build: ${new Date().toLocaleDateString("de-DE")}`);
+      console.log(`✅ Server läuft auf Port ${PORT}`);
+      console.log(`🌐 Version API: http://localhost:${PORT}/api/version`);
       console.log(`📱 Öffnen Sie http://localhost:${port} in Ihrem Browser`);
       console.log(`💾 Datenbank: ${path.join(__dirname, "data", "kfz.db")}`);
       console.log(`📁 Statische Dateien: ${path.join(__dirname, "public")}`);

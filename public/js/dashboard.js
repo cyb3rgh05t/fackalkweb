@@ -1,7 +1,11 @@
 import { apiCall, formatCurrency, formatDate } from "./utils.js";
 import { getSetting } from "./einstellungen.js";
 import { showSection } from "./utils.js";
-import { filterTableByStatus, filterTableByMonth } from "./search.js";
+import {
+  filterTableByStatus,
+  filterTableByMonth,
+  clearTableFilters,
+} from "./search.js";
 
 export async function loadDashboard() {
   try {
@@ -91,142 +95,617 @@ function updateStatistics(auftraege, rechnungen, kunden) {
   document.getElementById("stat-umsatz").textContent =
     formatCurrency(monthlyRevenue);
 
-  // Cards klickbar machen
-  makeCardsClickable();
-
-  // Zusätzliche Statistiken hinzufügen
+  // Zusätzliche Statistiken hinzufügen (ERST!)
   addExtendedStatistics(auftraege, rechnungen);
+
+  // DANN Cards klickbar machen (für alle Cards)
+  setTimeout(() => makeAllCardsClickable(), 100);
 }
 
-function makeCardsClickable() {
-  const cards = document.querySelectorAll(".stat-card");
+/**
+ * Erweiterte Funktion für ALLE klickbaren Dashboard-Cards (Standard + Erweiterte)
+ */
+function makeAllCardsClickable() {
+  // Warte kurz bis alle Cards geladen sind
+  setTimeout(() => {
+    const allCards = document.querySelectorAll(".stat-card");
+    console.log(`🎯 Mache ${allCards.length} Dashboard-Cards klickbar...`);
 
-  cards.forEach((card, index) => {
-    card.style.cursor = "pointer";
-    card.style.transition = "all 0.3s ease";
-    card.style.userSelect = "none";
+    allCards.forEach((card, index) => {
+      // Skip wenn bereits klickbar gemacht
+      if (card._clickHandlerAdded) return;
 
-    // Hover-Effekte
-    card.addEventListener("mouseenter", function () {
-      this.style.transform = "translateY(-5px) scale(1.02)";
-      this.style.boxShadow = "0 10px 25px rgba(0,0,0,0.15)";
-    });
+      card.style.cursor = "pointer";
+      card.style.transition = "all 0.3s ease";
+      card.style.userSelect = "none";
 
-    card.addEventListener("mouseleave", function () {
-      this.style.transform = "translateY(0) scale(1)";
-      this.style.boxShadow = "var(--shadow)";
-    });
-
-    // Click-Handler basierend auf Card-Position
-    card.addEventListener("click", function () {
-      // Visual Feedback
-      this.style.transform = "translateY(-2px) scale(0.98)";
-      setTimeout(() => {
+      // Verbesserte Hover-Effekte
+      card.addEventListener("mouseenter", function () {
         this.style.transform = "translateY(-5px) scale(1.02)";
-      }, 150);
+        this.style.boxShadow = "0 10px 25px rgba(0,0,0,0.15)";
+      });
 
-      // Navigation basierend auf Index
-      switch (index) {
-        case 0: // Offene Aufträge
-          showSection("auftraege", true);
-          // Optional: Filter auf offene Aufträge setzen
-          setTimeout(() => filterAuftraege("offen"), 300);
-          break;
-        case 1: // Offene Rechnungen
-          showSection("rechnungen", true);
-          // Optional: Filter auf offene Rechnungen setzen
-          setTimeout(() => filterRechnungen("offen"), 300);
-          break;
-        case 2: // Kunden
-          showSection("kunden", true);
-          break;
-        case 3: // Monatsumsatz
-          showSection("rechnungen", true);
-          // Optional: Filter auf bezahlte Rechnungen des aktuellen Monats
-          setTimeout(() => filterRechnungenByMonth(), 300);
-          break;
-        default:
-          console.log("Unbekannte Card geklickt");
+      card.addEventListener("mouseleave", function () {
+        this.style.transform = "translateY(0) scale(1)";
+        this.style.boxShadow = "var(--shadow)";
+      });
+
+      // Erweiterte Click-Handler für alle Cards
+      card.addEventListener("click", function () {
+        // Visual Feedback
+        this.style.transform = "translateY(-2px) scale(0.98)";
+        setTimeout(() => {
+          this.style.transform = "translateY(-5px) scale(1.02)";
+        }, 150);
+
+        // Navigation basierend auf Card-Position und Inhalt
+        handleExtendedCardClick(index, this);
+      });
+
+      // Tooltips für alle Cards
+      setCardTooltip(card, index);
+
+      // Accessibility-Verbesserungen
+      card.setAttribute("role", "button");
+      card.setAttribute("tabindex", "0");
+
+      // Keyboard-Support
+      card.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleExtendedCardClick(index, this);
+        }
+      });
+
+      // Markiere als verarbeitet
+      card._clickHandlerAdded = true;
+    });
+
+    console.log(`✅ ${allCards.length} Dashboard-Cards sind jetzt klickbar`);
+  }, 100);
+}
+
+/**
+ * Behandelt Klicks auf alle Dashboard-Cards (Standard + Erweiterte)
+ * @param {number} index - Index der geklickten Card
+ * @param {HTMLElement} cardElement - Das Card-Element
+ */
+function handleExtendedCardClick(index, cardElement) {
+  console.log(`🎯 Dashboard Card ${index} geklickt`);
+
+  // Versuche Card-Typ über Text-Inhalt zu identifizieren
+  const cardText = cardElement.textContent.toLowerCase();
+
+  // Visuelles Feedback
+  showCardClickFeedback(index, cardText);
+
+  // Standard-Cards (Index 0-3)
+  if (index <= 3) {
+    handleStandardCard(index);
+  }
+  // Erweiterte Cards (Index 4+)
+  else {
+    handleExtendedCard(index, cardText, cardElement);
+  }
+}
+
+/**
+ * Behandelt Standard-Cards (die ersten 4)
+ * @param {number} index - Card-Index (0-3)
+ */
+function handleStandardCard(index) {
+  switch (index) {
+    case 0: // Offene Aufträge
+      navigateToSectionWithFilter(
+        "auftraege",
+        "offen",
+        "Offene Aufträge werden geladen..."
+      );
+      break;
+
+    case 1: // Offene Rechnungen
+      navigateToSectionWithFilter(
+        "rechnungen",
+        "offen",
+        "Offene Rechnungen werden geladen..."
+      );
+      break;
+
+    case 2: // Kunden
+      navigateToSection("kunden", "Kundenverwaltung wird geladen...");
+      break;
+
+    case 3: // Monatsumsatz
+      navigateToSectionWithMonthFilter(
+        "rechnungen",
+        "Rechnungen des aktuellen Monats werden geladen..."
+      );
+      break;
+  }
+}
+
+/**
+ * Behandelt erweiterte Cards (ab Index 4)
+ * @param {number} index - Card-Index (4+)
+ * @param {string} cardText - Text-Inhalt der Card
+ * @param {HTMLElement} cardElement - Das Card-Element
+ */
+function handleExtendedCard(index, cardText, cardElement) {
+  // Intelligente Erkennung basierend auf Card-Inhalt
+  if (cardText.includes("bearbeitung") || cardText.includes("progress")) {
+    // Aufträge in Bearbeitung
+    navigateToSectionWithFilter(
+      "auftraege",
+      "in_bearbeitung",
+      "Aufträge in Bearbeitung werden geladen..."
+    );
+  } else if (
+    cardText.includes("überfällig") ||
+    cardText.includes("overdue") ||
+    cardText.includes("mahnung")
+  ) {
+    // Überfällige Rechnungen
+    navigateToOverdueInvoices("Überfällige Rechnungen werden geladen...");
+  } else if (
+    cardText.includes("auftragswert") ||
+    cardText.includes("durchschnitt")
+  ) {
+    // Durchschnittlicher Auftragswert - zeige alle Aufträge mit Kosten
+    navigateToSectionWithFilter(
+      "auftraege",
+      "abgeschlossen",
+      "Abgeschlossene Aufträge werden geladen..."
+    );
+  } else if (cardText.includes("jahresumsatz") || cardText.includes("umsatz")) {
+    // Jahresumsatz - zeige bezahlte Rechnungen des aktuellen Jahres
+    navigateToYearlyRevenue("Jahresumsatz wird geladen...");
+  } else {
+    // Fallback für unbekannte erweiterte Cards
+    console.log(`🤷 Unbekannte erweiterte Card: ${cardText}`);
+    navigateToSection("dashboard", "Dashboard wird aktualisiert...");
+  }
+}
+
+/**
+ * Navigiert zu überfälligen Rechnungen
+ * @param {string} message - Feedback-Nachricht
+ */
+function navigateToOverdueInvoices(message) {
+  console.log("🚨 Navigation zu überfälligen Rechnungen");
+
+  if (window.showNotification) {
+    window.showNotification(message, "warning", 2000);
+  }
+
+  if (window.showSection) {
+    window.showSection("rechnungen", true);
+  }
+
+  // Spezial-Filter für überfällige Rechnungen
+  setTimeout(() => applyOverdueFilter(), 400);
+  setTimeout(() => applyOverdueFilter(), 1000); // Backup
+}
+
+/**
+ * Navigiert zu Jahresumsatz (bezahlte Rechnungen des aktuellen Jahres)
+ * @param {string} message - Feedback-Nachricht
+ */
+function navigateToYearlyRevenue(message) {
+  console.log("📊 Navigation zu Jahresumsatz");
+
+  if (window.showNotification) {
+    window.showNotification(message, "info", 2000);
+  }
+
+  if (window.showSection) {
+    window.showSection("rechnungen", true);
+  }
+
+  // Filter für bezahlte Rechnungen des aktuellen Jahres
+  setTimeout(() => applyYearlyRevenueFilter(), 400);
+  setTimeout(() => applyYearlyRevenueFilter(), 1000); // Backup
+}
+
+/**
+ * Wendet Filter für überfällige Rechnungen an
+ */
+function applyOverdueFilter() {
+  const tableId = "rechnungen-table";
+  const searchInputId = "rechnungen-search";
+
+  console.log("🚨 Wende Überfällig-Filter an");
+
+  const table = document.getElementById(tableId);
+  if (!table) {
+    console.warn("⚠️ Rechnungen-Tabelle nicht gefunden");
+    return;
+  }
+
+  // Hole Zahlungsziel aus Einstellungen (Standard: 14 Tage)
+  const zahlungszielTage = parseInt(
+    window.getSetting?.("zahlungsziel_tage", "14") || "14"
+  );
+  const today = new Date();
+
+  const rows = table.querySelectorAll("tbody tr");
+  let matchCount = 0;
+
+  rows.forEach((row) => {
+    let isOverdue = false;
+    const cells = row.querySelectorAll("td");
+
+    // Suche Status-Zelle (muss "offen" sein)
+    let statusCell = null;
+    let dateCell = null;
+
+    cells.forEach((cell) => {
+      const text = cell.textContent.toLowerCase().trim();
+
+      // Status-Zelle finden
+      if (
+        text === "offen" ||
+        cell.querySelector(".status") ||
+        cell.querySelector("select.status")
+      ) {
+        statusCell = cell;
+      }
+
+      // Datum-Zelle finden (DD.MM.YYYY Format)
+      if (text.match(/\d{1,2}\.\d{1,2}\.\d{4}/)) {
+        dateCell = cell;
       }
     });
 
-    // Tooltip für bessere UX hinzufügen
-    const tooltips = [
-      "Klicken um zu Aufträgen zu gelangen",
-      "Klicken um zu Rechnungen zu gelangen",
-      "Klicken um zu Kunden zu gelangen",
-      "Klicken um zu Rechnungen zu gelangen",
-    ];
+    // Prüfe ob Rechnung überfällig ist
+    if (statusCell && dateCell) {
+      const statusText = statusCell.textContent.toLowerCase().trim();
+      const dateMatch = dateCell.textContent.match(
+        /(\d{1,2})\.(\d{1,2})\.(\d{4})/
+      );
 
-    card.title = tooltips[index] || "Klicken für Details";
+      if (statusText === "offen" && dateMatch) {
+        const [, day, month, year] = dateMatch;
+        const rechnungsDatum = new Date(year, month - 1, day);
+        const diffTime = today - rechnungsDatum;
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays > zahlungszielTage) {
+          isOverdue = true;
+        }
+      }
+    }
+
+    row.style.display = isOverdue ? "" : "none";
+    if (isOverdue) {
+      matchCount++;
+      row.classList.add("overdue-filtered");
+    } else {
+      row.classList.remove("overdue-filtered");
+    }
   });
 
-  console.log("✅ Dashboard Cards sind jetzt klickbar");
-}
-
-// Hilfsfunktionen für Filterung (optional)
-function filterAuftraege(status) {
-  console.log(`🔍 Filtere Aufträge nach Status: ${status}`);
-
-  // Verwende die neue intelligente Filterfunktion
-  filterTableByStatus("auftraege-table", status);
-
-  // Optional: Suchfeld entsprechend setzen für visuelles Feedback
-  const searchInput = document.getElementById("auftraege-search");
+  // Suchfeld aktualisieren
+  const searchInput = document.getElementById(searchInputId);
   if (searchInput) {
-    searchInput.value = getDisplayTextForStatus(status);
-    // Markiere das Suchfeld als aktiv gefiltert
-    searchInput.style.backgroundColor = "var(--accent-color)";
+    searchInput.value = `Überfällig (>${zahlungszielTage} Tage)`;
+    searchInput.style.backgroundColor = "var(--danger-color)";
     searchInput.style.color = "white";
-
-    // Nach 3 Sekunden zurücksetzen
-    setTimeout(() => {
-      searchInput.style.backgroundColor = "";
-      searchInput.style.color = "";
-    }, 3000);
-  }
-}
-
-function filterRechnungen(status) {
-  console.log(`🔍 Filtere Rechnungen nach Status: ${status}`);
-
-  filterTableByStatus("rechnungen-table", status);
-
-  const searchInput = document.getElementById("rechnungen-search");
-  if (searchInput) {
-    searchInput.value = getDisplayTextForStatus(status);
-    searchInput.style.backgroundColor = "var(--accent-color)";
-    searchInput.style.color = "white";
+    searchInput.style.fontWeight = "bold";
 
     setTimeout(() => {
       searchInput.style.backgroundColor = "";
       searchInput.style.color = "";
+      searchInput.style.fontWeight = "";
     }, 3000);
   }
+
+  console.log(
+    `🚨 Überfällig-Filter: ${matchCount}/${rows.length} Zeilen für >${zahlungszielTage} Tage`
+  );
 }
 
-function filterRechnungenByMonth() {
-  console.log(`🔍 Filtere Rechnungen nach aktuellem Monat`);
+/**
+ * Wendet Filter für Jahresumsatz an (bezahlte Rechnungen des aktuellen Jahres)
+ */
+function applyYearlyRevenueFilter() {
+  const tableId = "rechnungen-table";
+  const searchInputId = "rechnungen-search";
 
-  filterTableByMonth("rechnungen-table");
+  console.log("📊 Wende Jahresumsatz-Filter an");
 
-  const searchInput = document.getElementById("rechnungen-search");
-  if (searchInput) {
-    const currentMonth = new Date().toLocaleDateString("de-DE", {
-      month: "long",
+  const table = document.getElementById(tableId);
+  if (!table) {
+    console.warn("⚠️ Rechnungen-Tabelle nicht gefunden");
+    return;
+  }
+
+  const currentYear = new Date().getFullYear();
+  const rows = table.querySelectorAll("tbody tr");
+  let matchCount = 0;
+
+  rows.forEach((row) => {
+    let matches = false;
+    const cells = row.querySelectorAll("td");
+
+    let statusIsPaid = false;
+    let dateIsCurrentYear = false;
+
+    cells.forEach((cell) => {
+      const text = cell.textContent.toLowerCase().trim();
+
+      // Status-Prüfung
+      if (text === "bezahlt") {
+        statusIsPaid = true;
+      }
+
+      // Datum-Prüfung (DD.MM.YYYY Format)
+      const dateMatch = text.match(/\d{1,2}\.\d{1,2}\.(\d{4})/);
+      if (dateMatch && parseInt(dateMatch[1]) === currentYear) {
+        dateIsCurrentYear = true;
+      }
     });
-    searchInput.value = `${currentMonth} (Monat)`;
+
+    matches = statusIsPaid && dateIsCurrentYear;
+
+    row.style.display = matches ? "" : "none";
+    if (matches) {
+      matchCount++;
+      row.classList.add("yearly-filtered");
+    } else {
+      row.classList.remove("yearly-filtered");
+    }
+  });
+
+  // Suchfeld aktualisieren
+  const searchInput = document.getElementById(searchInputId);
+  if (searchInput) {
+    searchInput.value = `Jahresumsatz ${currentYear} (Bezahlt)`;
     searchInput.style.backgroundColor = "var(--success-color)";
     searchInput.style.color = "white";
+    searchInput.style.fontWeight = "bold";
 
     setTimeout(() => {
       searchInput.style.backgroundColor = "";
       searchInput.style.color = "";
+      searchInput.style.fontWeight = "";
     }, 3000);
+  }
+
+  console.log(
+    `📊 Jahresumsatz-Filter: ${matchCount}/${rows.length} bezahlte Rechnungen für ${currentYear}`
+  );
+}
+
+/**
+ * Setzt die richtigen Tooltips für alle Cards
+ * @param {HTMLElement} card - Card-Element
+ * @param {number} index - Card-Index
+ */
+function setCardTooltip(card, index) {
+  const cardText = card.textContent.toLowerCase();
+  let tooltip = "Klicken für Details";
+
+  // Standard-Cards (0-3)
+  if (index === 0) tooltip = "Klicken um zu offenen Aufträgen zu gelangen";
+  else if (index === 1)
+    tooltip = "Klicken um zu offenen Rechnungen zu gelangen";
+  else if (index === 2) tooltip = "Klicken um zur Kundenverwaltung zu gelangen";
+  else if (index === 3)
+    tooltip = "Klicken um zu Rechnungen des aktuellen Monats zu gelangen";
+  // Erweiterte Cards (4+) - basierend auf Inhalt
+  else if (cardText.includes("bearbeitung")) {
+    tooltip = "Klicken um zu Aufträgen in Bearbeitung zu gelangen";
+  } else if (cardText.includes("überfällig")) {
+    tooltip = "Klicken um zu überfälligen Rechnungen zu gelangen";
+  } else if (cardText.includes("auftragswert")) {
+    tooltip = "Klicken um zu abgeschlossenen Aufträgen zu gelangen";
+  } else if (cardText.includes("jahresumsatz")) {
+    tooltip = "Klicken um zum Jahresumsatz zu gelangen";
+  }
+
+  card.title = tooltip;
+  card.setAttribute("aria-label", tooltip);
+}
+
+/**
+ * Zeigt verbessertes visuelles Feedback beim Card-Klick
+ * @param {number} cardIndex - Index der geklickten Card
+ * @param {string} cardText - Text-Inhalt der Card
+ */
+function showCardClickFeedback(cardIndex, cardText) {
+  let message = "📊 Lade Daten...";
+  let type = "info";
+
+  // Spezifische Nachrichten basierend auf Card-Inhalt
+  if (cardText.includes("bearbeitung")) {
+    message = "⚙️ Lade Aufträge in Bearbeitung...";
+    type = "info";
+  } else if (cardText.includes("überfällig")) {
+    message = "🚨 Lade überfällige Rechnungen...";
+    type = "warning";
+  } else if (cardText.includes("auftragswert")) {
+    message = "💰 Lade Auftragswerte...";
+    type = "info";
+  } else if (cardText.includes("jahresumsatz")) {
+    message = "📈 Lade Jahresumsatz...";
+    type = "success";
+  }
+  // Standard-Cards
+  else if (cardIndex === 0) {
+    message = "📋 Lade offene Aufträge...";
+  } else if (cardIndex === 1) {
+    message = "💰 Lade offene Rechnungen...";
+  } else if (cardIndex === 2) {
+    message = "👥 Öffne Kundenverwaltung...";
+  } else if (cardIndex === 3) {
+    message = "📊 Filtere Monatsumsatz...";
+  }
+
+  if (window.showNotification) {
+    window.showNotification(message, type, 1500);
   }
 }
 
-// Hilfsfunktion für bessere Anzeige der Status-Werte
+/**
+ * Navigiert zu einer Section mit Status-Filter
+ * @param {string} sectionId - Ziel-Section
+ * @param {string} status - Status zum Filtern
+ * @param {string} message - Feedback-Nachricht
+ */
+function navigateToSectionWithFilter(sectionId, status, message) {
+  console.log(`🧭 Navigation zu ${sectionId} mit Status-Filter: ${status}`);
+
+  // Feedback anzeigen
+  if (window.showNotification) {
+    window.showNotification(message, "info", 2000);
+  }
+
+  // Zur Section navigieren
+  if (window.showSection) {
+    window.showSection(sectionId, true);
+  }
+
+  // Filter nach kurzer Verzögerung anwenden (für sicheres Laden)
+  setTimeout(() => applyStatusFilter(sectionId, status), 400);
+
+  // Backup-Filter nach längerer Verzögerung falls erste Anwendung fehlschlägt
+  setTimeout(() => applyStatusFilter(sectionId, status), 1000);
+}
+
+/**
+ * Navigiert zu einer Section mit Monats-Filter
+ * @param {string} sectionId - Ziel-Section
+ * @param {string} message - Feedback-Nachricht
+ */
+function navigateToSectionWithMonthFilter(sectionId, message) {
+  console.log(`🧭 Navigation zu ${sectionId} mit Monats-Filter`);
+
+  // Feedback anzeigen
+  if (window.showNotification) {
+    window.showNotification(message, "info", 2000);
+  }
+
+  // Zur Section navigieren
+  if (window.showSection) {
+    window.showSection(sectionId, true);
+  }
+
+  // Filter nach kurzer Verzögerung anwenden
+  setTimeout(() => applyMonthFilter(sectionId), 400);
+
+  // Backup-Filter
+  setTimeout(() => applyMonthFilter(sectionId), 1000);
+}
+
+/**
+ * Navigiert zu einer Section ohne Filter
+ * @param {string} sectionId - Ziel-Section
+ * @param {string} message - Feedback-Nachricht
+ */
+function navigateToSection(sectionId, message) {
+  console.log(`🧭 Navigation zu ${sectionId}`);
+
+  // Feedback anzeigen
+  if (window.showNotification) {
+    window.showNotification(message, "info", 2000);
+  }
+
+  // Zur Section navigieren
+  if (window.showSection) {
+    window.showSection(sectionId, true);
+  }
+}
+
+/**
+ * Wendet Status-Filter auf eine Section an
+ * @param {string} sectionId - Section ID
+ * @param {string} status - Status zum Filtern
+ */
+function applyStatusFilter(sectionId, status) {
+  const tableId = `${sectionId}-table`;
+  const searchInputId = `${sectionId}-search`;
+
+  console.log(`🎯 Wende Status-Filter an: ${tableId} -> ${status}`);
+
+  // Filter anwenden
+  filterTableByStatus(tableId, status);
+
+  // Suchfeld visuell aktualisieren
+  updateSearchInputForStatus(searchInputId, status);
+}
+
+/**
+ * Wendet Monats-Filter auf eine Section an
+ * @param {string} sectionId - Section ID
+ */
+function applyMonthFilter(sectionId) {
+  const tableId = `${sectionId}-table`;
+  const searchInputId = `${sectionId}-search`;
+
+  console.log(`📅 Wende Monats-Filter an: ${tableId}`);
+
+  // Filter anwenden
+  filterTableByMonth(tableId);
+
+  // Suchfeld visuell aktualisieren
+  updateSearchInputForMonth(searchInputId);
+}
+
+/**
+ * Aktualisiert das Suchfeld für Status-Filter
+ * @param {string} searchInputId - Such-Input ID
+ * @param {string} status - Status
+ */
+function updateSearchInputForStatus(searchInputId, status) {
+  const searchInput = document.getElementById(searchInputId);
+  if (!searchInput) return;
+
+  const displayText = getDisplayTextForStatus(status);
+  searchInput.value = displayText;
+
+  // Visuelles Feedback
+  searchInput.style.backgroundColor = "var(--accent-color)";
+  searchInput.style.color = "white";
+  searchInput.style.fontWeight = "bold";
+
+  // Nach 3 Sekunden zurücksetzen
+  setTimeout(() => {
+    searchInput.style.backgroundColor = "";
+    searchInput.style.color = "";
+    searchInput.style.fontWeight = "";
+  }, 3000);
+}
+
+/**
+ * Aktualisiert das Suchfeld für Monats-Filter
+ * @param {string} searchInputId - Such-Input ID
+ */
+function updateSearchInputForMonth(searchInputId) {
+  const searchInput = document.getElementById(searchInputId);
+  if (!searchInput) return;
+
+  const currentMonth = new Date().toLocaleDateString("de-DE", {
+    month: "long",
+  });
+  searchInput.value = `${currentMonth} (Monat)`;
+
+  // Visuelles Feedback
+  searchInput.style.backgroundColor = "var(--success-color)";
+  searchInput.style.color = "white";
+  searchInput.style.fontWeight = "bold";
+
+  setTimeout(() => {
+    searchInput.style.backgroundColor = "";
+    searchInput.style.color = "";
+    searchInput.style.fontWeight = "";
+  }, 3000);
+}
+
+/**
+ * Hilfsfunktion für bessere Anzeige der Status-Werte
+ * @param {string} status - Status-Wert
+ * @returns {string} - Anzeige-Text
+ */
 function getDisplayTextForStatus(status) {
   const statusDisplayMap = {
     offen: "Offen",
@@ -237,72 +716,91 @@ function getDisplayTextForStatus(status) {
     storniert: "Storniert",
   };
 
-  return statusDisplayMap[status] || status;
-}
-
-// Erweiterte Filter-Optionen für Dashboard
-function addFilterControls() {
-  // Prüfe ob Filter-Controls bereits existieren
-  if (document.getElementById("dashboard-filters")) return;
-
-  const dashboardContainer = document.querySelector(".dashboard-container");
-  if (!dashboardContainer) return;
-
-  const filterContainer = document.createElement("div");
-  filterContainer.id = "dashboard-filters";
-  filterContainer.style.cssText = `
-    margin-bottom: 2rem;
-    padding: 1rem;
-    background: var(--bg-secondary);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-  `;
-
-  filterContainer.innerHTML = `
-    <h3 style="margin: 0 0 1rem 0;">Schnellfilter</h3>
-    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
-      <div class="filter-group">
-        <label>Aufträge:</label>
-        <button class="btn btn-sm btn-secondary" onclick="clearAllFilters('auftraege-table')">Alle</button>
-        <button class="btn btn-sm btn-warning" onclick="filterAuftraege('offen')">Offen</button>
-        <button class="btn btn-sm btn-info" onclick="filterAuftraege('in_bearbeitung')">In Bearbeitung</button>
-        <button class="btn btn-sm btn-success" onclick="filterAuftraege('abgeschlossen')">Abgeschlossen</button>
-      </div>
-      <div class="filter-group">
-        <label>Rechnungen:</label>
-        <button class="btn btn-sm btn-secondary" onclick="clearAllFilters('rechnungen-table')">Alle</button>
-        <button class="btn btn-sm btn-warning" onclick="filterRechnungen('offen')">Offen</button>
-        <button class="btn btn-sm btn-success" onclick="filterRechnungen('bezahlt')">Bezahlt</button>
-        <button class="btn btn-sm btn-danger" onclick="filterRechnungen('mahnung')">Mahnung</button>
-        <button class="btn btn-sm btn-secondary" onclick="filterRechnungenByMonth()">Aktueller Monat</button>
-      </div>
-    </div>
-  `;
-
-  dashboardContainer.insertBefore(
-    filterContainer,
-    dashboardContainer.firstChild
+  return (
+    statusDisplayMap[status] || status.charAt(0).toUpperCase() + status.slice(1)
   );
 }
 
-// Filter zurücksetzen
-function clearAllFilters(tableId) {
+// Hilfsfunktionen für Filterung (optional)
+/**
+ * Filtert Aufträge nach Status (für Dashboard-Buttons)
+ * @param {string} status - Status zum Filtern
+ */
+function filterAuftraege(status) {
+  console.log(`🔍 Filtere Aufträge nach Status: ${status}`);
+
+  // Sichere Anwendung des Filters
+  const tableId = "auftraege-table";
+  const searchInputId = "auftraege-search";
+
+  // Prüfen ob Tabelle existiert
   const table = document.getElementById(tableId);
-  if (!table) return;
-
-  // Alle Zeilen anzeigen
-  const rows = table.querySelectorAll("tbody tr");
-  rows.forEach((row) => (row.style.display = ""));
-
-  // Suchfeld leeren
-  const searchInputId = tableId.replace("-table", "-search");
-  const searchInput = document.getElementById(searchInputId);
-  if (searchInput) {
-    searchInput.value = "";
-    searchInput.style.backgroundColor = "";
-    searchInput.style.color = "";
+  if (!table) {
+    console.warn(`⚠️ Tabelle ${tableId} nicht gefunden`);
+    return;
   }
 
+  // Filter anwenden
+  filterTableByStatus(tableId, status);
+  updateSearchInputForStatus(searchInputId, status);
+
+  console.log(`✅ Aufträge-Filter "${status}" angewendet`);
+}
+
+/**
+ * Filtert Rechnungen nach Status (für Dashboard-Buttons)
+ * @param {string} status - Status zum Filtern
+ */
+function filterRechnungen(status) {
+  console.log(`🔍 Filtere Rechnungen nach Status: ${status}`);
+
+  const tableId = "rechnungen-table";
+  const searchInputId = "rechnungen-search";
+
+  const table = document.getElementById(tableId);
+  if (!table) {
+    console.warn(`⚠️ Tabelle ${tableId} nicht gefunden`);
+    return;
+  }
+
+  filterTableByStatus(tableId, status);
+  updateSearchInputForStatus(searchInputId, status);
+
+  console.log(`✅ Rechnungen-Filter "${status}" angewendet`);
+}
+
+function filterRechnungenByMonth() {
+  console.log(`🔍 Filtere Rechnungen nach aktuellem Monat`);
+
+  const tableId = "rechnungen-table";
+  const searchInputId = "rechnungen-search";
+
+  const table = document.getElementById(tableId);
+  if (!table) {
+    console.warn(`⚠️ Tabelle ${tableId} nicht gefunden`);
+    return;
+  }
+
+  filterTableByMonth(tableId);
+  updateSearchInputForMonth(searchInputId);
+
+  console.log(`✅ Rechnungen-Monatsfilter angewendet`);
+}
+
+/**
+ * Setzt alle Filter für eine Tabelle zurück
+ * @param {string} tableId - Tabellen-ID
+ */
+function clearAllFilters(tableId) {
+  console.log(`🧹 Setze Filter für ${tableId} zurück`);
+
+  const table = document.getElementById(tableId);
+  if (!table) {
+    console.warn(`⚠️ Tabelle ${tableId} nicht gefunden`);
+    return;
+  }
+
+  clearTableFilters(tableId);
   console.log(`✅ Filter für ${tableId} zurückgesetzt`);
 }
 
@@ -341,25 +839,73 @@ function debugCurrentFilters() {
   });
 }
 
-// Exportiere die Funktionen für globale Verwendung
-window.filterAuftraege = filterAuftraege;
-window.filterRechnungen = filterRechnungen;
-window.filterRechnungenByMonth = filterRechnungenByMonth;
-window.clearAllFilters = clearAllFilters;
-window.debugCurrentFilters = debugCurrentFilters;
-window.addFilterControls = addFilterControls;
+/**
+ * Fügt erweiterte Filter-Controls zum Dashboard hinzu
+ */
+function addFilterControls() {
+  // Prüfe ob Filter-Controls bereits existieren
+  if (document.getElementById("dashboard-filters")) return;
 
-// Auto-Setup beim Laden
-document.addEventListener("DOMContentLoaded", () => {
-  // Filter-Controls nach kurzer Verzögerung hinzufügen
-  setTimeout(() => {
-    if (window.location.hash === "#dashboard" || !window.location.hash) {
-      addFilterControls();
-    }
-  }, 1000);
-});
+  const dashboardContainer = document.querySelector(".dashboard-container");
+  if (!dashboardContainer) return;
 
-console.log("✅ Verbesserte Dashboard-Filter geladen");
+  const filterContainer = document.createElement("div");
+  filterContainer.id = "dashboard-filters";
+  filterContainer.style.cssText = `
+    margin-bottom: 2rem;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  `;
+
+  filterContainer.innerHTML = `
+    <h3 style="margin: 0 0 1rem 0; color: var(--text-primary);">
+      <i class="fas fa-filter"></i> Schnellfilter
+    </h3>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+      <div class="filter-group">
+        <label style="font-weight: 600; margin-right: 0.5rem;">Aufträge:</label>
+        <button class="btn btn-sm btn-secondary" onclick="clearAllFilters('auftraege-table')">
+          <i class="fas fa-times"></i> Alle
+        </button>
+        <button class="btn btn-sm btn-warning" onclick="filterAuftraege('offen')">
+          <i class="fas fa-clock"></i> Offen
+        </button>
+        <button class="btn btn-sm btn-info" onclick="filterAuftraege('in_bearbeitung')">
+          <i class="fas fa-cog"></i> In Bearbeitung
+        </button>
+        <button class="btn btn-sm btn-success" onclick="filterAuftraege('abgeschlossen')">
+          <i class="fas fa-check"></i> Abgeschlossen
+        </button>
+      </div>
+      <div class="filter-group">
+        <label style="font-weight: 600; margin-right: 0.5rem;">Rechnungen:</label>
+        <button class="btn btn-sm btn-secondary" onclick="clearAllFilters('rechnungen-table')">
+          <i class="fas fa-times"></i> Alle
+        </button>
+        <button class="btn btn-sm btn-warning" onclick="filterRechnungen('offen')">
+          <i class="fas fa-clock"></i> Offen
+        </button>
+        <button class="btn btn-sm btn-success" onclick="filterRechnungen('bezahlt')">
+          <i class="fas fa-check-circle"></i> Bezahlt
+        </button>
+        <button class="btn btn-sm btn-danger" onclick="filterRechnungen('mahnung')">
+          <i class="fas fa-exclamation-triangle"></i> Mahnung
+        </button>
+        <button class="btn btn-sm btn-info" onclick="filterRechnungenByMonth()">
+          <i class="fas fa-calendar"></i> Aktueller Monat
+        </button>
+      </div>
+    </div>
+  `;
+
+  dashboardContainer.insertBefore(
+    filterContainer,
+    dashboardContainer.firstChild
+  );
+  console.log("✅ Erweiterte Filter-Controls hinzugefügt");
+}
 
 function addExtendedStatistics(auftraege, rechnungen) {
   // Prüfen ob erweiterte Statistiken bereits existieren
@@ -683,9 +1229,16 @@ window.exportMonthlyReport = async function () {
     a.click();
     URL.revokeObjectURL(url);
 
-    showNotification("Monatsbericht wurde heruntergeladen", "success");
+    if (window.showNotification) {
+      window.showNotification("Monatsbericht wurde heruntergeladen", "success");
+    }
   } catch (error) {
-    showNotification("Fehler beim Erstellen des Monatsberichts", "error");
+    if (window.showNotification) {
+      window.showNotification(
+        "Fehler beim Erstellen des Monatsberichts",
+        "error"
+      );
+    }
   }
 };
 
@@ -713,9 +1266,16 @@ window.exportCustomerList = async function () {
     a.click();
     URL.revokeObjectURL(url);
 
-    showNotification("Kundenliste wurde heruntergeladen", "success");
+    if (window.showNotification) {
+      window.showNotification("Kundenliste wurde heruntergeladen", "success");
+    }
   } catch (error) {
-    showNotification("Fehler beim Exportieren der Kundenliste", "error");
+    if (window.showNotification) {
+      window.showNotification(
+        "Fehler beim Exportieren der Kundenliste",
+        "error"
+      );
+    }
   }
 };
 
@@ -733,11 +1293,56 @@ window.exportSettings = async function () {
     a.click();
     URL.revokeObjectURL(url);
 
-    showNotification("Einstellungen wurden heruntergeladen", "success");
+    if (window.showNotification) {
+      window.showNotification(
+        "Einstellungen wurden heruntergeladen",
+        "success"
+      );
+    }
   } catch (error) {
-    showNotification("Fehler beim Exportieren der Einstellungen", "error");
+    if (window.showNotification) {
+      window.showNotification(
+        "Fehler beim Exportieren der Einstellungen",
+        "error"
+      );
+    }
   }
 };
+
+// Exportiere die Funktionen für globale Verwendung
+window.filterAuftraege = filterAuftraege;
+window.filterRechnungen = filterRechnungen;
+window.filterRechnungenByMonth = filterRechnungenByMonth;
+window.clearAllFilters = clearAllFilters;
+window.debugCurrentFilters = debugCurrentFilters;
+window.addFilterControls = addFilterControls;
+window.makeCardsClickable = makeAllCardsClickable; // Überschrieben mit erweiterter Version
+window.makeAllCardsClickable = makeAllCardsClickable;
+window.applyOverdueFilter = applyOverdueFilter;
+window.applyYearlyRevenueFilter = applyYearlyRevenueFilter;
+
+// Auto-Setup beim Laden
+document.addEventListener("DOMContentLoaded", () => {
+  console.log("🎛️ Dashboard-Filter-System wird initialisiert...");
+
+  // Filter-Controls nach kurzer Verzögerung hinzufügen
+  setTimeout(() => {
+    if (window.location.hash === "#dashboard" || !window.location.hash) {
+      addFilterControls();
+    }
+  }, 1000);
+
+  // Mehrfache Versuche um sicherzustellen dass alle Cards erfasst werden
+  setTimeout(() => makeAllCardsClickable(), 1500); // Nach addExtendedStatistics
+  setTimeout(() => makeAllCardsClickable(), 2500); // Fallback
+});
+
+// Bei Section-Wechsel zum Dashboard erweiterte Cards erneut klickbar machen
+window.addEventListener("sectionChanged", (event) => {
+  if (event.detail.sectionId === "dashboard") {
+    setTimeout(() => makeAllCardsClickable(), 500);
+  }
+});
 
 // Event Listener für Einstellungsänderungen
 window.addEventListener("settingsUpdated", () => {
@@ -745,3 +1350,7 @@ window.addEventListener("settingsUpdated", () => {
   updateFirmenLogo();
   updateFirmenInfo();
 });
+
+console.log(
+  "✅ Erweiterte Dashboard-Filter mit allen klickbaren Cards geladen"
+);

@@ -2,6 +2,12 @@ const fs = require("fs");
 const os = require("os");
 const path = require("path");
 const https = require("https");
+const { getLicenseVersion, getAppVersion } = require("../version");
+
+// Package.json laden
+const packagePath = path.join(__dirname, "../package.json");
+const packageInfo = JSON.parse(fs.readFileSync(packagePath, "utf8"));
+const APP_VERSION = packageInfo.version;
 
 class LicenseManager {
   constructor() {
@@ -15,7 +21,12 @@ class LicenseManager {
     this.onlineValidationInterval = 5 * 60 * 1000; // 5 Minuten für normale API-Calls
     this.lastOnlineValidation = 0;
 
-    console.log(`🔧 License Manager konfiguriert (SOFORTIGE SESSION-CHECKS):`);
+    this.appVersion = getAppVersion(); // "2.0.0"
+    this.licenseVersion = getLicenseVersion(); // "2.0"
+
+    console.log(`🔧 License Manager konfiguriert:`);
+    console.log(`   App Version: ${this.appVersion}`);
+    console.log(`   License Version: ${this.licenseVersion}`);
     console.log(`   Server: ${this.serverUrl}`);
     console.log(`   Endpunkt: ${this.endpoint}`);
     console.log(`   Vollständige URL: ${this.serverUrl}/${this.endpoint}`);
@@ -81,6 +92,9 @@ class LicenseManager {
 
     // Zeitstempel der letzten Online-Validierung setzen
     licenseData.last_online_validation = Date.now();
+    licenseData.app_version = this.appVersion;
+    licenseData.license_version = this.licenseVersion;
+    licenseData.saved_at = new Date().toISOString();
 
     fs.writeFileSync(this.licenseFile, JSON.stringify(licenseData, null, 2));
     console.log("💾 Lizenz lokal (unverschlüsselt) gespeichert");
@@ -154,7 +168,7 @@ class LicenseManager {
         license_key: licenseKey,
         hardware_id: hwFingerprint,
         timestamp: Date.now(),
-        app_version: "2.0",
+        app_version: this.licenseVersion,
       });
 
       const options = {

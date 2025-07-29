@@ -11,22 +11,42 @@ import { getSetting, getSettings } from "./einstellungen.js";
 // Rechnungen laden und Tabelle füllen
 export async function loadRechnungen() {
   try {
-    window.rechnungen = await apiCall("/api/rechnungen");
+    console.log("🔄 Lade Rechnungen...");
+
+    // ✅ 1. Loading-Indikator anzeigen
     const tableBody = document.querySelector("#rechnungen-table tbody");
-    tableBody.innerHTML = window.rechnungen
+    if (tableBody) {
+      tableBody.innerHTML =
+        '<tr><td colspan="6" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Laden...</td></tr>';
+    }
+
+    // ✅ 2. API-Aufruf mit Cache-Busting
+    const cacheBuster = Date.now();
+    window.rechnungen = await apiCall(`/api/rechnungen?_=${cacheBuster}`);
+
+    console.log(`📊 ${window.rechnungen.length} Rechnungen geladen`);
+
+    // ✅ 3. Tabelle leeren und neu befüllen (sichere DOM-Manipulation)
+    if (!tableBody) {
+      console.error("❌ Tabellen-Body nicht gefunden!");
+      return;
+    }
+
+    // Komplett neue HTML generieren
+    const newTableHTML = window.rechnungen
       .map(
         (rechnung) => `
-            <tr>
+            <tr data-rechnung-id="${rechnung.id}">
                 <td>${rechnung.rechnung_nr}</td>
                 <td>${rechnung.kunde_name || "-"}</td>
                 <td>${rechnung.kennzeichen || ""} ${rechnung.marke || ""}</td>
                 <td>${formatDate(rechnung.rechnungsdatum)}</td>
                 <td>
-                    <select class="status status-${
-                      rechnung.status
-                    }" onchange="updateRechnungStatus(${
-          rechnung.id
-        }, this.value)" style="background: transparent; border: none; color: inherit;">
+                    <select class="status status-${rechnung.status}" 
+                            onchange="updateRechnungStatus(${
+                              rechnung.id
+                            }, this.value)" 
+                            style="background: transparent; border: none; color: inherit;">
                         <option value="offen" ${
                           rechnung.status === "offen" ? "selected" : ""
                         }>Offen</option>
@@ -68,12 +88,61 @@ export async function loadRechnungen() {
         `
       )
       .join("");
-    setTimeout(
-      () => addSearchToTable("rechnungen-table", "rechnungen-search"),
-      100
+
+    // ✅ 4. DOM in einem Zug aktualisieren (bessere Performance)
+    tableBody.innerHTML = newTableHTML;
+
+    // ✅ 5. Suchfunktion nach erfolgreichem DOM-Update hinzufügen
+    await new Promise((resolve) => {
+      // RequestAnimationFrame für sicheren DOM-Update
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          try {
+            addSearchToTable("rechnungen-table", "rechnungen-search");
+            console.log("✅ Such-Funktionalität aktiviert");
+          } catch (searchError) {
+            console.warn(
+              "⚠️ Suchfunktion konnte nicht aktiviert werden:",
+              searchError
+            );
+          }
+          resolve();
+        });
+      });
+    });
+
+    // ✅ 6. Success-Log und event dispatch
+    console.log("✅ Rechnungen-Tabelle erfolgreich aktualisiert");
+
+    // Event für andere Module dispatchen
+    document.dispatchEvent(
+      new CustomEvent("rechnungenLoaded", {
+        detail: { count: window.rechnungen.length },
+      })
     );
   } catch (error) {
-    console.error("Failed to load invoices:", error);
+    console.error("❌ Fehler beim Laden der Rechnungen:", error);
+
+    // ✅ 7. Fehler-Behandlung mit User-Feedback
+    const tableBody = document.querySelector("#rechnungen-table tbody");
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" style="text-align: center; padding: 20px; color: #dc3545;">
+            <i class="fas fa-exclamation-triangle"></i> 
+            Fehler beim Laden der Rechnungen
+            <br>
+            <small>${error.message || "Unbekannter Fehler"}</small>
+            <br>
+            <button class="btn btn-sm btn-primary" onclick="loadRechnungen()" style="margin-top: 10px;">
+              <i class="fas fa-retry"></i> Erneut versuchen
+            </button>
+          </td>
+        </tr>
+      `;
+    }
+
+    showNotification("Fehler beim Laden der Rechnungen", "error");
   }
 }
 
@@ -1543,7 +1612,6 @@ async function deleteRechnung(id) {
         "name",
         "kunde",
       ];
-
       for (const feld of möglicheKundenFelder) {
         if (rechnung[feld]) {
           kundenname = rechnung[feld];
@@ -1557,52 +1625,21 @@ Rechnung-Details:
 • Rechnung-Nr: ${nummerWert}
 • Betrag: ${betrag}
 • Kunde: ${kundenname}
-• Datum: ${datum}
-• Status: ${statusWert}`;
+• Status: ${statusWert}
 
-      // Spezielle Warnung je nach Status
-      if (istBezahlt) {
-        confirmMessage += `\n\n🚨 ACHTUNG: BEZAHLTE RECHNUNG!
-
-Diese Rechnung wurde bereits bezahlt!
-• Buchhaltungsrelevante Daten gehen verloren
-• Steuerliche Dokumentation wird gelöscht
-• Zahlungshistorie geht verloren
-• Kann Probleme bei Steuerprüfung verursachen`;
-        dialogTitle = "🚨 Bezahlte Rechnung löschen";
-      } else {
-        confirmMessage += `\n\n⚠️ BUCHHALTUNGS-WARNUNG:
-
-• Rechnungsdaten gehen verloren
-• Auftragszuordnung wird entfernt
-• Steuerliche Dokumentation wird gelöscht`;
-        dialogTitle = "🧾 Rechnung löschen";
-      }
-
-      confirmMessage += `\n\n🔥 DIESE AKTION KANN NICHT RÜCKGÄNGIG GEMACHT WERDEN!
-
-Für die Buchhaltung sollten Rechnungen normalerweise storniert statt gelöscht werden.
+🔥 DIESE AKTION KANN NICHT RÜCKGÄNGIG GEMACHT WERDEN!
 
 Trotzdem löschen?`;
+      dialogTitle = "🧾 Rechnung löschen";
     } else {
-      // Ohne Details (Fallback)
-      confirmMessage = `Rechnung (ID: ${id}) wirklich löschen?
-
-⚠️ BUCHHALTUNGS-WARNUNG:
-• Rechnungsdaten gehen unwiderruflich verloren
-• Steuerliche Dokumentation wird gelöscht
-• Kann Probleme bei Buchprüfung verursachen
-
-Diese Aktion kann nicht rückgängig gemacht werden.
-
-Normalerweise sollten Rechnungen storniert statt gelöscht werden.`;
+      confirmMessage = `Rechnung (ID: ${id}) wirklich löschen?\n\nDiese Aktion kann nicht rückgängig gemacht werden.`;
       dialogTitle = "🧾 Rechnung löschen";
     }
 
     const confirmed = await customConfirm(confirmMessage, dialogTitle);
 
     if (confirmed) {
-      // ✅ Bei bezahlten Rechnungen zusätzliche Bestätigung - statusWert ist jetzt verfügbar
+      // Bei bezahlten Rechnungen zusätzliche Bestätigung
       if (
         rechnung &&
         statusWert &&
@@ -1613,38 +1650,27 @@ Normalerweise sollten Rechnungen storniert statt gelöscht werden.`;
           : "Unbekannter Betrag";
 
         const secondConfirm = await customConfirm(
-          `Letzte Warnung für bezahlte Rechnung!
-
-Rechnung: ${nummerWert || id}
-Betrag: ${betragText}
-
-Das Löschen einer bezahlten Rechnung kann:
-• Steuerliche Probleme verursachen
-• Buchhaltung durcheinanderbringen
-• Bei Prüfungen Schwierigkeiten bereiten
-
-Sind Sie sich absolut sicher?`,
+          `Letzte Warnung für bezahlte Rechnung!\n\nRechnung: ${
+            nummerWert || id
+          }\nBetrag: ${betragText}\n\nSind Sie sich absolut sicher?`,
           "🚨 Finale Warnung"
         );
 
         if (!secondConfirm) {
-          await customAlert(
-            "Löschung abgebrochen.\n\nÜberlegen Sie eine Stornierung statt Löschung.",
-            "info",
-            "Abgebrochen"
-          );
+          await customAlert("Löschung abgebrochen.", "info", "Abgebrochen");
           return;
         }
       }
 
-      // Loading-Notification während Löschung
+      // ✅ Loading-Notification
       if (typeof showNotification === "function") {
         showNotification("Rechnung wird gelöscht...", "info");
       }
 
+      // ✅ API-Aufruf zum Löschen
       await apiCall(`/api/rechnungen/${id}`, "DELETE");
 
-      // Erfolgs-Dialog
+      // ✅ Erfolgs-Dialog
       const erfolgsBetrag = betragWert
         ? `\nBetrag: € ${parseFloat(betragWert).toFixed(2)}`
         : "";
@@ -1654,124 +1680,35 @@ Sind Sie sich absolut sicher?`,
           nummerWert && nummerWert !== id
             ? `\n\nRechnung-Nr: ${nummerWert}`
             : ""
-        }${erfolgsBetrag}
-
-⚠️ Hinweis: Stellen Sie sicher, dass diese Löschung in Ihrer Buchhaltung vermerkt wird.`,
+        }${erfolgsBetrag}`,
         "success",
         "Rechnung gelöscht"
       );
+
+      // ✅ WICHTIG: Tabelle sofort aktualisieren mit forciertem Reload
+      console.log("🔄 Aktualisiere Tabelle nach Löschung...");
 
       if (typeof showNotification === "function") {
         showNotification("Rechnung erfolgreich gelöscht", "success");
       }
 
-      console.log("🔄 Aktualisiere Tabelle nach Löschung...");
+      // ✅ GARANTIERTER TABLE-REFRESH
+      await loadRechnungen();
 
-      // Kleine Verzögerung für Server-Sync
-      setTimeout(async () => {
-        try {
-          // Force-Reload der Rechnungen mit Cache-Busting
-          const cacheBuster = Date.now();
-          window.rechnungen = await apiCall(`/api/rechnungen?_=${cacheBuster}`);
+      // ✅ Zusätzlich: Dashboard aktualisieren falls verfügbar
+      if (typeof window.loadDashboard === "function") {
+        setTimeout(() => window.loadDashboard(), 500);
+      }
 
-          // Tabelle leeren und neu befüllen
-          const tableBody = document.querySelector("#rechnungen-table tbody");
-          if (tableBody) {
-            tableBody.innerHTML = window.rechnungen
-              .map(
-                (rechnung) => `
-          <tr data-rechnung-id="${rechnung.id}">
-            <td>${rechnung.rechnung_nr}</td>
-            <td>${rechnung.kunde_name || "-"}</td>
-            <td>${rechnung.kennzeichen || ""} ${rechnung.marke || ""}</td>
-            <td>${formatDate(rechnung.rechnungsdatum)}</td>
-            <td>
-              <select class="status status-${rechnung.status}" 
-                      onchange="updateRechnungStatus(${
-                        rechnung.id
-                      }, this.value)" 
-                      style="background: transparent; border: none; color: inherit;">
-                <option value="offen" ${
-                  rechnung.status === "offen" ? "selected" : ""
-                }>Offen</option>
-                <option value="bezahlt" ${
-                  rechnung.status === "bezahlt" ? "selected" : ""
-                }>Bezahlt</option>
-                <option value="mahnung" ${
-                  rechnung.status === "mahnung" ? "selected" : ""
-                }>Mahnung</option>
-                <option value="storniert" ${
-                  rechnung.status === "storniert" ? "selected" : ""
-                }>Storniert</option>
-              </select>
-            </td>
-            <td>${formatCurrency(rechnung.gesamtbetrag)}</td>
-            <td>
-              <button class="btn btn-sm btn-secondary" onclick="viewRechnung(${
-                rechnung.id
-              })" title="Anzeigen">
-                <i class="fas fa-eye"></i>
-              </button>
-              <button class="btn btn-sm btn-primary" onclick="editRechnung(${
-                rechnung.id
-              })" title="Bearbeiten">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button class="btn btn-sm btn-success" onclick="printRechnung(${
-                rechnung.id
-              })" title="Drucken">
-                <i class="fas fa-print"></i>
-              </button>
-              <button class="btn btn-sm btn-danger" onclick="deleteRechnung(${
-                rechnung.id
-              })" title="Löschen">
-                <i class="fas fa-trash"></i>
-              </button>
-            </td>
-          </tr>
-        `
-              )
-              .join("");
-
-            // Suchfunktion neu aktivieren
-            setTimeout(() => {
-              addSearchToTable("rechnungen-table", "rechnungen-search");
-              console.log("✅ Tabelle erfolgreich aktualisiert");
-            }, 100);
-          }
-        } catch (refreshError) {
-          console.error(
-            "❌ Fehler beim Aktualisieren der Tabelle:",
-            refreshError
-          );
-          // Fallback: Original loadRechnungen aufrufen
-          if (typeof loadRechnungen === "function") {
-            loadRechnungen();
-          }
-        }
-      }, 300);
+      console.log("✅ Tabelle erfolgreich nach Löschung aktualisiert");
     }
   } catch (error) {
     console.error("Fehler beim Löschen der Rechnung:", error);
 
-    // Fehler-Dialog mit Details
     await customAlert(
-      `Fehler beim Löschen der Rechnung:
-
-${error.message || "Unbekannter Fehler"}
-
-Mögliche Ursachen:
-• Netzwerk-Problem
-• Server-Fehler
-• Rechnung ist mit Zahlungen verknüpft
-• Buchhaltungssystem verhindert Löschung
-• Unzureichende Berechtigung
-• Rechnung bereits storniert/gelöscht
-
-WICHTIG: Die Rechnung wurde möglicherweise NICHT gelöscht.
-Prüfen Sie den Status und versuchen Sie es erneut.
-
-Bei Problemen mit Buchhaltungsdaten kontaktieren Sie den Support.`,
+      `Fehler beim Löschen der Rechnung:\n\n${
+        error.message || "Unbekannter Fehler"
+      }\n\nDie Rechnung wurde möglicherweise NICHT gelöscht.`,
       "error",
       "Löschung fehlgeschlagen"
     );
@@ -1779,21 +1716,14 @@ Bei Problemen mit Buchhaltungsdaten kontaktieren Sie den Support.`,
     if (typeof showNotification === "function") {
       showNotification("Fehler beim Löschen der Rechnung", "error");
     }
+
+    // ✅ Auch bei Fehler Tabelle neu laden (für den Fall dass doch gelöscht wurde)
+    setTimeout(() => loadRechnungen(), 1000);
   }
 }
 
-async function updateRechnungStatus(id, status) {
-  try {
-    const rechnung = await apiCall(`/api/rechnungen/${id}`);
-    rechnung.status = status;
-    await apiCall(`/api/rechnungen/${id}`, "PUT", rechnung);
-    showNotification("Status erfolgreich aktualisiert", "success");
-    loadRechnungen();
-  } catch (error) {
-    showNotification("Fehler beim Aktualisieren des Status", "error");
-    loadRechnungen();
-  }
-}
+// ✅ Exportiere beide Funktionen
+window.deleteRechnung = deleteRechnung;
 
 async function viewRechnung(id) {
   try {

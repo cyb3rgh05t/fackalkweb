@@ -167,6 +167,7 @@ function updatePageTitle(sectionId) {
     rechnungen: "Rechnungen",
     kunden: "Kunden",
     fahrzeuge: "Fahrzeuge",
+    fahrzeughandel: "Fahrzeughandel",
     einstellungen: "Einstellungen",
   };
 
@@ -189,34 +190,37 @@ async function loadSectionData(sectionId) {
     switch (sectionId) {
       case "dashboard":
         const dashboard = await import("./dashboard.js");
-        await dashboard.loadDashboard();
-        break;
-      case "auftraege":
-        const auftraege = await import("./auftraege.js");
-        await auftraege.loadAuftraege();
-        break;
-      case "rechnungen":
-        const rechnungen = await import("./rechnungen.js");
-        await rechnungen.loadRechnungen();
+        if (dashboard.loadDashboard) await dashboard.loadDashboard();
         break;
       case "kunden":
         const kunden = await import("./kunden.js");
-        await kunden.loadKunden();
+        if (kunden.loadKunden) await kunden.loadKunden();
         break;
       case "fahrzeuge":
         const fahrzeuge = await import("./fahrzeuge.js");
-        await fahrzeuge.loadFahrzeuge();
+        if (fahrzeuge.loadFahrzeuge) await fahrzeuge.loadFahrzeuge();
+        break;
+      case "fahrzeughandel":
+        const fahrzeughandel = await import("./fahrzeughandel.js");
+        if (fahrzeughandel.loadFahrzeughandel)
+          await fahrzeughandel.loadFahrzeughandel();
+        break;
+      case "auftraege":
+        const auftraege = await import("./auftraege.js");
+        if (auftraege.loadAuftraege) await auftraege.loadAuftraege();
+        break;
+      case "rechnungen":
+        const rechnungen = await import("./rechnungen.js");
+        if (rechnungen.loadRechnungen) await rechnungen.loadRechnungen();
         break;
       case "einstellungen":
         const einstellungen = await import("./einstellungen.js");
-        await einstellungen.loadEinstellungen();
+        if (einstellungen.loadEinstellungen)
+          await einstellungen.loadEinstellungen();
         break;
-      default:
-        console.warn(`Unbekannte Section: ${sectionId}`);
     }
   } catch (error) {
-    console.error(`Fehler beim Laden von Section ${sectionId}:`, error);
-    showNotification(`Fehler beim Laden von ${sectionId}`, "error");
+    console.error(`Fehler beim Laden der Section ${sectionId}:`, error);
   }
 }
 

@@ -504,6 +504,12 @@ app.use(
   requireValidLicense,
   require("./routes/einstellungen")
 );
+app.use(
+  "/api/fahrzeughandel",
+  requireAuth,
+  requireValidLicense,
+  require("./routes/fahrzeughandel")
+);
 
 // Statische Dateien mit erweiterten Headers
 app.use(
@@ -536,6 +542,7 @@ app.use("/api/*", (req, res) => {
       "/api/auftraege",
       "/api/rechnungen",
       "/api/einstellungen",
+      "/api/fahrzeughandel",
       "/api/upload/logo",
       "/api/backup/create",
       "/api/backup/restore",

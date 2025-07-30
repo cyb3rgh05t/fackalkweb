@@ -9,6 +9,7 @@ import { loadAuftraege } from "./auftraege.js";
 import { loadRechnungen } from "./rechnungen.js";
 import { loadEinstellungen } from "./einstellungen.js";
 import { initializeSearch } from "./search.js";
+import { loadFahrzeughandel } from "./fahrzeughandel.js";
 
 // Globaler App-State
 let appInitialized = false;
@@ -19,6 +20,7 @@ let moduleStatus = {
   fahrzeuge: false,
   auftraege: false,
   rechnungen: false,
+  fahrzeughandel: false,
   search: false,
 };
 
@@ -110,8 +112,11 @@ async function initializeApp() {
     console.log("📊 Phase 2: Dashboard laden");
     await loadModuleSafely("dashboard", loadDashboard);
 
+    console.log("🔧 Phase 3: Weitere Module laden");
+    await loadModuleSafely("fahrzeughandel", loadFahrzeughandel);
+
     // Phase 3: Kern-Module parallel laden
-    console.log("⚡ Phase 3: Kern-Module parallel laden");
+    console.log("⚡ Kern-Module parallel laden");
     const coreModules = [
       ["kunden", loadKunden],
       ["fahrzeuge", loadFahrzeuge],
@@ -196,6 +201,8 @@ async function initializeSearchSystem() {
         "kunden-search",
         "fahrzeuge-table",
         "fahrzeuge-search",
+        "fahrzeughandel-table",
+        "fahrzeughandel-search",
       ];
 
       let missingElements = requiredElements.filter(
@@ -894,6 +901,10 @@ window.debugApp = {
       "kunden-table": !!document.getElementById("kunden-table"),
       "fahrzeuge-search": !!document.getElementById("fahrzeuge-search"),
       "fahrzeuge-table": !!document.getElementById("fahrzeuge-table"),
+      "fahrzeughandel-search": !!document.getElementById(
+        "fahrzeughandel-search"
+      ),
+      "fahrzeughandel-table": !!document.getElementById("fahrzeughandel-table"),
     };
 
     console.log("🔍 Search-Elemente Status:", elements);

@@ -24,7 +24,6 @@ exports.get = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    const rechnung_nr = await generateNextNumber("rechnung");
     // Beträge berechnen
     let zwischensumme = 0;
     let mwst19Basis = 0;
@@ -51,7 +50,6 @@ exports.create = async (req, res) => {
           settings.find((s) => s.key === "gewaehrleistung")?.value || "";
         const data = {
           ...req.body,
-          rechnung_nr,
           zwischensumme,
           rabatt_prozent: rabattProzent,
           rabatt_betrag: rabattBetrag,

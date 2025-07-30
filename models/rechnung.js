@@ -94,66 +94,65 @@ const Rechnung = {
    */
   create: (data) =>
     new Promise((resolve, reject) => {
-      const sql = `INSERT INTO rechnungen (
-        rechnung_nr, auftrag_id, kunden_id, fahrzeug_id, rechnungsdatum, auftragsdatum,
-        zwischensumme, rabatt_prozent, rabatt_betrag, netto_nach_rabatt,
-        mwst_19, mwst_7, gesamtbetrag, zahlungsbedingungen, gewaehrleistung,
-        rechnungshinweise, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      // Nächste Rechnungsnummer generieren
+      Rechnung._getNextRechnungNr()
+        .then((rechnung_nr) => {
+          const stmt = db.prepare(`
+          INSERT INTO rechnungen (
+            rechnung_nr, auftrag_id, kunden_id, fahrzeug_id, 
+            rechnungsdatum, auftragsdatum, status,
+            zwischensumme, rabatt_prozent, rabatt_betrag, 
+            netto_nach_rabatt, mwst_19, mwst_7, gesamtbetrag,
+            zahlungsbedingungen, gewaehrleistung, rechnungshinweise,
+            skonto_aktiv, skonto_betrag
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
 
-      db.run(
-        sql,
-        [
-          data.rechnung_nr,
-          data.auftrag_id || null,
-          data.kunden_id,
-          data.fahrzeug_id,
-          data.rechnungsdatum,
-          data.auftragsdatum || null,
-          data.zwischensumme || 0,
-          data.rabatt_prozent || 0,
-          data.rabatt_betrag || 0,
-          data.netto_nach_rabatt || 0,
-          data.mwst_19 || 0,
-          data.mwst_7 || 0,
-          data.gesamtbetrag || 0,
-          data.zahlungsbedingungen || "",
-          data.gewaehrleistung || "",
-          data.rechnungshinweise || "", // NEU: Rechnungshinweise
-          data.status || "offen",
-        ],
-        function (err) {
-          if (err) {
-            console.error("Fehler beim Erstellen der Rechnung:", err);
-            return reject(err);
-          }
+          stmt.run(
+            [
+              rechnung_nr,
+              data.auftrag_id || null,
+              data.kunden_id,
+              data.fahrzeug_id,
+              data.rechnungsdatum,
+              data.auftragsdatum || null,
+              data.status || "offen",
+              parseFloat(data.zwischensumme) || 0,
+              parseFloat(data.rabatt_prozent) || 0,
+              parseFloat(data.rabatt_betrag) || 0,
+              parseFloat(data.netto_nach_rabatt) || 0,
+              parseFloat(data.mwst_19) || 0,
+              parseFloat(data.mwst_7) || 0,
+              parseFloat(data.gesamtbetrag) || 0,
+              data.zahlungsbedingungen || "",
+              data.gewaehrleistung || "",
+              data.rechnungshinweise || "",
+              data.skonto_aktiv ? 1 : 0, // NEU: Skonto-Checkbox
+              parseFloat(data.skonto_betrag) || 0, // NEU: Skonto-Betrag
+            ],
+            function (err) {
+              if (err) {
+                console.error("Fehler beim Erstellen der Rechnung:", err);
+                return reject(err);
+              }
 
-          const rechnungId = this.lastID;
+              const rechnungId = this.lastID;
 
-          // Positionen einfügen falls vorhanden
-          if (
-            data.positionen &&
-            Array.isArray(data.positionen) &&
-            data.positionen.length > 0
-          ) {
-            Rechnung._insertPositionen(rechnungId, data.positionen)
-              .then(() => {
-                resolve({
-                  id: rechnungId,
-                  rechnung_nr: data.rechnung_nr,
-                  message: "Rechnung erfolgreich erstellt",
-                });
-              })
-              .catch(reject);
-          } else {
-            resolve({
-              id: rechnungId,
-              rechnung_nr: data.rechnung_nr,
-              message: "Rechnung erfolgreich erstellt",
-            });
-          }
-        }
-      );
+              // Positionen einfügen
+              Rechnung._insertPositionen(rechnungId, data.positionen)
+                .then(() => {
+                  // Rechnungsnummer erhöhen
+                  Rechnung._incrementRechnungNr()
+                    .then(() => {
+                      resolve({ id: rechnungId, rechnung_nr });
+                    })
+                    .catch(reject);
+                })
+                .catch(reject);
+            }
+          );
+        })
+        .catch(reject);
     }),
 
   /**
@@ -164,32 +163,38 @@ const Rechnung = {
    */
   update: (id, data) =>
     new Promise((resolve, reject) => {
-      const sql = `UPDATE rechnungen SET 
-        kunden_id = ?, fahrzeug_id = ?, rechnungsdatum = ?, auftragsdatum = ?,
-        zwischensumme = ?, rabatt_prozent = ?, rabatt_betrag = ?, netto_nach_rabatt = ?,
-        mwst_19 = ?, mwst_7 = ?, gesamtbetrag = ?, zahlungsbedingungen = ?, 
-        gewaehrleistung = ?, rechnungshinweise = ?, status = ?,
+      const stmt = db.prepare(`
+      UPDATE rechnungen SET
+        auftrag_id = ?, kunden_id = ?, fahrzeug_id = ?,
+        rechnungsdatum = ?, auftragsdatum = ?, status = ?,
+        zwischensumme = ?, rabatt_prozent = ?, rabatt_betrag = ?,
+        netto_nach_rabatt = ?, mwst_19 = ?, mwst_7 = ?, gesamtbetrag = ?,
+        zahlungsbedingungen = ?, gewaehrleistung = ?, rechnungshinweise = ?,
+        skonto_aktiv = ?, skonto_betrag = ?,
         aktualisiert_am = CURRENT_TIMESTAMP
-        WHERE id = ?`;
+      WHERE id = ?
+    `);
 
-      db.run(
-        sql,
+      stmt.run(
         [
+          data.auftrag_id || null,
           data.kunden_id,
           data.fahrzeug_id,
           data.rechnungsdatum,
           data.auftragsdatum || null,
-          data.zwischensumme || 0,
-          data.rabatt_prozent || 0,
-          data.rabatt_betrag || 0,
-          data.netto_nach_rabatt || 0,
-          data.mwst_19 || 0,
-          data.mwst_7 || 0,
-          data.gesamtbetrag || 0,
+          data.status || "offen",
+          parseFloat(data.zwischensumme) || 0,
+          parseFloat(data.rabatt_prozent) || 0,
+          parseFloat(data.rabatt_betrag) || 0,
+          parseFloat(data.netto_nach_rabatt) || 0,
+          parseFloat(data.mwst_19) || 0,
+          parseFloat(data.mwst_7) || 0,
+          parseFloat(data.gesamtbetrag) || 0,
           data.zahlungsbedingungen || "",
           data.gewaehrleistung || "",
-          data.rechnungshinweise || "", // NEU: Rechnungshinweise
-          data.status || "offen",
+          data.rechnungshinweise || "",
+          data.skonto_aktiv ? 1 : 0, // NEU: Skonto-Checkbox
+          parseFloat(data.skonto_betrag) || 0, // NEU: Skonto-Betrag
           id,
         ],
         function (err) {
@@ -199,39 +204,20 @@ const Rechnung = {
           }
 
           if (this.changes === 0) {
-            return resolve({ changes: 0, message: "Rechnung nicht gefunden" });
+            return reject(new Error("Rechnung nicht gefunden"));
           }
 
-          // Alte Positionen löschen und neue einfügen
+          // Bestehende Positionen löschen
           db.run(
             "DELETE FROM rechnung_positionen WHERE rechnung_id = ?",
             [id],
-            (err2) => {
-              if (err2) {
-                console.error("Fehler beim Löschen alter Positionen:", err2);
-                return reject(err2);
-              }
+            (err) => {
+              if (err) return reject(err);
 
-              // Neue Positionen einfügen falls vorhanden
-              if (
-                data.positionen &&
-                Array.isArray(data.positionen) &&
-                data.positionen.length > 0
-              ) {
-                Rechnung._insertPositionen(id, data.positionen)
-                  .then(() => {
-                    resolve({
-                      changes: this.changes,
-                      message: "Rechnung erfolgreich aktualisiert",
-                    });
-                  })
-                  .catch(reject);
-              } else {
-                resolve({
-                  changes: this.changes,
-                  message: "Rechnung erfolgreich aktualisiert",
-                });
-              }
+              // Neue Positionen einfügen
+              Rechnung._insertPositionen(id, data.positionen)
+                .then(() => resolve({ id }))
+                .catch(reject);
             }
           );
         }
@@ -385,7 +371,7 @@ const Rechnung = {
    * Nächste Rechnungsnummer generieren
    * @returns {Promise<string>} Nächste Rechnungsnummer
    */
-  getNextRechnungNr: () =>
+  _getNextRechnungNr: () =>
     new Promise((resolve, reject) => {
       // Aktuelle Nummer und Präfix aus Einstellungen holen
       db.all(
@@ -416,7 +402,7 @@ const Rechnung = {
    * Rechnungsnummer-Zähler erhöhen
    * @returns {Promise<void>}
    */
-  incrementRechnungNr: () =>
+  _incrementRechnungNr: () =>
     new Promise((resolve, reject) => {
       db.get(
         'SELECT value FROM einstellungen WHERE key = "next_rechnung_nr"',

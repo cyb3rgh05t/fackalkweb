@@ -395,12 +395,12 @@ function displayRechnungModal(rechnung = null) {
   }).join("");
 
   // Zahlungsbedingungen mit SKonto erweitern
-  const baseZahlungsbedingungen = getSetting("zahlungsbedingungen", "");
+  const baseZahlungsbedingungen = getSetting("zahlungstext", "");
   const skontoText =
     skontoTage && skontoProzent
       ? `\nBei Zahlung innerhalb von ${skontoTage} Tagen ${skontoProzent}% Skonto.`
       : "";
-  const zahlungsbedingungenMitSkonto = baseZahlungsbedingungen + skontoText;
+  const zahlungsbedingungenMitSkonto = baseZahlungsbedingungen;
 
   const gewaehrleistung = getSetting("gewaehrleistung", "");
   const rechnungshinweise = getSetting("rechnungshinweise", "");
@@ -527,6 +527,42 @@ function displayRechnungModal(rechnung = null) {
       <small class="text-muted">Wird aus den Einstellungen übernommen</small>
     </div>
   </div>
+
+  ${
+    skontoTage && skontoProzent
+      ? `
+  <h3 style="margin: 2rem 0 1rem 0; color: var(--accent-primary); display: flex; align-items: center; gap: 0.5rem;">
+    <i class="fas fa-percentage"></i>
+    Skonto-Option für diese Rechnung
+  </h3>
+  <div class="zuschlag-container">
+    <div class="zuschlag-card">
+      <div class="zuschlag-checkbox-container">
+        <input type="checkbox" 
+               id="skonto_aktiv" 
+               name="skonto_aktiv" 
+               class="zuschlag-checkbox"
+               ${rechnung?.skonto_aktiv ? "checked" : ""} 
+               onchange="updateSkontoText()">
+        <label for="skonto_aktiv" class="zuschlag-label">
+          <div class="zuschlag-icon">
+            <i class="fas fa-percentage"></i>
+          </div>
+          <div class="zuschlag-content">
+            <div class="zuschlag-title">Skonto gewähren</div>
+            <div class="zuschlag-amount">${skontoProzent}% bei Zahlung in ${skontoTage} Tagen</div>
+            <div class="zuschlag-description">Frühzahlerrabatt auf dieser Rechnung anzeigen</div>
+          </div>
+          <div class="zuschlag-toggle">
+            <span class="toggle-slider"></span>
+          </div>
+        </label>
+      </div>
+    </div>
+  </div>
+`
+      : ""
+  }
   
   <h3 style="margin: 2rem 0 1rem 0;">Positionen</h3>
   <div class="positions-info" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-tertiary); border-radius: 8px;">
@@ -1227,6 +1263,8 @@ window.saveRechnung = async function (rechnungId = null) {
     zahlungsbedingungen: formData.get("zahlungsbedingungen")?.trim() || "",
     gewaehrleistung: formData.get("gewaehrleistung")?.trim() || "",
     rechnungshinweise: formData.get("rechnungshinweise")?.trim() || "",
+    skonto_aktiv: formData.get("skonto_aktiv") === "on", // NEU: Skonto-Checkbox
+    skonto_betrag: 0, // NEU: Placeholder für Skonto-Betrag
     positionen,
   };
 
@@ -1887,15 +1925,15 @@ ${
 
       <!-- Zahlungsinformationen -->
       ${
-        rechnung.zahlungsbedingungen || rechnung.gewaehrleistung || bankIban
+        rechnung.zahlungstext || rechnung.gewaehrleistung || bankIban
           ? `
       <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
         ${
-          rechnung.zahlungsbedingungen
+          rechnung.zahlungstext
             ? `
         <div style="margin-bottom: 1rem;">
           <h4>Zahlungsbedingungen:</h4>
-          <p style="margin-top: 0.5rem;">${rechnung.zahlungsbedingungen}</p>
+          <p style="margin-top: 0.5rem;">${rechnung.zahlungstext}</p>
         </div>
         `
             : ""
@@ -1967,6 +2005,28 @@ async function printRechnung(id) {
     showNotification("Fehler beim Drucken der Rechnung", "error");
   }
 }
+
+window.updateSkontoText = function () {
+  const skontoAktiv =
+    document.querySelector('[name="skonto_aktiv"]')?.checked || false;
+  const zahlungsbedingungenField = document.querySelector(
+    '[name="zahlungsbedingungen"]'
+  );
+
+  if (!zahlungsbedingungenField) return;
+
+  const baseText = getSetting("zahlungstext", "");
+  const skontoTage = getSetting("skonto_tage", "");
+  const skontoProzent = getSetting("skonto_prozent", "");
+
+  let finalText = baseText;
+
+  if (skontoAktiv && skontoTage && skontoProzent) {
+    finalText += `\n\nBei Zahlung innerhalb von ${skontoTage} Tagen gewähren wir ${skontoProzent}% Skonto.`;
+  }
+
+  zahlungsbedingungenField.value = finalText;
+};
 
 // Hilfsfunktion: Modal-Inhalt drucken
 function printModalContent(modalContent) {

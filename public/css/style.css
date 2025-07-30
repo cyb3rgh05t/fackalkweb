@@ -1154,3 +1154,130 @@ input[type="file"]:focus {
     display: none !important;
   }
 }
+
+/* FÜGE zu public/css/styles.css hinzu */
+
+/* Zuschlag-Container für Checkboxen */
+.zuschlag-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 2rem 0;
+}
+
+.zuschlag-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 0;
+  transition: all 0.3s ease;
+}
+
+.zuschlag-card:hover {
+  border-color: var(--primary-color);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+}
+
+.zuschlag-checkbox-container {
+  position: relative;
+}
+
+.zuschlag-checkbox {
+  display: none;
+}
+
+.zuschlag-label {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  cursor: pointer;
+  gap: 1rem;
+  transition: all 0.3s ease;
+  border-radius: 0.5rem;
+}
+
+.zuschlag-checkbox:checked + .zuschlag-label {
+  background: rgba(0, 123, 255, 0.05);
+  border-color: var(--primary-color);
+}
+
+.zuschlag-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  background: var(--primary-color);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.zuschlag-content {
+  flex: 1;
+}
+
+.zuschlag-title {
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 0.25rem;
+}
+
+.zuschlag-amount {
+  font-size: 0.9rem;
+  color: var(--primary-color);
+  font-weight: 500;
+}
+
+.zuschlag-description {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+}
+
+.zuschlag-toggle {
+  position: relative;
+  width: 50px;
+  height: 26px;
+  background: #ccc;
+  border-radius: 13px;
+  transition: background 0.3s ease;
+}
+
+.zuschlag-checkbox:checked + .zuschlag-label .zuschlag-toggle {
+  background: var(--primary-color);
+}
+
+.toggle-slider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.zuschlag-checkbox:checked + .zuschlag-label .toggle-slider {
+  transform: translateX(24px);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .zuschlag-container {
+    grid-template-columns: 1fr;
+  }
+
+  .zuschlag-label {
+    padding: 0.75rem;
+  }
+
+  .zuschlag-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
+}

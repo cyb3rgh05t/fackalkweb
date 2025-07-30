@@ -890,7 +890,7 @@
         if (data.rechnungshinweise && data.rechnungshinweise.trim() !== "") {
           rechnungshinweiseHtml = `
         <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 1rem; margin: 1rem 0; color: #856404;">
-          <strong>📝 Hinweise:</strong><br>
+          <strong>Hinweise:</strong><br>
           ${data.rechnungshinweise}
         </div>
       `;

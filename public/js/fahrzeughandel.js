@@ -215,12 +215,12 @@ function updateFahrzeughandelTable() {
       </td>
       <td>
         <div class="action-buttons">
-          <button class="btn-icon" onclick="editFahrzeughandel(${
+          <button class="btn btn-sm btn-primary" onclick="editFahrzeughandel(${
             geschaeft.id
           })" title="Bearbeiten">
             <i class="fas fa-edit"></i>
           </button>
-          <button class="btn-icon btn-danger" onclick="deleteFahrzeughandel(${
+          <button class="btn btn-sm btn-danger" onclick="deleteFahrzeughandel(${
             geschaeft.id
           }, '${geschaeft.handel_nr}')" title="Löschen">
             <i class="fas fa-trash"></i>

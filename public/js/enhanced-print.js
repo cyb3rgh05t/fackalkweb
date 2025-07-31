@@ -870,6 +870,7 @@
         const skontoTage = getSetting("skonto_tage", "").trim();
         const skontoProzent = getSetting("skonto_prozent", "").trim();
         const showSkonto =
+          data.skonto_aktiv &&
           skontoTage &&
           skontoProzent &&
           skontoTage !== "" &&
@@ -1154,6 +1155,7 @@
       const skontoTage = getSetting("skonto_tage", "").trim();
       const skontoProzent = getSetting("skonto_prozent", "").trim();
       const showSkonto =
+        rechnung.skonto_aktiv &&
         skontoTage &&
         skontoProzent &&
         skontoTage !== "" &&

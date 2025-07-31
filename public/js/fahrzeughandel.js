@@ -395,29 +395,163 @@ function getFormData() {
 
 // Form-Validierung
 function validateFormData(data) {
+  const errors = [];
+
+  // Pflichtfelder prüfen
   if (!data.typ) {
-    showNotification("Bitte wählen Sie einen Geschäftstyp", "error");
-    return false;
+    errors.push("Geschäftstyp ist erforderlich");
+    highlightField("handel-typ");
   }
 
   if (!data.kennzeichen || !data.marke || !data.modell) {
-    showNotification(
-      "Kennzeichen, Marke und Modell sind erforderlich",
-      "error"
-    );
-    return false;
+    if (!data.kennzeichen) {
+      errors.push("Kennzeichen ist erforderlich");
+      highlightField("handel-kennzeichen");
+    }
+    if (!data.marke) {
+      errors.push("Marke ist erforderlich");
+      highlightField("handel-marke");
+    }
+    if (!data.modell) {
+      errors.push("Modell ist erforderlich");
+      highlightField("handel-modell");
+    }
   }
 
   if (!data.datum) {
-    showNotification("Datum ist erforderlich", "error");
+    errors.push("Datum ist erforderlich");
+    highlightField("handel-datum");
+  }
+
+  // Preise validieren
+  if (data.ankaufspreis < 0) {
+    errors.push("Ankaufspreis kann nicht negativ sein");
+    highlightField("handel-ankaufspreis");
+  }
+
+  if (data.verkaufspreis < 0) {
+    errors.push("Verkaufspreis kann nicht negativ sein");
+    highlightField("handel-verkaufspreis");
+  }
+
+  // Baujahr validieren
+  if (
+    data.baujahr &&
+    (data.baujahr < 1900 || data.baujahr > new Date().getFullYear() + 2)
+  ) {
+    errors.push("Ungültiges Baujahr");
+    highlightField("handel-baujahr");
+  }
+
+  if (errors.length > 0) {
+    showValidationErrors(errors);
     return false;
   }
 
   return true;
 }
 
+function highlightField(fieldId) {
+  const field = document.getElementById(fieldId);
+  if (field) {
+    field.classList.add("error");
+    field.focus();
+
+    // Error-Klasse nach 3 Sekunden entfernen
+    setTimeout(() => {
+      field.classList.remove("error");
+    }, 3000);
+  }
+}
+
+// Validierungs-Fehler anzeigen
+function showValidationErrors(errors) {
+  const errorHtml = `
+    <div class="validation-summary">
+      <div class="validation-header">
+        <i class="fas fa-exclamation-triangle"></i>
+        Bitte korrigieren Sie folgende Fehler:
+      </div>
+      <ul>
+        ${errors.map((error) => `<li>${error}</li>`).join("")}
+      </ul>
+    </div>
+  `;
+
+  // Bestehende Fehler entfernen
+  const existingError = document.querySelector(".validation-summary");
+  if (existingError) {
+    existingError.remove();
+  }
+
+  // Neue Fehler am Anfang des Forms einfügen
+  const form = document.getElementById("fahrzeughandel-form");
+  if (form) {
+    form.insertAdjacentHTML("afterbegin", errorHtml);
+
+    // Nach oben scrollen zu Fehlern
+    form.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+// CSS für Fehler-Styling hinzufügen
+const errorStyles = `
+<style>
+.form-input.error,
+.form-select.error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+  animation: shake 0.3s ease-in-out;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-3px); }
+  75% { transform: translateX(3px); }
+}
+
+.validation-summary {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid #ef4444;
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 2rem;
+  color: #ef4444;
+}
+
+.validation-header {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.validation-summary ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.validation-summary li {
+  margin-bottom: 0.25rem;
+}
+</style>
+`;
+
+// Error-Styles beim Laden hinzufügen
+if (!document.querySelector("#fahrzeughandel-error-styles")) {
+  const styleElement = document.createElement("div");
+  styleElement.id = "fahrzeughandel-error-styles";
+  styleElement.innerHTML = errorStyles;
+  document.head.appendChild(styleElement);
+}
+
 // Modal-Funktionen
+// Komplette Modal-Lösung für Fahrzeughandel
+
+// Modal öffnen
 window.showFahrzeughandelModal = function (handelId = null) {
+  console.log("🚀 Modal öffnen...", handelId);
   editingHandelId = handelId;
 
   const modal = document.getElementById("fahrzeughandel-modal");
@@ -425,7 +559,7 @@ window.showFahrzeughandelModal = function (handelId = null) {
   const form = document.getElementById("fahrzeughandel-form");
 
   if (!modal || !title || !form) {
-    console.error("Modal-Elemente nicht gefunden");
+    console.error("❌ Modal-Elemente nicht gefunden");
     return;
   }
 
@@ -435,38 +569,135 @@ window.showFahrzeughandelModal = function (handelId = null) {
     : "Neues Handelsgeschäft";
 
   // Dropdowns füllen
-  populateDropdowns();
+  if (typeof populateDropdowns === "function") {
+    populateDropdowns();
+  }
 
   if (handelId) {
     // Bearbeitungsmodus: Daten laden
-    loadHandelForEdit(handelId);
+    if (typeof loadHandelForEdit === "function") {
+      loadHandelForEdit(handelId);
+    }
   } else {
     // Neuer Eintrag: Form zurücksetzen
     form.reset();
-    document.getElementById("handel-status").value = "offen";
-    document.getElementById("handel-zustand").value = "gut";
-    document.getElementById("handel-papiere").checked = true;
+
+    // Standard-Werte setzen (sicher prüfen ob Elemente existieren)
+    const statusEl = document.getElementById("handel-status");
+    const zustandEl = document.getElementById("handel-zustand");
+    const papiereEl = document.getElementById("handel-papiere");
+    const datumEl = document.getElementById("handel-datum");
+
+    if (statusEl) statusEl.value = "offen";
+    if (zustandEl) zustandEl.value = "gut";
+    if (papiereEl) papiereEl.checked = true;
 
     // Heute als Datum setzen
-    const today = new Date().toISOString().split("T")[0];
-    document.getElementById("handel-datum").value = today;
+    if (datumEl) {
+      const today = new Date().toISOString().split("T")[0];
+      datumEl.value = today;
+    }
   }
 
-  modal.style.display = "block";
+  // Modal sichtbar machen - mehrere Methoden für Sicherheit
+  modal.classList.add("active");
+  modal.style.display = "flex";
   modal.style.visibility = "visible";
   modal.style.opacity = "1";
-  modal.classList.add("modal-open");
+  modal.style.zIndex = "10001";
+
+  // Body Scroll verhindern
   document.body.style.overflow = "hidden";
+
+  console.log("✅ Modal geöffnet");
 };
 
+// Modal schließen - Verbesserte Version
 window.closeFahrzeughandelModal = function () {
+  console.log("🔒 Modal schließen...");
+
   const modal = document.getElementById("fahrzeughandel-modal");
-  if (modal) {
-    modal.style.display = "none";
-    document.body.style.overflow = "auto";
+  if (!modal) {
+    console.error("❌ Modal nicht gefunden");
+    return;
   }
 
-  editingHandelId = null;
+  // CSS-Klasse entfernen
+  modal.classList.remove("active");
+
+  // Alle direkten Styles zurücksetzen
+  modal.style.display = "none";
+  modal.style.visibility = "hidden";
+  modal.style.opacity = "0";
+
+  // Body Scroll wieder aktivieren
+  document.body.style.overflow = "auto";
+
+  // Editing-ID zurücksetzen
+  if (typeof editingHandelId !== "undefined") {
+    editingHandelId = null;
+  }
+
+  console.log("✅ Modal geschlossen");
+};
+
+// Event-Listener für das Schließen - Neu aufsetzen
+function setupModalEventListeners() {
+  const modal = document.getElementById("fahrzeughandel-modal");
+  if (!modal) return;
+
+  // 1. Escape-Taste
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && modal.classList.contains("active")) {
+      closeFahrzeughandelModal();
+    }
+  });
+
+  // 2. Klick außerhalb des Modals
+  modal.addEventListener("click", function (e) {
+    if (e.target === modal) {
+      closeFahrzeughandelModal();
+    }
+  });
+
+  // 3. X-Button (falls vorhanden)
+  const closeButton = modal.querySelector(".modal-close");
+  if (closeButton) {
+    closeButton.addEventListener("click", function (e) {
+      e.preventDefault();
+      closeFahrzeughandelModal();
+    });
+  }
+
+  console.log("✅ Modal Event-Listener eingerichtet");
+}
+
+// Event-Listener beim Laden der Seite einrichten
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", setupModalEventListeners);
+} else {
+  setupModalEventListeners();
+}
+
+// Debug-Funktionen
+window.debugModal = function () {
+  const modal = document.getElementById("fahrzeughandel-modal");
+  console.log("Modal Element:", modal);
+  console.log("Modal Classes:", modal?.classList?.toString());
+  console.log("Modal Display:", window.getComputedStyle(modal)?.display);
+  console.log("Modal Visibility:", window.getComputedStyle(modal)?.visibility);
+  console.log("Modal Opacity:", window.getComputedStyle(modal)?.opacity);
+};
+
+// Fallback-Schließ-Funktion (falls andere nicht funktioniert)
+window.forceCloseModal = function () {
+  const modal = document.getElementById("fahrzeughandel-modal");
+  if (modal) {
+    modal.style.display = "none !important";
+    modal.classList.remove("active");
+    document.body.style.overflow = "auto";
+    console.log("🔧 Modal zwangsweise geschlossen");
+  }
 };
 
 // Dropdowns mit Daten füllen
@@ -605,20 +836,55 @@ window.handleTypChange = function () {
   const typ = document.getElementById("handel-typ").value;
   const verkaufspreisGroup = document
     .getElementById("handel-verkaufspreis")
-    .closest(".form-group");
+    ?.closest(".form-group");
   const gewinnGroup = document
     .getElementById("handel-gewinn")
-    .closest(".form-group");
+    ?.closest(".form-group");
+  const verkauftAnGroup = document
+    .getElementById("handel-verkauft-an")
+    ?.closest(".form-group");
 
-  // Bei Ankauf Verkaufspreis optional machen
   if (typ === "ankauf") {
-    if (verkaufspreisGroup) verkaufspreisGroup.style.opacity = "0.6";
-    if (gewinnGroup) gewinnGroup.style.opacity = "0.6";
+    // Bei Ankauf: Verkaufspreis und Gewinn weniger wichtig
+    if (verkaufspreisGroup) {
+      verkaufspreisGroup.style.opacity = "0.6";
+      const label = verkaufspreisGroup.querySelector("label");
+      if (label) label.textContent = "Geplanter Verkaufspreis (€)";
+    }
+    if (gewinnGroup) {
+      gewinnGroup.style.opacity = "0.6";
+      const label = gewinnGroup.querySelector("label");
+      if (label) label.textContent = "Erwarteter Gewinn (€)";
+    }
+    if (verkauftAnGroup) {
+      verkauftAnGroup.style.display = "none";
+    }
+  } else if (typ === "verkauf") {
+    // Bei Verkauf: Alle Felder wichtig
+    if (verkaufspreisGroup) {
+      verkaufspreisGroup.style.opacity = "1";
+      const label = verkaufspreisGroup.querySelector("label");
+      if (label) label.textContent = "Verkaufspreis (€)";
+    }
+    if (gewinnGroup) {
+      gewinnGroup.style.opacity = "1";
+      const label = gewinnGroup.querySelector("label");
+      if (label) label.textContent = "Gewinn (€)";
+    }
+    if (verkauftAnGroup) {
+      verkauftAnGroup.style.display = "block";
+    }
   } else {
-    if (verkaufspreisGroup) verkaufspreisGroup.style.opacity = "1";
-    if (gewinnGroup) gewinnGroup.style.opacity = "1";
+    // Kein Typ gewählt: Alle normal anzeigen
+    [verkaufspreisGroup, gewinnGroup, verkauftAnGroup].forEach((group) => {
+      if (group) {
+        group.style.opacity = "1";
+        group.style.display = "block";
+      }
+    });
   }
 
+  // Gewinn neu berechnen
   calculateProfit();
 };
 
@@ -630,12 +896,90 @@ window.calculateProfit = function () {
     parseFloat(document.getElementById("handel-verkaufspreis").value) || 0;
   const gewinn = verkaufspreis - ankaufspreis;
 
-  document.getElementById("handel-gewinn").value = gewinn.toFixed(2);
+  const gewinnField = document.getElementById("handel-gewinn");
+  if (gewinnField) {
+    gewinnField.value = gewinn.toFixed(2);
+
+    // Visuelle Hinweise für Gewinn/Verlust
+    gewinnField.classList.remove("profit-positive", "profit-negative");
+    if (gewinn > 0) {
+      gewinnField.classList.add("profit-positive");
+      gewinnField.title = `Gewinn: ${gewinn.toFixed(2)} €`;
+    } else if (gewinn < 0) {
+      gewinnField.classList.add("profit-negative");
+      gewinnField.title = `Verlust: ${Math.abs(gewinn).toFixed(2)} €`;
+    } else {
+      gewinnField.title = "Ausgeglichen";
+    }
+  }
 };
 
 // CRUD-Operationen
 window.editFahrzeughandel = function (handelId) {
   showFahrzeughandelModal(handelId);
+};
+
+window.saveFahrzeughandel = async function () {
+  const submitButton = document.querySelector(
+    "#fahrzeughandel-form .btn-primary"
+  );
+  const submitText = document.getElementById("submit-text");
+  const originalText = submitText.textContent;
+
+  // Button-Status setzen
+  submitButton.disabled = true;
+  submitText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichern...';
+
+  try {
+    // Validierung
+    const formData = getFormData();
+    if (!validateFormData(formData)) {
+      return;
+    }
+
+    // API-Aufruf
+    const url = editingHandelId
+      ? `/api/fahrzeughandel/${editingHandelId}`
+      : "/api/fahrzeughandel";
+
+    const method = editingHandelId ? "PUT" : "POST";
+
+    const response = await fetch(url, {
+      method: method,
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Speichern fehlgeschlagen");
+    }
+
+    const result = await response.json();
+
+    showNotification(
+      editingHandelId
+        ? "Handelsgeschäft aktualisiert"
+        : "Handelsgeschäft erstellt",
+      "success"
+    );
+
+    closeFahrzeughandelModal();
+
+    // Daten neu laden falls Funktion vorhanden
+    if (typeof loadFahrzeughandel === "function") {
+      await loadFahrzeughandel();
+    }
+  } catch (error) {
+    console.error("Fehler beim Speichern:", error);
+    showNotification(`Fehler: ${error.message}`, "error");
+  } finally {
+    // Button wieder aktivieren
+    submitButton.disabled = false;
+    submitText.textContent = originalText;
+  }
 };
 
 window.deleteFahrzeughandel = async function (handelId, handelNr) {

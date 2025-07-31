@@ -10,7 +10,7 @@
 
 /* Modal - Grundeinstellungen überschreiben */
 .modal {
-  display: none !important;
+  display: none 
   position: fixed !important;
   top: 0 !important;
   left: 0 !important;
@@ -24,8 +24,13 @@
 /* Aktive Modals - SOFORT sichtbar */
 .modal.active {
   display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+/* Zusätzliche Sicherheit für das fahrzeughandel-modal */
+#fahrzeughandel-modal.active {
+  display: flex !important;
   opacity: 1 !important;
   visibility: visible !important;
 }
@@ -170,14 +175,14 @@
   }
 }
 
-/* Debug-Klasse für Entwicklung */
+/* Debug-Hilfe - Temporär hinzufügen um zu testen */
 .modal-debug {
   border: 3px solid red !important;
   box-shadow: 0 0 20px rgba(255, 0, 0, 0.5) !important;
 }
 
 .modal-debug::before {
-  content: "DEBUG MODAL" !important;
+  content: "MODAL SICHTBAR" !important;
   position: absolute !important;
   top: -30px !important;
   left: 0 !important;

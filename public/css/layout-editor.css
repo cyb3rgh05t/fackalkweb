@@ -74,8 +74,8 @@
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 0.5rem;
-  padding: 1.5rem;
-  margin: 1.5rem 0;
+  /* padding: 1.5rem; */
+  /* margin: 1.5rem 0; */
 }
 
 .form-section h4 {

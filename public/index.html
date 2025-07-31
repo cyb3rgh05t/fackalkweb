@@ -18,8 +18,10 @@
     <link rel="stylesheet" href="css/sidebar.css" />
     <link rel="stylesheet" href="css/layout-editor.css" />
     <link rel="stylesheet" href="css/modal.css" />
+    <link rel="stylesheet" href="css/fahrzeughandel.css" />
     <link rel="stylesheet" href="css/backup.css" />
     <link rel="stylesheet" href="css/custom-dialogs.css" />
+
     <style>
       /* Logo Styles */
       .company-logo {
@@ -28,188 +30,6 @@
         border-radius: 8px;
         object-fit: contain;
         padding: 4px;
-      }
-      /* Fahrzeughandel-spezifische Styles */
-      .filter-buttons {
-        display: flex;
-        gap: 0.5rem;
-        margin-right: 1rem;
-      }
-
-      .filter-buttons .btn[data-active="true"] {
-        background: var(--primary-color);
-        color: white;
-      }
-
-      .stats-row {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 1rem;
-      }
-
-      .stat-card-small {
-        display: flex;
-        align-items: center;
-        background: white;
-        border-radius: 12px;
-        padding: 1rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        border: 1px solid rgba(0, 0, 0, 0.1);
-      }
-
-      .stat-card-small .stat-icon {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-right: 1rem;
-        color: white;
-        font-size: 1.2rem;
-      }
-
-      .stat-card-small .stat-content {
-        flex: 1;
-      }
-
-      .stat-card-small .stat-number {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: var(--text-color);
-        margin-bottom: 0.25rem;
-      }
-
-      .stat-card-small .stat-label {
-        font-size: 0.875rem;
-        color: var(--text-muted);
-        font-weight: 500;
-      }
-
-      .search-filters {
-        display: flex;
-        gap: 0.5rem;
-        margin-left: auto;
-      }
-
-      .form-select-small {
-        padding: 0.5rem;
-        border: 1px solid #d1d5db;
-        border-radius: 6px;
-        background: white;
-        font-size: 0.875rem;
-        min-width: 120px;
-      }
-
-      .header-actions {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-      }
-
-      .checkbox-group {
-        display: flex;
-        align-items: center;
-      }
-
-      .checkbox-label {
-        display: flex;
-        align-items: center;
-        cursor: pointer;
-        font-weight: 500;
-      }
-
-      .checkbox-label input[type="checkbox"] {
-        display: none;
-      }
-
-      .checkbox-custom {
-        width: 20px;
-        height: 20px;
-        border: 2px solid #d1d5db;
-        border-radius: 4px;
-        margin-right: 0.5rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-      }
-
-      .checkbox-label input[type="checkbox"]:checked + .checkbox-custom {
-        background: var(--primary-color);
-        border-color: var(--primary-color);
-      }
-
-      .checkbox-label input[type="checkbox"]:checked + .checkbox-custom::after {
-        content: "✓";
-        color: white;
-        font-weight: bold;
-        font-size: 12px;
-      }
-
-      /* Typ-spezifische Badges in der Tabelle */
-      .typ-badge {
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-      }
-
-      .typ-ankauf {
-        background: #dcfce7;
-        color: #166534;
-      }
-
-      .typ-verkauf {
-        background: #fee2e2;
-        color: #991b1b;
-      }
-
-      .status-badge {
-        padding: 0.25rem 0.75rem;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-      }
-
-      .status-offen {
-        background: #fef3c7;
-        color: #92400e;
-      }
-
-      .status-abgeschlossen {
-        background: #dcfce7;
-        color: #166534;
-      }
-
-      .status-storniert {
-        background: #fecaca;
-        color: #991b1b;
-      }
-
-      /* Responsive Design */
-      @media (max-width: 768px) {
-        .header-actions {
-          flex-direction: column;
-          gap: 0.5rem;
-          align-items: stretch;
-        }
-
-        .filter-buttons {
-          justify-content: center;
-          margin-right: 0;
-        }
-
-        .stats-row {
-          grid-template-columns: 1fr 1fr;
-        }
-
-        .search-filters {
-          margin-left: 0;
-          margin-top: 0.5rem;
-        }
       }
     </style>
   </head>
@@ -1646,283 +1466,218 @@
     <div id="modal-container"></div>
 
     <div id="fahrzeughandel-modal" class="modal">
-      <div class="modal-content modal-lg">
+      <div class="modal-content card fade-in">
         <div class="modal-header">
-          <h2 id="fahrzeughandel-modal-title">Neues Handelsgeschäft</h2>
-          <button class="modal-close" onclick="closeFahrzeughandelModal()">
+          <h2 class="modal-title" id="fahrzeughandel-modal-title">
+            Neues Handelsgeschäft
+          </h2>
+          <button class="modal-close" type="button">
             <i class="fas fa-times"></i>
           </button>
         </div>
 
-        <form id="fahrzeughandel-form" class="modal-body">
-          <!-- Versteckte ID für Bearbeitungsmodus -->
-          <input type="hidden" id="handel-id" />
+        <form id="fahrzeughandel-form">
+          <!-- Typ & Kunde -->
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="handel-typ" class="form-label">Typ</label>
+              <select
+                id="handel-typ"
+                class="form-select"
+                onchange="handleTypChange()"
+              >
+                <option value="">Bitte wählen</option>
+                <option value="ankauf">Ankauf</option>
+                <option value="verkauf">Verkauf</option>
+              </select>
+            </div>
 
-          <!-- Grunddaten -->
+            <div class="form-group">
+              <label for="handel-kunde" class="form-label">Kunde</label>
+              <select id="handel-kunde" class="form-select"></select>
+            </div>
+
+            <div class="form-group">
+              <label for="handel-fahrzeug" class="form-label"
+                >Fahrzeug auswählen</label
+              >
+              <select
+                id="handel-fahrzeug"
+                class="form-select"
+                onchange="loadFahrzeugData()"
+              ></select>
+            </div>
+
+            <div class="form-group">
+              <label for="handel-datum" class="form-label">Datum</label>
+              <input type="date" id="handel-datum" class="form-input" />
+            </div>
+          </div>
+
+          <!-- Fahrzeugdaten -->
           <div class="form-section">
-            <h3>Grunddaten</h3>
-            <div class="form-row">
+            <h3><i class="fas fa-car"></i> Fahrzeugdetails</h3>
+            <div class="form-grid">
               <div class="form-group">
-                <label for="handel-typ">Geschäftstyp *</label>
-                <select
-                  id="handel-typ"
-                  class="form-select"
-                  required
-                  onchange="handleTypChange()"
+                <label for="handel-vin" class="form-label"
+                  >Fahrzeug-Ident-Nr. (VIN)</label
                 >
-                  <option value="">Bitte wählen</option>
-                  <option value="ankauf">Ankauf</option>
-                  <option value="verkauf">Verkauf</option>
-                </select>
+                <input type="text" id="handel-vin" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label for="handel-kennzeichen" class="form-label"
+                  >Kennzeichen</label
+                >
+                <input type="text" id="handel-kennzeichen" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label for="handel-marke" class="form-label">Marke</label>
+                <input type="text" id="handel-marke" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label for="handel-modell" class="form-label">Modell</label>
+                <input type="text" id="handel-modell" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label for="handel-baujahr" class="form-label">Baujahr</label>
+                <input type="number" id="handel-baujahr" class="form-input" />
               </div>
 
               <div class="form-group">
-                <label for="handel-datum">Datum *</label>
+                <label for="handel-kilometerstand" class="form-label"
+                  >Kilometerstand</label
+                >
                 <input
-                  type="date"
-                  id="handel-datum"
+                  type="number"
+                  id="handel-kilometerstand"
                   class="form-input"
-                  required
                 />
               </div>
-
               <div class="form-group">
-                <label for="handel-status">Status</label>
+                <label for="handel-farbe" class="form-label">Farbe</label>
+                <input type="text" id="handel-farbe" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label for="handel-zustand" class="form-label">Zustand</label>
+                <select id="handel-zustand" class="form-select">
+                  <option value="gut">Gut</option>
+                  <option value="mittel">Mittel</option>
+                  <option value="schlecht">Schlecht</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preis- und Statusangaben -->
+          <div class="form-section">
+            <h3><i class="fas fa-euro-sign"></i> Preisangaben</h3>
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="handel-ankaufspreis" class="form-label"
+                  >Ankaufspreis (€)</label
+                >
+                <input
+                  type="number"
+                  id="handel-ankaufspreis"
+                  class="form-input"
+                  oninput="calculateProfit()"
+                />
+              </div>
+              <div class="form-group">
+                <label for="handel-verkaufspreis" class="form-label"
+                  >Verkaufspreis (€)</label
+                >
+                <input
+                  type="number"
+                  id="handel-verkaufspreis"
+                  class="form-input"
+                  oninput="calculateProfit()"
+                />
+              </div>
+              <div class="form-group">
+                <label for="handel-gewinn" class="form-label">Gewinn (€)</label>
+                <input
+                  type="text"
+                  id="handel-gewinn"
+                  class="form-input"
+                  readonly
+                />
+              </div>
+              <div class="form-group">
+                <label for="handel-verkauft-an" class="form-label"
+                  >Verkauft an</label
+                >
+                <input type="text" id="handel-verkauft-an" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label for="handel-status" class="form-label">Status</label>
                 <select id="handel-status" class="form-select">
                   <option value="offen">Offen</option>
                   <option value="abgeschlossen">Abgeschlossen</option>
                   <option value="storniert">Storniert</option>
                 </select>
               </div>
-            </div>
-          </div>
-
-          <!-- Fahrzeugdaten -->
-          <div class="form-section">
-            <h3>Fahrzeugdaten</h3>
-            <div class="form-row">
               <div class="form-group">
-                <label for="handel-fahrzeug">Vorhandenes Fahrzeug</label>
-                <select
-                  id="handel-fahrzeug"
-                  class="form-select"
-                  onchange="loadFahrzeugData()"
+                <label for="handel-tuev" class="form-label"
+                  >TÜV gültig bis</label
                 >
-                  <option value="">Neu eingeben oder auswählen</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="handel-kennzeichen">Kennzeichen *</label>
-                <input
-                  type="text"
-                  id="handel-kennzeichen"
-                  class="form-input"
-                  required
-                  placeholder="z.B. DO-AB-123"
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="handel-marke">Marke *</label>
-                <input
-                  type="text"
-                  id="handel-marke"
-                  class="form-input"
-                  required
-                  placeholder="z.B. Volkswagen"
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="handel-modell">Modell *</label>
-                <input
-                  type="text"
-                  id="handel-modell"
-                  class="form-input"
-                  required
-                  placeholder="z.B. Golf 7"
-                />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="handel-baujahr">Baujahr</label>
-                <input
-                  type="number"
-                  id="handel-baujahr"
-                  class="form-input"
-                  min="1980"
-                  max="2030"
-                  placeholder="z.B. 2018"
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="handel-kilometerstand">Kilometerstand</label>
-                <input
-                  type="number"
-                  id="handel-kilometerstand"
-                  class="form-input"
-                  min="0"
-                  placeholder="z.B. 45000"
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="handel-farbe">Farbe</label>
-                <input
-                  type="text"
-                  id="handel-farbe"
-                  class="form-input"
-                  placeholder="z.B. Silber"
-                />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="handel-zustand">Zustand</label>
-                <select id="handel-zustand" class="form-select">
-                  <option value="sehr gut">Sehr gut</option>
-                  <option value="gut" selected>Gut</option>
-                  <option value="befriedigend">Befriedigend</option>
-                  <option value="mangelhaft">Mangelhaft</option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label for="handel-tuev">TÜV bis</label>
                 <input type="date" id="handel-tuev" class="form-input" />
               </div>
-
               <div class="form-group">
-                <label for="handel-au">AU bis</label>
+                <label for="handel-au" class="form-label">AU gültig bis</label>
                 <input type="date" id="handel-au" class="form-input" />
               </div>
             </div>
           </div>
 
-          <!-- Kunde/Käufer -->
+          <!-- Notizen -->
           <div class="form-section">
-            <h3>Kunde/Käufer</h3>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="handel-kunde">Kunde aus Datenbank</label>
-                <select id="handel-kunde" class="form-select">
-                  <option value="">Bitte wählen (optional)</option>
-                </select>
-              </div>
+            <h3><i class="fas fa-sticky-note"></i> Notizen</h3>
 
-              <div class="form-group">
-                <label for="handel-verkauft-an">Oder Name eingeben</label>
-                <input
-                  type="text"
-                  id="handel-verkauft-an"
-                  class="form-input"
-                  placeholder="z.B. Max Mustermann"
-                />
+            <div class="form-grid">
+              <div class="form-group form-span-2">
+                <label for="handel-bemerkungen" class="form-label"
+                  >Bemerkungen (sichtbar)</label
+                >
+                <textarea
+                  id="handel-bemerkungen"
+                  class="form-textarea"
+                ></textarea>
               </div>
-            </div>
-          </div>
-
-          <!-- Preise -->
-          <div class="form-section">
-            <h3>Preise</h3>
-            <div class="form-row">
-              <div class="form-group">
-                <label for="handel-ankaufspreis">Ankaufspreis €</label>
-                <input
-                  type="number"
-                  id="handel-ankaufspreis"
-                  class="form-input"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  onchange="calculateProfit()"
-                />
+              <div class="form-group form-span-2">
+                <label for="handel-interne-notizen" class="form-label"
+                  >Interne Notizen</label
+                >
+                <textarea
+                  id="handel-interne-notizen"
+                  class="form-textarea"
+                ></textarea>
               </div>
-
-              <div class="form-group">
-                <label for="handel-verkaufspreis">Verkaufspreis €</label>
-                <input
-                  type="number"
-                  id="handel-verkaufspreis"
-                  class="form-input"
-                  step="0.01"
-                  min="0"
-                  placeholder="0.00"
-                  onchange="calculateProfit()"
-                />
-              </div>
-
-              <div class="form-group">
-                <label for="handel-gewinn">Gewinn €</label>
-                <input
-                  type="number"
-                  id="handel-gewinn"
-                  class="form-input"
-                  readonly
-                  style="background: #f3f4f6"
-                />
-              </div>
-            </div>
-          </div>
-
-          <!-- Zusatzinformationen -->
-          <div class="form-section">
-            <h3>Zusatzinformationen</h3>
-            <div class="form-row">
               <div class="form-group checkbox-group">
-                <label class="checkbox-label">
-                  <input type="checkbox" id="handel-papiere" checked />
-                  <span class="checkbox-custom"></span>
+                <label for="handel-papiere">
+                  <input type="checkbox" id="handel-papiere" />
                   Papiere vollständig
                 </label>
               </div>
             </div>
+          </div>
 
-            <div class="form-group">
-              <label for="handel-bemerkungen">Bemerkungen</label>
-              <textarea
-                id="handel-bemerkungen"
-                class="form-input"
-                rows="3"
-                placeholder="Öffentliche Bemerkungen (für Kunden sichtbar)"
-              ></textarea>
-            </div>
-
-            <div class="form-group">
-              <label for="handel-interne-notizen">Interne Notizen</label>
-              <textarea
-                id="handel-interne-notizen"
-                class="form-input"
-                rows="3"
-                placeholder="Interne Notizen (nur für interne Verwendung)"
-              ></textarea>
-            </div>
+          <!-- Modal-Footer -->
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              onclick="closeFahrzeughandelModal()"
+            >
+              Abbrechen
+            </button>
+            <button type="submit" class="btn btn-primary">
+              <span id="submit-text"
+                ><i class="fas fa-save"></i> Speichern</span
+              >
+            </button>
           </div>
         </form>
-
-        <div class="modal-footer">
-          <button
-            type="button"
-            class="btn btn-secondary"
-            onclick="closeFahrzeughandelModal()"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="submit"
-            form="fahrzeughandel-form"
-            class="btn btn-primary"
-          >
-            <i class="fas fa-save"></i> Speichern
-          </button>
-        </div>
       </div>
     </div>
 

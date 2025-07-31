@@ -2,6 +2,7 @@
 // JavaScript für Fahrzeug Ankauf/Verkauf Funktionalität
 
 import { apiCall } from "./utils.js";
+import { createModal, closeModal } from "./modals.js";
 
 // Globaler State
 let fahrzeughandelData = [];
@@ -720,28 +721,217 @@ if (!document.querySelector("#fahrzeughandel-error-styles")) {
   document.head.appendChild(styleElement);
 }
 
-// Modal-Funktionen
-// Komplette Modal-Lösung für Fahrzeughandel
-
 // Modal öffnen
 window.showFahrzeughandelModal = function (handelId = null) {
-  console.log("🚀 Modal öffnen...", handelId);
+  console.log(
+    "🚀 Dynamisches Fahrzeughandel-Modal öffnen (mit originalem CSS)...",
+    handelId
+  );
+
   editingHandelId = handelId;
 
-  const modal = document.getElementById("fahrzeughandel-modal");
-  const title = document.getElementById("fahrzeughandel-modal-title");
-  const form = document.getElementById("fahrzeughandel-form");
-
-  if (!modal || !title || !form) {
-    console.error("❌ Modal-Elemente nicht gefunden");
-    return;
+  // Altes Modal entfernen falls vorhanden
+  const existingModal = document.querySelector(".fahrzeughandel-modal-dynamic");
+  if (existingModal) {
+    existingModal.remove();
   }
 
-  // Modal-Titel setzen
-  title.textContent = handelId
+  // Modal-Titel
+  const title = handelId
     ? "Handelsgeschäft bearbeiten"
     : "Neues Handelsgeschäft";
 
+  // Modal mit ORIGINALEN CSS-Klassen erstellen
+  const modal = document.createElement("div");
+  modal.className = "modal fahrzeughandel-modal-dynamic active"; // Wichtig: 'active' für sofortige Sichtbarkeit
+
+  // Modal HTML mit EXAKT den gleichen CSS-Klassen wie im Original
+  modal.innerHTML = `
+    <div class="modal-content card fade-in" style="max-width: 1200px; width: 95vw; margin: 2rem auto;">
+      <!-- Modal Header - EXAKT wie im Original -->
+      <div class="modal-header">
+        <h2 class="modal-title" id="fahrzeughandel-modal-title">
+          ${title}
+        </h2>
+        <button class="modal-close" type="button" onclick="closeFahrzeughandelModalDynamic()">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Form mit ORIGINALER Struktur -->
+      <form id="fahrzeughandel-form" onsubmit="saveFahrzeughandel(event)">
+        <!-- Typ & Kunde - ORIGINALES GRID -->
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="handel-typ" class="form-label">Typ</label>
+            <select id="handel-typ" class="form-select" onchange="handleTypChange()">
+              <option value="">Bitte wählen</option>
+              <option value="ankauf">Ankauf</option>
+              <option value="verkauf">Verkauf</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="handel-kunde" class="form-label">
+              Kunde
+              <span style="color: #ef4444; font-size: 0.8em">*bei neuen Fahrzeugen</span>
+            </label>
+            <select id="handel-kunde" class="form-select"></select>
+          </div>
+
+          <div class="form-group">
+            <label for="handel-fahrzeug" class="form-label">Fahrzeug auswählen</label>
+            <select id="handel-fahrzeug" class="form-select" onchange="loadFahrzeugData()"></select>
+          </div>
+
+          <div class="form-group">
+            <label for="handel-datum" class="form-label">Datum</label>
+            <input type="date" id="handel-datum" class="form-input" required>
+          </div>
+        </div>
+
+        <!-- Fahrzeugdaten Section - ORIGINALE CSS-Klassen -->
+        <div class="form-section">
+          <h3><i class="fas fa-car"></i> Fahrzeugdaten</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="handel-kennzeichen" class="form-label">Kennzeichen</label>
+              <input type="text" id="handel-kennzeichen" class="form-input" placeholder="z.B. DO-AB 123">
+            </div>
+
+            <div class="form-group">
+              <label for="handel-marke" class="form-label">Marke</label>
+              <input type="text" id="handel-marke" class="form-input" placeholder="z.B. Volkswagen">
+            </div>
+
+            <div class="form-group">
+              <label for="handel-modell" class="form-label">Modell</label>
+              <input type="text" id="handel-modell" class="form-input" placeholder="z.B. Golf">
+            </div>
+
+            <div class="form-group">
+              <label for="handel-baujahr" class="form-label">Baujahr</label>
+              <input type="number" id="handel-baujahr" class="form-input" min="1950" max="2030">
+            </div>
+
+            <div class="form-group">
+              <label for="handel-km" class="form-label">Kilometerstand</label>
+              <input type="number" id="handel-km" class="form-input" placeholder="0">
+            </div>
+
+            <div class="form-group">
+              <label for="handel-zustand" class="form-label">Zustand</label>
+              <select id="handel-zustand" class="form-select">
+                <option value="sehr gut">Sehr gut</option>
+                <option value="gut" selected>Gut</option>
+                <option value="befriedigend">Befriedigend</option>
+                <option value="reparaturbedürftig">Reparaturbedürftig</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Finanzielle Details - ORIGINALE CSS-Klassen -->
+        <div class="form-section">
+          <h3><i class="fas fa-euro-sign"></i> Finanzielle Details</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="handel-einkaufspreis" class="form-label">Einkaufspreis (€)</label>
+              <input type="number" step="0.01" id="handel-einkaufspreis" class="form-input" onchange="calculateGewinn()">
+            </div>
+
+            <div class="form-group">
+              <label for="handel-verkaufspreis" class="form-label">Verkaufspreis (€)</label>
+              <input type="number" step="0.01" id="handel-verkaufspreis" class="form-input" onchange="calculateGewinn()">
+            </div>
+
+            <div class="form-group">
+              <label for="handel-gewinn" class="form-label">Gewinn/Verlust (€)</label>
+              <input type="number" step="0.01" id="handel-gewinn" class="form-input" readonly>
+            </div>
+
+            <div class="form-group">
+              <label for="handel-status" class="form-label">Status</label>
+              <select id="handel-status" class="form-select">
+                <option value="offen" selected>Offen</option>
+                <option value="abgeschlossen">Abgeschlossen</option>
+                <option value="storniert">Storniert</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Zusätzliche Informationen mit ORIGINALEN CSS-Klassen -->
+        <div class="form-section">
+          <h3><i class="fas fa-info-circle"></i> Zusätzliche Informationen</h3>
+          <div class="form-grid">
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="handel-papiere" checked>
+              <label for="handel-papiere">Fahrzeugpapiere vollständig</label>
+            </div>
+
+            <div class="form-group">
+              <label for="handel-verkauft-an" class="form-label">Verkauft an (Käufer)</label>
+              <select id="handel-verkauft-an" class="form-select"></select>
+            </div>
+
+            <div class="form-group form-span-4">
+              <label for="handel-bemerkungen" class="form-label">Bemerkungen</label>
+              <textarea id="handel-bemerkungen" class="form-textarea" rows="3" placeholder="Zusätzliche Notizen..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer mit ORIGINALEN Button-Styles -->
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeFahrzeughandelModalDynamic()">
+            <i class="fas fa-times"></i> Abbrechen
+          </button>
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save"></i> ${
+              handelId ? "Aktualisieren" : "Speichern"
+            }
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  // Modal an body anhängen
+  document.body.appendChild(modal);
+
+  // Body Scroll verhindern
+  document.body.style.overflow = "hidden";
+
+  // Nach Modal-Erstellung: Initialisierung
+  setTimeout(() => {
+    initializeFahrzeughandelModal(handelId);
+  }, 100);
+
+  console.log("✅ Fahrzeughandel-Modal mit originalem Design erstellt");
+};
+
+// Modal schließen - Verbesserte Version
+window.closeFahrzeughandelModalDynamic = function () {
+  console.log("🔒 Dynamisches Fahrzeughandel-Modal schließen...");
+
+  const modal = document.querySelector(".fahrzeughandel-modal-dynamic");
+  if (modal) {
+    modal.remove();
+  }
+
+  // Body Scroll wieder aktivieren
+  document.body.style.overflow = "auto";
+
+  // Editing-ID zurücksetzen
+  if (typeof editingHandelId !== "undefined") {
+    editingHandelId = null;
+  }
+
+  console.log("✅ Dynamisches Modal geschlossen");
+};
+
+function initializeFahrzeughandelModal(handelId) {
   // Dropdowns füllen
   if (typeof populateDropdowns === "function") {
     populateDropdowns();
@@ -753,10 +943,7 @@ window.showFahrzeughandelModal = function (handelId = null) {
       loadHandelForEdit(handelId);
     }
   } else {
-    // Neuer Eintrag: Form zurücksetzen
-    form.reset();
-
-    // Standard-Werte setzen (sicher prüfen ob Elemente existieren)
+    // Neuer Eintrag: Standardwerte setzen
     const statusEl = document.getElementById("handel-status");
     const zustandEl = document.getElementById("handel-zustand");
     const papiereEl = document.getElementById("handel-papiere");
@@ -773,47 +960,8 @@ window.showFahrzeughandelModal = function (handelId = null) {
     }
   }
 
-  // Modal sichtbar machen - mehrere Methoden für Sicherheit
-  modal.classList.add("active");
-  modal.style.display = "flex";
-  modal.style.visibility = "visible";
-  modal.style.opacity = "1";
-  modal.style.zIndex = "10001";
-
-  // Body Scroll verhindern
-  document.body.style.overflow = "hidden";
-
-  console.log("✅ Modal geöffnet");
-};
-
-// Modal schließen - Verbesserte Version
-window.closeFahrzeughandelModal = function () {
-  console.log("🔒 Modal schließen...");
-
-  const modal = document.getElementById("fahrzeughandel-modal");
-  if (!modal) {
-    console.error("❌ Modal nicht gefunden");
-    return;
-  }
-
-  // CSS-Klasse entfernen
-  modal.classList.remove("active");
-
-  // Alle direkten Styles zurücksetzen
-  modal.style.display = "none";
-  modal.style.visibility = "hidden";
-  modal.style.opacity = "0";
-
-  // Body Scroll wieder aktivieren
-  document.body.style.overflow = "auto";
-
-  // Editing-ID zurücksetzen
-  if (typeof editingHandelId !== "undefined") {
-    editingHandelId = null;
-  }
-
-  console.log("✅ Modal geschlossen");
-};
+  console.log("✅ Fahrzeughandel-Modal mit originalen Styles initialisiert");
+}
 
 // Event-Listener für das Schließen - Neu aufsetzen
 function setupModalEventListeners() {
@@ -821,16 +969,19 @@ function setupModalEventListeners() {
   if (!modal) return;
 
   // 1. Escape-Taste
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape" && modal.classList.contains("active")) {
-      closeFahrzeughandelModal();
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      const modal = document.querySelector(".fahrzeughandel-modal-dynamic");
+      if (modal) {
+        closeFahrzeughandelModalDynamic();
+      }
     }
   });
 
-  // 2. Klick außerhalb des Modals
-  modal.addEventListener("click", function (e) {
-    if (e.target === modal) {
-      closeFahrzeughandelModal();
+  document.addEventListener("click", (e) => {
+    const modal = document.querySelector(".fahrzeughandel-modal-dynamic");
+    if (modal && e.target === modal) {
+      closeFahrzeughandelModalDynamic();
     }
   });
 

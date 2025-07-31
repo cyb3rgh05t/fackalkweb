@@ -17,7 +17,7 @@ class NotificationManager {
 
   show(message, type = "info", options = {}) {
     const config = {
-      duration: 4000,
+      duration: 3000,
       closable: true,
       persistent: false,
       showProgress: true,
@@ -142,7 +142,7 @@ class NotificationManager {
   }
 
   error(message, options = {}) {
-    return this.show(message, "error", { duration: 6000, ...options });
+    return this.show(message, "error", { duration: 3000, ...options });
   }
 
   warning(message, options = {}) {

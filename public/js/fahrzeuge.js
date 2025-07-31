@@ -59,22 +59,22 @@ export async function loadFahrzeuge() {
             }
           </td>
           <td onclick="event.stopPropagation()">
-            <button class="btn btn-sm btn-secondary" onclick="editFahrzeug(${
+            <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editFahrzeug(${
               f.id
             })" title="Bearbeiten">
               <i class="fas fa-edit"></i>
             </button>
-            <button class="btn btn-sm btn-primary" onclick="viewFahrzeugDetails(${
+            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewFahrzeugDetails(${
               f.id
             })" title="Details anzeigen">
               <i class="fas fa-eye"></i>
             </button>
-            <button class="btn btn-sm btn-success" onclick="createAuftragForFahrzeug(${
+            <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); createAuftragForFahrzeug(${
               f.id
             })" title="Neuen Auftrag erstellen">
               <i class="fas fa-plus-circle"></i>
             </button>
-            <button class="btn btn-sm btn-danger" onclick="deleteFahrzeug(${
+            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteFahrzeug(${
               f.id
             })" title="Löschen">
               <i class="fas fa-trash"></i>

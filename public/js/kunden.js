@@ -46,22 +46,22 @@ export async function loadKunden() {
             }
           </td>
           <td onclick="event.stopPropagation()">
-            <button class="btn btn-sm btn-secondary" onclick="editKunde(${
+            <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editKunde(${
               k.id
             })" title="Bearbeiten">
               <i class="fas fa-edit"></i>
             </button>
-            <button class="btn btn-sm btn-primary" onclick="viewKundenDetails(${
+            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewKundenDetails(${
               k.id
             })" title="Details anzeigen">
               <i class="fas fa-eye"></i>
             </button>
-            <button class="btn btn-sm btn-success" onclick="createAuftragForKunde(${
+            <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); createAuftragForKunde(${
               k.id
             })" title="Neuen Auftrag erstellen">
               <i class="fas fa-plus-circle"></i>
             </button>
-            <button class="btn btn-sm btn-danger" onclick="deleteKunde(${
+            <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteKunde(${
               k.id
             })" title="Löschen">
               <i class="fas fa-trash"></i>

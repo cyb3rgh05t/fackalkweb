@@ -47,52 +47,99 @@ export async function loadRechnungen() {
     }
 
     // Komplett neue HTML generieren
+    // <tr onclick="viewRechnung(${rechnung.id})" style="cursor: pointer;" title="Klicken zum Anzeigen">
     const newTableHTML = window.rechnungen
       .map(
         (rechnung) => `
-            <tr data-rechnung-id="${rechnung.id}">
+            <tr onclick="viewRechnung(${
+              rechnung.id
+            })" style="cursor: pointer;" title="Klicken zum Anzeigen">
                 <td>${rechnung.rechnung_nr}</td>
                 <td>${rechnung.kunde_name || "-"}</td>
-                <td>${rechnung.kennzeichen || ""} ${rechnung.marke || ""}</td>
+                <td>${rechnung.kennzeichen || ""} ${rechnung.marke || ""} ${
+          rechnung.modell || ""
+        }</td>
                 <td>${formatDate(rechnung.rechnungsdatum)}</td>
                 <td>
-                    <select class="status status-${rechnung.status}" 
+                    <select class="form-select status-dropdown status-${
+                      rechnung.status
+                    }" 
                             onchange="updateRechnungStatus(${
                               rechnung.id
                             }, this.value)" 
-                            style="background: transparent; border: none; color: inherit;">
-                        <option value="offen" ${
+                            onclick="event.stopPropagation()"
+                            style="
+                              font-weight: 600; 
+                              border-radius: 20px; 
+                              padding: 0.25rem 0.75rem;
+                              font-size: 0.85rem;
+                              border: 2px solid;
+                              background: ${
+                                rechnung.status === "offen"
+                                  ? "rgba(245, 158, 11, 0.1)"
+                                  : rechnung.status === "bezahlt"
+                                  ? "rgba(34, 197, 94, 0.1)"
+                                  : rechnung.status === "mahnung"
+                                  ? "rgba(239, 68, 68, 0.1)"
+                                  : rechnung.status === "storniert"
+                                  ? "rgba(107, 114, 128, 0.1)"
+                                  : "transparent"
+                              };
+                              color: ${
+                                rechnung.status === "offen"
+                                  ? "#f59e0b"
+                                  : rechnung.status === "bezahlt"
+                                  ? "#22c55e"
+                                  : rechnung.status === "mahnung"
+                                  ? "#ef4444"
+                                  : rechnung.status === "storniert"
+                                  ? "#6b7280"
+                                  : "inherit"
+                              };
+                              border-color: ${
+                                rechnung.status === "offen"
+                                  ? "#f59e0b"
+                                  : rechnung.status === "bezahlt"
+                                  ? "#22c55e"
+                                  : rechnung.status === "mahnung"
+                                  ? "#ef4444"
+                                  : rechnung.status === "storniert"
+                                  ? "#6b7280"
+                                  : "#d1d5db"
+                              };
+                            ">
+                        <option value="offen" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;" ${
                           rechnung.status === "offen" ? "selected" : ""
-                        }>Offen</option>
-                        <option value="bezahlt" ${
+                        }>🟡 Offen</option>
+                        <option value="bezahlt" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;" ${
                           rechnung.status === "bezahlt" ? "selected" : ""
-                        }>Bezahlt</option>
-                        <option value="mahnung" ${
+                        }>🟢 Bezahlt</option>
+                        <option value="mahnung" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;" ${
                           rechnung.status === "mahnung" ? "selected" : ""
-                        }>Mahnung</option>
-                        <option value="storniert" ${
+                        }>🔴 Mahnung</option>
+                        <option value="storniert" style="background: rgba(107, 114, 128, 0.1); color: #6b7280;" ${
                           rechnung.status === "storniert" ? "selected" : ""
-                        }>Storniert</option>
+                        }>⚫ Storniert</option>
                     </select>
                 </td>
                 <td>${formatCurrency(rechnung.gesamtbetrag)}</td>
                 <td>
-                    <button class="btn btn-sm btn-secondary" onclick="editRechnung(${
+                    <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editRechnung(${
                       rechnung.id
                     })" title="Bearbeiten">
                         <i class="fas fa-edit"></i>
                     </button>
-                    <button class="btn btn-sm btn-primary" onclick="viewRechnung(${
+                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewRechnung(${
                       rechnung.id
                     })" title="Anzeigen">
                         <i class="fas fa-eye"></i>
                     </button>
-                    <button class="btn btn-sm btn-success" onclick="printRechnung(${
+                    <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); printRechnung(${
                       rechnung.id
                     })" title="Drucken">
                         <i class="fas fa-print"></i>
                     </button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteRechnung(${
+                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteRechnung(${
                       rechnung.id
                     })" title="Löschen">
                         <i class="fas fa-trash"></i>
@@ -1789,11 +1836,6 @@ async function viewRechnung(id) {
     const firmenOrt = getSetting("firmen_ort", "");
     const firmenTelefon = getSetting("firmen_telefon", "");
     const firmenEmail = getSetting("firmen_email", "");
-    const steuernummer = getSetting("steuernummer", "");
-    const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
-    const bankName = getSetting("bank_name", "");
-    const bankIban = getSetting("iban", "");
-    const bankBic = getSetting("bic", "");
 
     const positionenHtml =
       rechnung.positionen
@@ -1810,69 +1852,106 @@ async function viewRechnung(id) {
         )
         .join("") || '<tr><td colspan="5">Keine Positionen</td></tr>';
 
+    // MAIN CONTENT mit Grid-Layout wie viewAuftrag
     const content = `
-      <!-- Firmen-Header -->
-      <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 2px solid var(--accent-primary);">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <h2 style="color: #007bff; margin-bottom: 0;">RECHNUNG</h2>
+        <div style="font-size: 18px; font-weight: bold;">${
+          rechnung.rechnung_nr
+        }</div>
+      </div>
+      
+      <!-- Grid-Layout wie bei viewAuftrag -->
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label">Kunde:</label>
+          <div><strong>${rechnung.kunde_name}</strong></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fahrzeug:</label>
+          <div>${rechnung.kennzeichen} - ${rechnung.marke} ${
+      rechnung.modell
+    }</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rechnungsdatum:</label>
+          <div>${formatDate(rechnung.rechnungsdatum)}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status:</label>
+          <div><span class="status status-${rechnung.status}">${
+      rechnung.status === "offen"
+        ? "Offen"
+        : rechnung.status === "bezahlt"
+        ? "Bezahlt"
+        : rechnung.status === "mahnung"
+        ? "Mahnung"
+        : rechnung.status === "storniert"
+        ? "Storniert"
+        : rechnung.status
+    }</span></div>
+        </div>
+        ${
+          rechnung.auftrag_nr
+            ? `
+        <div class="form-group">
+          <label class="form-label">Auftrag-Nr.:</label>
+          <div>${rechnung.auftrag_nr}</div>
+        </div>`
+            : ""
+        }
+        <div class="form-group">
+          <label class="form-label">Gesamtbetrag:</label>
+          <div><strong>${formatCurrency(rechnung.gesamtbetrag)}</strong></div>
+        </div>
+      </div>
+
+      <!-- Rechnungsempfänger und Fahrzeug nebeneinander -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0;">
+        <!-- Rechnungsempfänger -->
         <div>
-          <h1 style="color: var(--accent-primary); margin-bottom: 0.5rem;">${firmenname}</h1>
-          <div style="color: var(--text-secondary); line-height: 1.4;">
-            ${firmenStrasse}<br>
-            ${firmenPlz} ${firmenOrt}<br>
-            Tel: ${firmenTelefon}<br>
-            E-Mail: ${firmenEmail}
+          <h3 style="margin-bottom: 1rem; color: var(--accent-primary);">Empfänger:</h3>
+          <div style="background: var(--bg-tertiary); padding: 1.25rem; border-radius: 8px;">
+            <strong style="font-size: 1.1rem;">${rechnung.kunde_name}</strong>
+            ${
+              rechnung.kunden_nr
+                ? `<span><small style="color: var(--text-muted);">(Kd.-Nr.: ${rechnung.kunden_nr})</small>`
+                : ""
+            }<span><br>
+            <div style="line-height: 1.5;">
+              ${rechnung.strasse || ""}<br>
+              ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
+              ${
+                rechnung.telefon
+                  ? `<span style="color: var(--text-muted);">Tel:</span> ${rechnung.telefon}`
+                  : ""
+              }
+            </div>
           </div>
         </div>
-        <div style="text-align: right;">
-          <h2 style="color: var(--accent-primary); margin-bottom: 1rem;">RECHNUNG</h2>
-          <div><strong>Rechnung-Nr.:</strong> ${rechnung.rechnung_nr}<br>
-${
-  rechnung.auftrag_nr
-    ? `<strong>Auftrag:</strong> ${rechnung.auftrag_nr}<br>`
-    : ""
-}</div>
-          <div><strong>Datum:</strong> ${formatDate(
-            rechnung.rechnungsdatum
-          )}</div>
-          ${
-            rechnung.auftragsdatum
-              ? `<div><strong>Auftragsdatum:</strong> ${formatDate(
-                  rechnung.auftragsdatum
-                )}</div>`
-              : ""
-          }
-        </div>
-      </div>
 
-      <!-- Kundendaten -->
-      <div style="margin-bottom: 2rem;">
-        <h3>Rechnungsempfänger:</h3>
-        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-          <strong>${rechnung.kunde_name}</strong>${
-      rechnung.kunden_nr
-        ? ` <small>(Kd.-Nr.: ${rechnung.kunden_nr})</small>`
-        : ""
-    }<br>
-          ${rechnung.strasse || ""}<br>
-          ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
-          ${rechnung.telefon ? `Tel: ${rechnung.telefon}` : ""}
-        </div>
-      </div>
-
-      <!-- Fahrzeugdaten -->
-      <div style="margin-bottom: 2rem;">
-        <h3>Fahrzeug:</h3>
-        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-          <strong>${rechnung.kennzeichen} - ${rechnung.marke} ${
-      rechnung.modell
-    }</strong><br>
-${rechnung.vin ? `VIN: ${rechnung.vin}` : ""}
-${
-  rechnung.farbe || rechnung.farbcode
-    ? `<br>Farbe: ${rechnung.farbe || ""} ${
-        rechnung.farbcode ? `(${rechnung.farbcode})` : ""
-      }`
-    : ""
-}
+        <!-- Fahrzeug -->
+        <div>
+          <h3 style="margin-bottom: 1rem; color: var(--accent-primary);">Fahrzeug:</h3>
+          <div style="background: var(--bg-tertiary); padding: 1.25rem; border-radius: 8px;">
+            <strong style="font-size: 1.1rem;">${rechnung.kennzeichen} - ${
+      rechnung.marke
+    } ${rechnung.modell}</strong><br><br>
+            <div style="line-height: 1.5;">
+              ${
+                rechnung.vin
+                  ? `<span style="color: var(--text-muted);">VIN:</span> ${rechnung.vin}<br>`
+                  : ""
+              }
+              ${
+                rechnung.farbe || rechnung.farbcode
+                  ? `<span style="color: var(--text-muted);">Farbe:</span> ${
+                      rechnung.farbe || ""
+                    } ${rechnung.farbcode ? `(${rechnung.farbcode})` : ""}`
+                  : ""
+              }
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1891,107 +1970,55 @@ ${
         <tbody>${positionenHtml}</tbody>
       </table>
 
-      <!-- Rechnungssumme -->
-      <div style="margin: 2rem 0; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span>Zwischensumme netto:</span>
-          <span>${formatCurrency(rechnung.zwischensumme)}</span>
-        </div>
-        ${
-          rechnung.rabatt_prozent > 0
-            ? `
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span>Rabatt (${rechnung.rabatt_prozent}%):</span>
-          <span>-${formatCurrency(rechnung.rabatt_betrag)}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span>Netto nach Rabatt:</span>
-          <span>${formatCurrency(rechnung.netto_nach_rabatt)}</span>
-        </div>
-        `
-            : ""
-        }
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span>MwSt. ${getSetting("mwst_satz", "19")}%:</span>
-          <span>${formatCurrency(
-            rechnung.mwst_19 || rechnung.mwst_7 || 0
-          )}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; border-top: 1px solid var(--border-color); padding-top: 0.5rem; margin-top: 1rem;">
-          <span>GESAMTBETRAG:</span>
-          <span>${formatCurrency(rechnung.gesamtbetrag)}</span>
-        </div>
-      </div>
-
-      <!-- Zahlungsinformationen -->
-      ${
-        rechnung.zahlungstext || rechnung.gewaehrleistung || bankIban
-          ? `
-      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
-        ${
-          rechnung.zahlungstext
-            ? `
-        <div style="margin-bottom: 1rem;">
-          <h4>Zahlungsbedingungen:</h4>
-          <p style="margin-top: 0.5rem;">${rechnung.zahlungstext}</p>
-        </div>
-        `
-            : ""
-        }
-        
-        ${
-          bankIban
-            ? `
-        <div style="margin-bottom: 1rem;">
-          <h4>Bankverbindung:</h4>
-          <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-            ${bankName ? `<div><strong>Bank:</strong> ${bankName}</div>` : ""}
-            <div><strong>IBAN:</strong> ${bankIban}</div>
-            ${bankBic ? `<div><strong>BIC:</strong> ${bankBic}</div>` : ""}
+      <!-- Rechnungssumme Grid -->
+      <div style="margin: 2rem 0; padding: 1.5rem; background: var(--bg-tertiary); border-radius: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center;">
+          <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>Zwischensumme netto:</span>
+              <span>${formatCurrency(rechnung.zwischensumme)}</span>
+            </div>
+            ${
+              rechnung.rabatt_prozent > 0
+                ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: var(--accent-danger);">
+              <span>Rabatt (${rechnung.rabatt_prozent}%):</span>
+              <span>-${formatCurrency(rechnung.rabatt_betrag)}</span>
+            </div>`
+                : ""
+            }
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>MwSt. (${rechnung.mwst_prozent}%):</span>
+              <span>${formatCurrency(rechnung.mwst_betrag)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+              <span>Gesamtbetrag:</span>
+              <span>${formatCurrency(rechnung.gesamtbetrag)}</span>
+            </div>
           </div>
         </div>
-        `
-            : ""
-        }
-
-        ${
-          rechnung.gewaehrleistung
-            ? `
-        <div>
-          <h4>Gewährleistung:</h4>
-          <p style="margin-top: 0.5rem;">${rechnung.gewaehrleistung}</p>
-        </div>
-        `
-            : ""
-        }
       </div>
-      `
-          : ""
-      }
 
-      <!-- Firmendaten Footer -->
-      ${
-        steuernummer || umsatzsteuerId
-          ? `
-      <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-muted); font-size: 0.9em;">
-        ${steuernummer ? `Steuernummer: ${steuernummer}` : ""}
-        ${steuernummer && umsatzsteuerId ? " | " : ""}
-        ${umsatzsteuerId ? `USt-IdNr.: ${umsatzsteuerId}` : ""}
+      <!-- Firmen-/Zahlungsinfos -->
+      <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px; font-size: 0.9rem;">
+        <strong>${firmenname}</strong><br>
+        ${firmenStrasse}<br>
+        ${firmenPlz} ${firmenOrt}<br>
+        ${firmenTelefon ? `Tel: ${firmenTelefon}<br>` : ""}
+        ${firmenEmail ? `E-Mail: ${firmenEmail}` : ""}
       </div>
-      `
-          : ""
-      }
     `;
 
     const footer = `
-      <button type="button" class="btn btn-secondary" onclick="closeModal()">Schließen</button>
-      <button type="button" class="btn btn-success" onclick="printRechnung(${id})">
+      <button class="btn btn-secondary" onclick="closeModal()">Schließen</button>
+      <button class="btn btn-primary" onclick="printRechnung(${id})">
         <i class="fas fa-print"></i> Drucken
       </button>
     `;
 
     createModal(`Rechnung ${rechnung.rechnung_nr}`, content, footer);
   } catch (error) {
+    console.error("Fehler beim Laden der Rechnung:", error);
     showNotification("Fehler beim Laden der Rechnung", "error");
   }
 }
@@ -2027,38 +2054,6 @@ window.updateSkontoText = function () {
 
   zahlungsbedingungenField.value = finalText;
 };
-
-// Hilfsfunktion: Modal-Inhalt drucken
-function printModalContent(modalContent) {
-  const printWindow = window.open("", "_blank");
-  printWindow.document.write(`
-    <html>
-      <head>
-        <title>Rechnung</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 2cm; }
-          table { width: 100%; border-collapse: collapse; margin: 1em 0; }
-          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-          th { background-color: #f5f5f5; }
-          .text-right { text-align: right; }
-          @media print { 
-            button { display: none; }
-            .modal-header, .modal-footer { display: none; }
-          }
-        </style>
-      </head>
-      <body>
-        ${modalContent.innerHTML}
-      </body>
-    </html>
-  `);
-  printWindow.document.close();
-  printWindow.focus();
-  setTimeout(() => {
-    printWindow.print();
-    printWindow.close();
-  }, 250);
-}
 
 // Event Listener für Einstellungsänderungen
 window.addEventListener("settingsUpdated", () => {

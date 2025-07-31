@@ -1151,6 +1151,21 @@
         return;
       }
 
+      // Positionen HTML generieren
+      const positionenHtml = rechnung.positionen
+        .map(
+          (pos) => `
+      <tr>
+        <td>${pos.beschreibung}</td>
+        <td class="text-right">${pos.menge}</td>
+        <td class="text-right">${formatCurrency(pos.einzelpreis)}</td>
+        <td class="text-right">${pos.mwst_prozent}%</td>
+        <td class="text-right">${formatCurrency(pos.gesamt)}</td>
+      </tr>
+    `
+        )
+        .join("");
+
       // SKonto-Einstellungen prüfen (nur wenn beide gesetzt)
       const skontoTage = getSetting("skonto_tage", "").trim();
       const skontoProzent = getSetting("skonto_prozent", "").trim();
@@ -1194,80 +1209,114 @@
       `;
       }
 
-      // Positionen HTML generieren
-      const positionenHtml = rechnung.positionen
-        .map(
-          (pos) => `
-        <tr>
-          <td>${pos.beschreibung}</td>
-          <td class="text-right">${pos.menge}</td>
-          <td class="text-right">${formatCurrency(pos.einzelpreis)}</td>
-          <td class="text-right">${pos.mwst_prozent}%</td>
-          <td class="text-right">${formatCurrency(pos.gesamt)}</td>
-        </tr>
-      `
-        )
-        .join("");
-
       // Firmen-/Steuerinformationen
       const steuernummer = getSetting("steuernummer", "");
       const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
 
       const content = `
       <!-- Rechnungskopf -->
-      <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2rem;">
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <h2 style="color: #007bff; margin-bottom: 0;">RECHNUNG</h2>
+        <div style="font-size: 18px; font-weight: bold;">${
+          rechnung.rechnung_nr
+        }</div>
+      </div>
+      
+      <!-- Grid-Layout wie bei viewAuftrag - 2 Spalten -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
         <div>
-          <h1 style="color: var(--accent-primary); margin: 0 0 0.5rem 0;">RECHNUNG</h1>
-          <div><strong>Rechnung:</strong> ${rechnung.rechnung_nr}<br>
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Kunde:</label>
+            <div><strong>${rechnung.kunde_name}</strong></div>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Rechnungsdatum:</label>
+            <div>${formatDate(rechnung.rechnungsdatum)}</div>
+          </div>
           ${
             rechnung.auftrag_nr
-              ? `<strong>Auftrag:</strong> ${rechnung.auftrag_nr}<br>`
-              : ""
-          }
-          </div>
-          <div><strong>Datum:</strong> ${formatDate(
-            rechnung.rechnungsdatum
-          )}</div>
-          ${
-            rechnung.auftragsdatum
-              ? `<div><strong>Auftragsdatum:</strong> ${formatDate(
-                  rechnung.auftragsdatum
-                )}</div>`
+              ? `
+          <div class="form-group">
+            <label class="form-label">Auftrag-Nr.:</label>
+            <div>${rechnung.auftrag_nr}</div>
+          </div>`
               : ""
           }
         </div>
-      </div>
-
-      <!-- Kundendaten -->
-      <div style="margin-bottom: 2rem;">
-        <h3>Rechnungsempfänger:</h3>
-        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-          <strong>${rechnung.kunde_name}</strong>${
-        rechnung.kunden_nr
-          ? ` <small>(Kd.-Nr.: ${rechnung.kunden_nr})</small>`
-          : ""
-      }<br>
-          ${rechnung.strasse || ""}<br>
-          ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
-          ${rechnung.telefon ? `Tel: ${rechnung.telefon}` : ""}
-        </div>
-      </div>
-
-      <!-- Fahrzeugdaten -->
-      <div style="margin-bottom: 2rem;">
-        <h3>Fahrzeug:</h3>
-        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-top: 0.5rem;">
-          <strong>${rechnung.kennzeichen} - ${rechnung.marke} ${
+        <div>
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Fahrzeug:</label>
+            <div>${rechnung.kennzeichen} - ${rechnung.marke} ${
         rechnung.modell
-      }</strong><br>
-          ${rechnung.vin ? `VIN: ${rechnung.vin}` : ""}
-          ${
-            rechnung.farbe || rechnung.farbcode
-              ? `<br>Farbe: ${rechnung.farbe || ""} ${
-                  rechnung.farbcode ? `(${rechnung.farbcode})` : ""
-                }`
-              : ""
-          }
+      }</div>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Status:</label>
+            <div><span class="status status-${rechnung.status}">${
+        rechnung.status === "offen"
+          ? "Offen"
+          : rechnung.status === "bezahlt"
+          ? "Bezahlt"
+          : rechnung.status === "mahnung"
+          ? "Mahnung"
+          : rechnung.status === "storniert"
+          ? "Storniert"
+          : rechnung.status
+      }</span></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Gesamtbetrag:</label>
+            <div><strong>${formatCurrency(rechnung.gesamtbetrag)}</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rechnungsempfänger und Fahrzeug nebeneinander -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0;">
+        <!-- Rechnungsempfänger -->
+        <div>
+          <h3 style="margin-bottom: 1rem; color: var(--accent-primary);">Empfänger:</h3>
+          <div style="background: var(--bg-tertiary); border-radius: 8px;">
+            <strong style="font-size: 1.1rem;">${rechnung.kunde_name}</strong>
+            ${
+              rechnung.kunden_nr
+                ? `<br><small style="color: var(--text-muted);">(Kd.-Nr.: ${rechnung.kunden_nr})</small>`
+                : ""
+            }<br>
+            <div style="line-height: 1.5;">
+              ${rechnung.strasse || ""}<br>
+              ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
+              ${
+                rechnung.telefon
+                  ? `<span style="color: var(--text-muted);">Tel:</span> ${rechnung.telefon}`
+                  : ""
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Fahrzeug -->
+        <div>
+          <h3 style="margin-bottom: 1rem; color: var(--accent-primary);">Fahrzeug:</h3>
+          <div style="background: var(--bg-tertiary);  border-radius: 8px;">
+            <strong style="font-size: 1.1rem;">${rechnung.kennzeichen} - ${
+        rechnung.marke
+      } ${rechnung.modell}</strong><br>
+            <div style="line-height: 1.5;">
+              ${
+                rechnung.vin
+                  ? `<span style="color: var(--text-muted);">VIN:</span> ${rechnung.vin}<br>`
+                  : ""
+              }
+              ${
+                rechnung.farbe || rechnung.farbcode
+                  ? `<span style="color: var(--text-muted);">Farbe:</span> ${
+                      rechnung.farbe || ""
+                    } ${rechnung.farbcode ? `(${rechnung.farbcode})` : ""}`
+                  : ""
+              }
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1286,43 +1335,41 @@
         <tbody>${positionenHtml}</tbody>
       </table>
 
-      <!-- Rechnungssumme -->
-      <div style="margin: 2rem 0; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span>Zwischensumme netto:</span>
-          <span>${formatCurrency(rechnung.zwischensumme)}</span>
-        </div>
-        ${
-          rechnung.rabatt_prozent > 0
-            ? `
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: var(--danger-color);">
-            <span>Rabatt (${rechnung.rabatt_prozent}%):</span>
-            <span>-${formatCurrency(rechnung.rabatt_betrag)}</span>
+      <!-- Rechnungssumme Grid -->
+      <div style="margin: 2rem 0; padding: 1.5rem; background: var(--bg-tertiary); border-radius: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center;">
+          <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>Zwischensumme netto:</span>
+              <span>${formatCurrency(rechnung.zwischensumme)}</span>
+            </div>
+            ${
+              rechnung.rabatt_prozent > 0
+                ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: var(--accent-danger);">
+              <span>Rabatt (${rechnung.rabatt_prozent}%):</span>
+              <span>-${formatCurrency(rechnung.rabatt_betrag)}</span>
+            </div>`
+                : ""
+            }
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>MwSt. 19%:</span>
+              <span>${formatCurrency(rechnung.mwst_19)}</span>
+            </div>
+            ${
+              rechnung.mwst_7 > 0
+                ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>MwSt. 7%:</span>
+              <span>${formatCurrency(rechnung.mwst_7)}</span>
+            </div>`
+                : ""
+            }
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+              <span>Gesamtbetrag:</span>
+              <span>${formatCurrency(rechnung.gesamtbetrag)}</span>
+            </div>
           </div>
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span>Netto nach Rabatt:</span>
-            <span>${formatCurrency(rechnung.netto_nach_rabatt)}</span>
-          </div>
-        `
-            : ""
-        }
-        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-          <span>MwSt. 19%:</span>
-          <span>${formatCurrency(rechnung.mwst_19)}</span>
-        </div>
-        ${
-          rechnung.mwst_7 > 0
-            ? `
-          <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-            <span>MwSt. 7%:</span>
-            <span>${formatCurrency(rechnung.mwst_7)}</span>
-          </div>
-        `
-            : ""
-        }
-        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.2em; border-top: 2px solid var(--accent-primary); padding-top: 0.5rem; margin-top: 0.5rem; color: var(--success-color);">
-          <span>GESAMTBETRAG:</span>
-          <span>${formatCurrency(rechnung.gesamtbetrag)}</span>
         </div>
       </div>
 
@@ -1332,29 +1379,28 @@
       <!-- Rechnungshinweise (nur wenn vorhanden) -->
       ${rechnungshinweiseHtml}
 
-      <!-- Zahlungsbedingungen -->
-      ${
-        rechnung.zahlungsbedingungen
-          ? `
-        <div style="margin: 1.5rem 0;">
-          <h4>Zahlungsbedingungen:</h4>
-          <p style="line-height: 1.6;">${rechnung.zahlungsbedingungen}</p>
-        </div>
-      `
-          : ""
-      }
+      <!-- Zahlungsbedingungen und Gewährleistung -->
+      <div style="margin: 1.5rem 0;">
+        <h4>Zahlungsbedingungen:</h4>
+        <p style="line-height: 1.6;">${
+          rechnung.zahlungsbedingungen ||
+          getSetting(
+            "zahlungstext",
+            "Zahlbar innerhalb von 14 Tagen ohne Abzug."
+          )
+        }</p>
+      </div>
 
-      <!-- Gewährleistung -->
-      ${
-        rechnung.gewaehrleistung
-          ? `
-        <div style="margin: 1.5rem 0;">
-          <h4>Gewährleistung:</h4>
-          <p style="line-height: 1.6;">${rechnung.gewaehrleistung}</p>
-        </div>
-      `
-          : ""
-      }
+      <div style="margin: 1.5rem 0;">
+        <h4>Gewährleistung:</h4>
+        <p style="line-height: 1.6;">${
+          rechnung.gewaehrleistung ||
+          getSetting(
+            "gewaehrleistung",
+            "12 Monate Gewährleistung auf alle Arbeiten."
+          )
+        }</p>
+      </div>
 
       <!-- Footer mit Steuerinformationen -->
       ${

@@ -51,14 +51,25 @@ router.get("/", (req, res) => {
       k.kunden_nr,
       f.kennzeichen as original_kennzeichen,
       f.marke as original_marke,
-      f.modell as original_modell
+      f.modell as original_modell,
+      -- 🆕 Käufer-Info für Anzeige
+      k2.name as kaeufer_name,
+      k2.kunden_nr as kaeufer_nr
     FROM fahrzeug_handel fh
     LEFT JOIN kunden k ON fh.kunden_id = k.id
     LEFT JOIN fahrzeuge f ON fh.fahrzeug_id = f.id
+    -- 🆕 JOIN für Käufer-Daten
+    LEFT JOIN kunden k2 ON (
+      CASE 
+        WHEN fh.verkauft_an GLOB '[0-9]*' 
+        THEN CAST(fh.verkauft_an AS INTEGER) = k2.id
+        ELSE 0
+      END
+    )
     WHERE 1=1
   `;
 
-  const params = [];
+  const params = []; // 🎯 HIER war das Problem - params war nicht definiert!
 
   // Suchfilter
   if (search) {
@@ -96,12 +107,29 @@ router.get("/", (req, res) => {
   sql += ` ORDER BY fh.datum DESC, fh.id DESC LIMIT ? OFFSET ?`;
   params.push(parseInt(limit), parseInt(offset));
 
+  console.log(
+    "📋 GET /api/fahrzeughandel - SQL:",
+    sql.substring(0, 100) + "..."
+  );
+  console.log("📋 GET /api/fahrzeughandel - Params:", params);
+
   db.all(sql, params, (err, rows) => {
     if (err) {
-      console.error("Fehler beim Abrufen der Handelsgeschäfte:", err);
-      res.status(500).json({ error: "Datenbankfehler" });
+      console.error("❌ Fehler beim Abrufen der Handelsgeschäfte:", err);
+      res.status(500).json({ error: "Datenbankfehler: " + err.message });
       return;
     }
+
+    console.log(`✅ ${rows.length} Handelsgeschäfte gefunden`);
+
+    // 🆕 Verkauft_an Werte für Anzeige anreichern
+    rows.forEach((row) => {
+      if (row.kaeufer_name) {
+        row.verkauft_an_display = `${row.kaeufer_name} (${row.kaeufer_nr})`;
+      } else if (row.verkauft_an) {
+        row.verkauft_an_display = row.verkauft_an;
+      }
+    });
 
     // Zusätzliche Statistiken abrufen
     const statsQuery = `
@@ -118,7 +146,7 @@ router.get("/", (req, res) => {
 
     db.get(statsQuery, (err, stats) => {
       if (err) {
-        console.error("Fehler bei Statistiken:", err);
+        console.error("⚠️ Fehler bei Statistiken:", err);
         stats = {};
       }
 
@@ -149,10 +177,21 @@ router.get("/:id", (req, res) => {
       f.kennzeichen as original_kennzeichen,
       f.marke as original_marke,
       f.modell as original_modell,
-      f.vin as original_vin
+      f.vin as original_vin,
+      -- 🆕 Käufer-Info laden falls verkauft_an eine Kunden-ID ist
+      k2.name as kaeufer_name,
+      k2.kunden_nr as kaeufer_nr
     FROM fahrzeug_handel fh
     LEFT JOIN kunden k ON fh.kunden_id = k.id
     LEFT JOIN fahrzeuge f ON fh.fahrzeug_id = f.id
+    -- 🆕 Zweiter JOIN für Käufer-Daten
+    LEFT JOIN kunden k2 ON (
+      CASE 
+        WHEN fh.verkauft_an GLOB '[0-9]*' 
+        THEN CAST(fh.verkauft_an AS INTEGER) = k2.id
+        ELSE 0
+      END
+    )
     WHERE fh.id = ?
   `;
 
@@ -166,6 +205,15 @@ router.get("/:id", (req, res) => {
     if (!row) {
       res.status(404).json({ error: "Handelsgeschäft nicht gefunden" });
       return;
+    }
+
+    // 🆕 Verkauft_an Wert anreichern
+    if (row.kaeufer_name) {
+      row.verkauft_an_display = `${row.kaeufer_name} (${row.kaeufer_nr})`;
+      row.verkauft_an_type = "kunde";
+    } else if (row.verkauft_an) {
+      row.verkauft_an_display = row.verkauft_an;
+      row.verkauft_an_type = "text";
     }
 
     res.json(row);
@@ -183,6 +231,7 @@ router.post("/", async (req, res) => {
       kennzeichen,
       marke,
       modell,
+      vin, // 🎯 VIN aus Request lesen
       baujahr,
       kilometerstand,
       farbe,
@@ -210,12 +259,108 @@ router.post("/", async (req, res) => {
         .json({ error: "Kennzeichen, Marke und Modell sind erforderlich" });
     }
 
+    // 🆕 NEUE VALIDIERUNG: Bei neuem Fahrzeug VIN und Kunde prüfen
+    if (!fahrzeug_id) {
+      if (!vin || vin.length !== 17) {
+        return res.status(400).json({
+          error: "VIN-Nummer ist erforderlich und muss 17 Zeichen haben",
+        });
+      }
+
+      if (!kunden_id) {
+        return res
+          .status(400)
+          .json({ error: "Kunde muss bei neuen Fahrzeugen ausgewählt werden" });
+      }
+    }
+
     // Automatische Handel-Nr generieren
     const handelNr = await generateHandelNr();
 
     // Gewinn berechnen
     const gewinn = calculateProfit(ankaufspreis, verkaufspreis);
 
+    let finalFahrzeugId = fahrzeug_id;
+    let fahrzeugErstellt = false;
+
+    // Fahrzeug automatisch erstellen wenn nicht ausgewählt
+    if (!fahrzeug_id && kennzeichen && marke && modell) {
+      console.log(
+        "🚗 Erstelle neues Fahrzeug für Handelsgeschäft:",
+        kennzeichen
+      );
+
+      // Prüfen ob Fahrzeug mit diesem Kennzeichen bereits existiert
+      const existingFahrzeug = await new Promise((resolve, reject) => {
+        db.get(
+          "SELECT id FROM fahrzeuge WHERE UPPER(kennzeichen) = UPPER(?)",
+          [kennzeichen],
+          (err, row) => {
+            if (err) reject(err);
+            else resolve(row);
+          }
+        );
+      });
+
+      if (existingFahrzeug) {
+        // Fahrzeug existiert bereits - verwende bestehende ID
+        finalFahrzeugId = existingFahrzeug.id;
+        console.log("✅ Verwende bestehendes Fahrzeug ID:", finalFahrzeugId);
+      } else {
+        // Neues Fahrzeug erstellen - MIT VIN!
+        const fahrzeugData = {
+          kunden_id: kunden_id,
+          kennzeichen: kennzeichen.toUpperCase(),
+          marke: marke,
+          modell: modell,
+          vin: vin, // 🎯 VIN übertragen
+          baujahr: baujahr || null,
+          farbe: farbe || null,
+          farbcode: null,
+        };
+
+        const newFahrzeugId = await new Promise((resolve, reject) => {
+          const fahrzeugSql = `
+            INSERT INTO fahrzeuge (
+              kunden_id, kennzeichen, marke, modell, vin, baujahr, farbe, farbcode
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `;
+
+          db.run(
+            fahrzeugSql,
+            [
+              fahrzeugData.kunden_id,
+              fahrzeugData.kennzeichen,
+              fahrzeugData.marke,
+              fahrzeugData.modell,
+              fahrzeugData.vin, // 🎯 VIN hier eingefügt
+              fahrzeugData.baujahr,
+              fahrzeugData.farbe,
+              fahrzeugData.farbcode,
+            ],
+            function (err) {
+              if (err) {
+                console.error("Fehler beim Erstellen des Fahrzeugs:", err);
+                reject(err);
+              } else {
+                console.log(
+                  "✅ Neues Fahrzeug erstellt mit ID:",
+                  this.lastID,
+                  "VIN:",
+                  vin
+                );
+                resolve(this.lastID);
+              }
+            }
+          );
+        });
+
+        finalFahrzeugId = newFahrzeugId;
+        fahrzeugErstellt = true;
+      }
+    }
+
+    // Handelsgeschäft erstellen
     const sql = `
       INSERT INTO fahrzeug_handel (
         handel_nr, typ, kunden_id, fahrzeug_id, datum, kennzeichen, marke, modell,
@@ -228,9 +373,9 @@ router.post("/", async (req, res) => {
       handelNr,
       typ,
       kunden_id,
-      fahrzeug_id,
+      finalFahrzeugId,
       datum || new Date().toISOString().split("T")[0],
-      kennzeichen,
+      kennzeichen.toUpperCase(),
       marke,
       modell,
       baujahr,
@@ -254,12 +399,12 @@ router.post("/", async (req, res) => {
         if (err.message.includes("UNIQUE constraint failed")) {
           res.status(400).json({ error: "Handel-Nr bereits vorhanden" });
         } else {
-          res.status(500).json({ error: "Datenbankfehler" });
+          res.status(500).json({ error: "Datenbankfehler: " + err.message });
         }
         return;
       }
 
-      // Neu erstelltes Handelsgeschäft abrufen
+      // Erfolgreiche Antwort
       db.get(
         "SELECT * FROM fahrzeug_handel WHERE id = ?",
         [this.lastID],
@@ -269,129 +414,36 @@ router.post("/", async (req, res) => {
               "Fehler beim Abrufen des erstellten Handelsgeschäfts:",
               err
             );
-            res
-              .status(500)
-              .json({
-                error: "Handelsgeschäft erstellt, aber Abrufen fehlgeschlagen",
-              });
+            res.status(500).json({
+              error: "Handelsgeschäft erstellt, aber Abrufen fehlgeschlagen",
+            });
             return;
           }
 
-          res.status(201).json({
+          const response = {
             message: "Handelsgeschäft erfolgreich erstellt",
             id: this.lastID,
             handel_nr: handelNr,
             handelsgeschaeft: row,
-          });
+            fahrzeug_erstellt: fahrzeugErstellt,
+            fahrzeug_id: finalFahrzeugId,
+          };
+
+          if (fahrzeugErstellt) {
+            response.message += ` (Fahrzeug ${kennzeichen} mit VIN ${vin} automatisch erstellt)`;
+            console.log(
+              `✅ Handelsgeschäft ${handelNr} und Fahrzeug ${kennzeichen} (VIN: ${vin}) erstellt`
+            );
+          }
+
+          res.status(201).json(response);
         }
       );
     });
   } catch (error) {
     console.error("Fehler beim Erstellen des Handelsgeschäfts:", error);
-    res.status(500).json({ error: "Server-Fehler" });
+    res.status(500).json({ error: "Server-Fehler: " + error.message });
   }
-});
-
-// PUT /api/fahrzeughandel/:id - Handelsgeschäft aktualisieren
-router.put("/:id", (req, res) => {
-  const { id } = req.params;
-  const {
-    typ,
-    kunden_id,
-    fahrzeug_id,
-    datum,
-    kennzeichen,
-    marke,
-    modell,
-    baujahr,
-    kilometerstand,
-    farbe,
-    zustand,
-    ankaufspreis,
-    verkaufspreis,
-    status,
-    tuev_bis,
-    au_bis,
-    papiere_vollstaendig,
-    bemerkungen,
-    interne_notizen,
-    verkauft_an,
-  } = req.body;
-
-  // Gewinn neu berechnen
-  const gewinn = calculateProfit(ankaufspreis, verkaufspreis);
-
-  const sql = `
-    UPDATE fahrzeug_handel SET
-      typ = ?, kunden_id = ?, fahrzeug_id = ?, datum = ?, kennzeichen = ?,
-      marke = ?, modell = ?, baujahr = ?, kilometerstand = ?, farbe = ?,
-      zustand = ?, ankaufspreis = ?, verkaufspreis = ?, gewinn = ?, status = ?,
-      tuev_bis = ?, au_bis = ?, papiere_vollstaendig = ?, bemerkungen = ?,
-      interne_notizen = ?, verkauft_an = ?, aktualisiert_am = CURRENT_TIMESTAMP,
-      abgeschlossen_am = CASE WHEN ? = 'abgeschlossen' AND status != 'abgeschlossen' 
-                              THEN CURRENT_TIMESTAMP ELSE abgeschlossen_am END
-    WHERE id = ?
-  `;
-
-  const params = [
-    typ,
-    kunden_id,
-    fahrzeug_id,
-    datum,
-    kennzeichen,
-    marke,
-    modell,
-    baujahr,
-    kilometerstand,
-    farbe,
-    zustand,
-    parseFloat(ankaufspreis) || 0,
-    parseFloat(verkaufspreis) || 0,
-    gewinn,
-    status,
-    tuev_bis,
-    au_bis,
-    papiere_vollstaendig !== false,
-    bemerkungen,
-    interne_notizen,
-    verkauft_an,
-    status,
-    id,
-  ];
-
-  db.run(sql, params, function (err) {
-    if (err) {
-      console.error("Fehler beim Aktualisieren des Handelsgeschäfts:", err);
-      res.status(500).json({ error: "Datenbankfehler" });
-      return;
-    }
-
-    if (this.changes === 0) {
-      res.status(404).json({ error: "Handelsgeschäft nicht gefunden" });
-      return;
-    }
-
-    // Aktualisiertes Handelsgeschäft abrufen
-    db.get("SELECT * FROM fahrzeug_handel WHERE id = ?", [id], (err, row) => {
-      if (err) {
-        console.error(
-          "Fehler beim Abrufen des aktualisierten Handelsgeschäfts:",
-          err
-        );
-        res
-          .status(500)
-          .json({
-            error: "Aktualisierung erfolgreich, aber Abrufen fehlgeschlagen",
-          });
-        return;
-      }
-
-      res.json({
-        message: "Handelsgeschäft erfolgreich aktualisiert",
-        handelsgeschaeft: row,
-      });
-    });
-  });
 });
 
 // DELETE /api/fahrzeughandel/:id - Handelsgeschäft löschen
@@ -507,6 +559,132 @@ router.get("/options/fahrzeuge", (req, res) => {
     }
     res.json(rows);
   });
+});
+
+router.put("/:id", async (req, res) => {
+  console.log(
+    "🔄 PUT /api/fahrzeughandel/:id aufgerufen",
+    req.params.id,
+    req.body
+  );
+
+  const { id } = req.params;
+  const {
+    typ,
+    kunden_id,
+    fahrzeug_id,
+    datum,
+    kennzeichen,
+    marke,
+    modell,
+    vin,
+    baujahr,
+    kilometerstand,
+    farbe,
+    zustand,
+    ankaufspreis,
+    verkaufspreis,
+    status,
+    tuev_bis,
+    au_bis,
+    papiere_vollstaendig,
+    bemerkungen,
+    interne_notizen,
+    verkauft_an,
+  } = req.body;
+
+  try {
+    // Validierung
+    if (!typ || !["ankauf", "verkauf"].includes(typ)) {
+      return res
+        .status(400)
+        .json({ error: "Gültiger Typ (ankauf/verkauf) erforderlich" });
+    }
+
+    if (!kennzeichen || !marke || !modell) {
+      return res
+        .status(400)
+        .json({ error: "Kennzeichen, Marke und Modell sind erforderlich" });
+    }
+
+    // Gewinn neu berechnen
+    const gewinn = calculateProfit(ankaufspreis, verkaufspreis);
+
+    const sql = `
+      UPDATE fahrzeug_handel SET
+        typ = ?, kunden_id = ?, fahrzeug_id = ?, datum = ?, kennzeichen = ?,
+        marke = ?, modell = ?, baujahr = ?, kilometerstand = ?, farbe = ?,
+        zustand = ?, ankaufspreis = ?, verkaufspreis = ?, gewinn = ?, status = ?,
+        tuev_bis = ?, au_bis = ?, papiere_vollstaendig = ?, bemerkungen = ?,
+        interne_notizen = ?, verkauft_an = ?, aktualisiert_am = CURRENT_TIMESTAMP,
+        abgeschlossen_am = CASE WHEN ? = 'abgeschlossen' AND status != 'abgeschlossen' 
+                                THEN CURRENT_TIMESTAMP ELSE abgeschlossen_am END
+      WHERE id = ?
+    `;
+
+    const params = [
+      typ,
+      kunden_id || null,
+      fahrzeug_id || null,
+      datum,
+      kennzeichen.toUpperCase(),
+      marke,
+      modell,
+      baujahr || null,
+      kilometerstand || null,
+      farbe || null,
+      zustand || "gut",
+      parseFloat(ankaufspreis) || 0,
+      parseFloat(verkaufspreis) || 0,
+      gewinn,
+      status || "offen",
+      tuev_bis || null,
+      au_bis || null,
+      papiere_vollstaendig !== false,
+      bemerkungen || null,
+      interne_notizen || null,
+      verkauft_an || null,
+      status, // Für abgeschlossen_am Check
+      id,
+    ];
+
+    db.run(sql, params, function (err) {
+      if (err) {
+        console.error("Fehler beim Aktualisieren des Handelsgeschäfts:", err);
+        res.status(500).json({ error: "Datenbankfehler: " + err.message });
+        return;
+      }
+
+      if (this.changes === 0) {
+        res.status(404).json({ error: "Handelsgeschäft nicht gefunden" });
+        return;
+      }
+
+      console.log("✅ Handelsgeschäft aktualisiert, ID:", id);
+
+      // Aktualisiertes Handelsgeschäft zurückgeben
+      db.get("SELECT * FROM fahrzeug_handel WHERE id = ?", [id], (err, row) => {
+        if (err) {
+          console.error(
+            "Fehler beim Abrufen des aktualisierten Handelsgeschäfts:",
+            err
+          );
+          res.status(500).json({
+            error: "Handelsgeschäft aktualisiert, aber Abrufen fehlgeschlagen",
+          });
+          return;
+        }
+
+        res.json({
+          message: "Handelsgeschäft erfolgreich aktualisiert",
+          handelsgeschaeft: row,
+        });
+      });
+    });
+  } catch (error) {
+    console.error("Fehler beim Aktualisieren des Handelsgeschäfts:", error);
+    res.status(500).json({ error: "Server-Fehler: " + error.message });
+  }
 });
 
 module.exports = router;

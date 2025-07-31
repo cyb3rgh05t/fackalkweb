@@ -367,6 +367,24 @@ async function handleFormSubmit(event) {
 
 // Form-Daten sammeln
 function getFormData() {
+  // Verkauft-An Wert richtig verarbeiten
+  const verkauftAnSelect = document.getElementById("handel-verkauft-an");
+  let verkauftAnWert = null;
+
+  if (verkauftAnSelect && verkauftAnSelect.value) {
+    if (verkauftAnSelect.value === "custom") {
+      // Custom-Wert beibehalten
+      const selectedOption =
+        verkauftAnSelect.options[verkauftAnSelect.selectedIndex];
+      verkauftAnWert = selectedOption.textContent
+        .replace("📝 ", "")
+        .replace(" (manuell eingetragen)", "");
+    } else {
+      // Kunden-ID verwenden
+      verkauftAnWert = verkauftAnSelect.value;
+    }
+  }
+
   return {
     typ: document.getElementById("handel-typ").value,
     kunden_id: document.getElementById("handel-kunde").value || null,
@@ -375,6 +393,7 @@ function getFormData() {
     kennzeichen: document.getElementById("handel-kennzeichen").value,
     marke: document.getElementById("handel-marke").value,
     modell: document.getElementById("handel-modell").value,
+    vin: document.getElementById("handel-vin").value || null,
     baujahr: document.getElementById("handel-baujahr").value || null,
     kilometerstand:
       document.getElementById("handel-kilometerstand").value || null,
@@ -388,7 +407,7 @@ function getFormData() {
     bemerkungen: document.getElementById("handel-bemerkungen").value || null,
     interne_notizen:
       document.getElementById("handel-interne-notizen").value || null,
-    verkauft_an: document.getElementById("handel-verkauft-an").value || null,
+    verkauft_an: verkauftAnWert, // 🎯 Verbesserter verkauft_an Wert
     status: document.getElementById("handel-status").value,
   };
 }
@@ -423,6 +442,27 @@ function validateFormData(data) {
     highlightField("handel-datum");
   }
 
+  // 🆕 NEUE VALIDIERUNG: Bei neuem Fahrzeug (kein fahrzeug_id) sind VIN und Kunde Pflicht
+  const istNeuesFahrzeug = !data.fahrzeug_id;
+
+  if (istNeuesFahrzeug) {
+    // VIN-Nummer prüfen
+    const vinWert = document.getElementById("handel-vin")?.value?.trim();
+    if (!vinWert) {
+      errors.push("VIN-Nummer ist bei neuen Fahrzeugen erforderlich");
+      highlightField("handel-vin");
+    } else if (vinWert.length !== 17) {
+      errors.push("VIN-Nummer muss genau 17 Zeichen haben");
+      highlightField("handel-vin");
+    }
+
+    // Kunde prüfen
+    if (!data.kunden_id) {
+      errors.push("Kunde muss bei neuen Fahrzeugen ausgewählt werden");
+      highlightField("handel-kunde");
+    }
+  }
+
   // Preise validieren
   if (data.ankaufspreis < 0) {
     errors.push("Ankaufspreis kann nicht negativ sein");
@@ -437,30 +477,63 @@ function validateFormData(data) {
   // Baujahr validieren
   if (
     data.baujahr &&
-    (data.baujahr < 1900 || data.baujahr > new Date().getFullYear() + 2)
+    (data.baujahr < 1900 || data.baujahr > new Date().getFullYear() + 1)
   ) {
     errors.push("Ungültiges Baujahr");
     highlightField("handel-baujahr");
   }
 
+  // Fehler anzeigen
   if (errors.length > 0) {
-    showValidationErrors(errors);
+    displayValidationErrors(errors);
     return false;
   }
 
+  // Validierung erfolgreich
+  clearValidationErrors();
   return true;
+}
+
+function displayValidationErrors(errors) {
+  // Bestehende Fehler-Anzeige entfernen
+  clearValidationErrors();
+
+  // Neue Fehler-Anzeige erstellen
+  const form = document.getElementById("fahrzeughandel-form");
+  const errorDiv = document.createElement("div");
+  errorDiv.className = "validation-summary";
+  errorDiv.innerHTML = `
+    <div class="validation-header">
+      <i class="fas fa-exclamation-triangle"></i>
+      Bitte korrigieren Sie folgende Fehler:
+    </div>
+    <ul>
+      ${errors.map((error) => `<li>${error}</li>`).join("")}
+    </ul>
+  `;
+
+  form.insertBefore(errorDiv, form.firstChild);
+
+  // Nach oben scrollen
+  errorDiv.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function clearValidationErrors() {
+  const existing = document.querySelector(".validation-summary");
+  if (existing) {
+    existing.remove();
+  }
+
+  // Alle Feld-Hervorhebungen entfernen
+  document.querySelectorAll(".validation-error").forEach((field) => {
+    field.classList.remove("validation-error");
+  });
 }
 
 function highlightField(fieldId) {
   const field = document.getElementById(fieldId);
   if (field) {
-    field.classList.add("error");
-    field.focus();
-
-    // Error-Klasse nach 3 Sekunden entfernen
-    setTimeout(() => {
-      field.classList.remove("error");
-    }, 3000);
+    field.classList.add("validation-error");
   }
 }
 
@@ -702,7 +775,7 @@ window.forceCloseModal = function () {
 
 // Dropdowns mit Daten füllen
 function populateDropdowns() {
-  // Kunden-Dropdown
+  // Kunden-Dropdown (Besitzer)
   const kundenSelect = document.getElementById("handel-kunde");
   if (kundenSelect) {
     kundenSelect.innerHTML =
@@ -716,19 +789,41 @@ function populateDropdowns() {
     });
   }
 
-  // Fahrzeuge-Dropdown
-  const fahrzeugSelect = document.getElementById("handel-fahrzeug");
-  if (fahrzeugSelect) {
-    fahrzeugSelect.innerHTML =
-      '<option value="">Neu eingeben oder auswählen</option>';
-    availableFahrzeuge.forEach((fahrzeug) => {
-      fahrzeugSelect.innerHTML += `
-        <option value="${fahrzeug.id}">
-          ${fahrzeug.kennzeichen} - ${fahrzeug.marke} ${fahrzeug.modell}
-          ${fahrzeug.besitzer ? ` (${fahrzeug.besitzer})` : ""}
+  // 🆕 VERKAUFT AN Dropdown (Käufer)
+  const verkauftAnSelect = document.getElementById("handel-verkauft-an");
+  if (verkauftAnSelect) {
+    verkauftAnSelect.innerHTML =
+      '<option value="">Bitte wählen (optional)</option>';
+    availableKunden.forEach((kunde) => {
+      verkauftAnSelect.innerHTML += `
+        <option value="${kunde.id}">
+          ${kunde.name} (${kunde.kunden_nr})
         </option>
       `;
     });
+  }
+
+  // Fahrzeuge-Dropdown (unverändert)
+  const fahrzeugSelect = document.getElementById("handel-fahrzeug");
+  if (fahrzeugSelect) {
+    fahrzeugSelect.innerHTML = `
+      <option value="">🆕 Fahrzeug neu eingeben</option>
+      <option disabled>──────────────────────</option>
+      <option disabled>📋 Oder bestehendes wählen:</option>
+    `;
+
+    if (availableFahrzeuge && availableFahrzeuge.length > 0) {
+      availableFahrzeuge.forEach((fahrzeug) => {
+        fahrzeugSelect.innerHTML += `
+          <option value="${fahrzeug.id}">
+            🚗 ${fahrzeug.kennzeichen} - ${fahrzeug.marke} ${fahrzeug.modell}
+            ${fahrzeug.besitzer ? ` (${fahrzeug.besitzer})` : ""}
+          </option>
+        `;
+      });
+    } else {
+      fahrzeugSelect.innerHTML += `<option disabled>Keine Fahrzeuge verfügbar</option>`;
+    }
   }
 }
 
@@ -767,7 +862,6 @@ function fillFormWithData(handel) {
     "au_bis",
     "bemerkungen",
     "interne_notizen",
-    "verkauft_an",
     "status",
   ];
 
@@ -790,6 +884,25 @@ function fillFormWithData(handel) {
   }
   if (handel.fahrzeug_id) {
     document.getElementById("handel-fahrzeug").value = handel.fahrzeug_id;
+  }
+
+  // 🆕 VERKAUFT AN Dropdown - prüfe ob es eine Kunden-ID ist oder nur Text
+  if (handel.verkauft_an) {
+    const verkauftAnSelect = document.getElementById("handel-verkauft-an");
+
+    // Prüfe ob verkauft_an eine Nummer (Kunden-ID) ist
+    const kundenId = parseInt(handel.verkauft_an);
+    if (!isNaN(kundenId) && availableKunden.find((k) => k.id === kundenId)) {
+      // Es ist eine Kunden-ID
+      verkauftAnSelect.value = kundenId;
+    } else {
+      // Es ist noch ein alter Text-Wert - füge ihn als Custom-Option hinzu
+      const customOption = document.createElement("option");
+      customOption.value = "custom";
+      customOption.textContent = `📝 ${handel.verkauft_an} (manuell eingetragen)`;
+      customOption.selected = true;
+      verkauftAnSelect.appendChild(customOption);
+    }
   }
 
   // Gewinn berechnen
@@ -818,16 +931,96 @@ window.loadFahrzeugData = function () {
   const fahrzeugSelect = document.getElementById("handel-fahrzeug");
   const selectedId = fahrzeugSelect.value;
 
-  if (!selectedId) return;
+  // Fahrzeugdatenfelder
+  const kennzeichenField = document.getElementById("handel-kennzeichen");
+  const markeField = document.getElementById("handel-marke");
+  const modellField = document.getElementById("handel-modell");
+  const vinField = document.getElementById("handel-vin"); // 🎯 VIN-Feld
+  const baujahrField = document.getElementById("handel-baujahr");
+  const farbeField = document.getElementById("handel-farbe");
+  const kilometerstandField = document.getElementById("handel-kilometerstand");
+
+  if (!selectedId) {
+    // "Neu eingeben oder auswählen" gewählt → Felder leeren und aktivieren
+    console.log("🆕 Neues Fahrzeug eingeben - Felder werden geleert");
+
+    if (kennzeichenField) kennzeichenField.value = "";
+    if (markeField) markeField.value = "";
+    if (modellField) modellField.value = "";
+    if (vinField) vinField.value = ""; // 🎯 VIN leeren
+    if (baujahrField) baujahrField.value = "";
+    if (farbeField) farbeField.value = "";
+    if (kilometerstandField) kilometerstandField.value = "";
+
+    // Felder aktivieren (falls sie deaktiviert waren)
+    [
+      kennzeichenField,
+      markeField,
+      modellField,
+      vinField,
+      baujahrField,
+      farbeField,
+      kilometerstandField,
+    ].forEach((field) => {
+      if (field) {
+        field.disabled = false;
+        field.style.backgroundColor = "";
+        field.style.opacity = "1";
+        // Visueller Hinweis dass Felder editierbar sind
+        field.style.borderColor = "#3b82f6";
+        setTimeout(() => {
+          if (field) field.style.borderColor = "";
+        }, 2000);
+      }
+    });
+
+    // Fokus auf erstes Feld setzen
+    if (kennzeichenField) {
+      kennzeichenField.focus();
+    }
+
+    return;
+  }
+
+  // Existierendes Fahrzeug ausgewählt → Daten laden
+  console.log("🚗 Fahrzeugdaten laden für ID:", selectedId);
 
   const fahrzeug = availableFahrzeuge.find((f) => f.id == selectedId);
   if (fahrzeug) {
-    document.getElementById("handel-kennzeichen").value = fahrzeug.kennzeichen;
-    document.getElementById("handel-marke").value = fahrzeug.marke;
-    document.getElementById("handel-modell").value = fahrzeug.modell;
-    if (fahrzeug.baujahr) {
-      document.getElementById("handel-baujahr").value = fahrzeug.baujahr;
-    }
+    // Daten aus bestehendem Fahrzeug laden - INKLUSIVE VIN
+    if (kennzeichenField) kennzeichenField.value = fahrzeug.kennzeichen || "";
+    if (markeField) markeField.value = fahrzeug.marke || "";
+    if (modellField) modellField.value = fahrzeug.modell || "";
+    if (vinField) vinField.value = fahrzeug.vin || ""; // 🎯 VIN aus existierendem Fahrzeug laden
+    if (baujahrField) baujahrField.value = fahrzeug.baujahr || "";
+    if (farbeField) farbeField.value = fahrzeug.farbe || "";
+    if (kilometerstandField)
+      kilometerstandField.value = fahrzeug.kilometerstand || "";
+
+    // Visueller Hinweis dass Daten geladen wurden
+    [
+      kennzeichenField,
+      markeField,
+      modellField,
+      vinField,
+      baujahrField,
+      farbeField,
+      kilometerstandField,
+    ].forEach((field) => {
+      if (field && field.value) {
+        field.style.borderColor = "#10b981";
+        setTimeout(() => {
+          if (field) field.style.borderColor = "";
+        }, 2000);
+      }
+    });
+
+    console.log(
+      "✅ Fahrzeugdaten geladen:",
+      fahrzeug.kennzeichen,
+      "VIN:",
+      fahrzeug.vin
+    );
   }
 };
 
@@ -923,7 +1116,7 @@ window.saveFahrzeughandel = async function () {
   const submitButton = document.querySelector(
     "#fahrzeughandel-form .btn-primary"
   );
-  const submitText = document.getElementById("submit-text");
+  const submitText = document.getElementById("submit-text") || submitButton;
   const originalText = submitText.textContent;
 
   // Button-Status setzen
@@ -959,18 +1152,68 @@ window.saveFahrzeughandel = async function () {
 
     const result = await response.json();
 
-    showNotification(
-      editingHandelId
-        ? "Handelsgeschäft aktualisiert"
-        : "Handelsgeschäft erstellt",
-      "success"
-    );
+    // 🆕 Erfolgsmeldung mit Info über erstelltes Fahrzeug
+    let message = editingHandelId
+      ? "Handelsgeschäft aktualisiert"
+      : "Handelsgeschäft erstellt";
 
+    if (result.fahrzeug_erstellt) {
+      message += " (Fahrzeug automatisch erstellt)";
+    }
+
+    showNotification(message, "success");
+
+    // Modal schließen
     closeFahrzeughandelModal();
 
-    // Daten neu laden falls Funktion vorhanden
+    // 🎯 Fahrzeughandel-Daten neu laden
     if (typeof loadFahrzeughandel === "function") {
       await loadFahrzeughandel();
+    }
+
+    // 🆕 NEUE LOGIK: Fahrzeuge-Liste aktualisieren wenn neues Fahrzeug erstellt wurde
+    if (result.fahrzeug_erstellt) {
+      console.log("🔄 Fahrzeuge-Liste wird aktualisiert nach Neuerstellung");
+
+      // Globale Fahrzeuge-Liste aktualisieren
+      try {
+        if (typeof loadFahrzeuge === "function") {
+          await loadFahrzeuge();
+          console.log("✅ Fahrzeuge-Liste aktualisiert");
+        }
+
+        // Available Fahrzeuge für Dropdowns aktualisieren
+        if (typeof availableFahrzeuge !== "undefined") {
+          try {
+            const response = await fetch(
+              "/api/fahrzeughandel/options/fahrzeuge"
+            );
+            if (response.ok) {
+              availableFahrzeuge = await response.json();
+              console.log("✅ Dropdown-Fahrzeuge aktualisiert");
+            }
+          } catch (error) {
+            console.warn(
+              "Warnung: Dropdown-Fahrzeuge konnten nicht aktualisiert werden:",
+              error
+            );
+          }
+        }
+
+        // Zusätzliche Benachrichtigung
+        setTimeout(() => {
+          showNotification(
+            `Fahrzeug "${result.handelsgeschaeft?.kennzeichen}" ist jetzt in der Fahrzeuge-Sektion verfügbar`,
+            "info"
+          );
+        }, 1500);
+      } catch (error) {
+        console.warn(
+          "Warnung: Fahrzeuge-Liste konnte nicht aktualisiert werden:",
+          error
+        );
+        // Nicht kritisch - Benutzer kann manuell aktualisieren
+      }
     }
   } catch (error) {
     console.error("Fehler beim Speichern:", error);
@@ -1006,6 +1249,23 @@ window.deleteFahrzeughandel = async function (handelId, handelNr) {
   } catch (error) {
     console.error("Fehler beim Löschen:", error);
     showNotification(`Fehler beim Löschen: ${error.message}`, "error");
+  }
+};
+
+window.showNewVehicleInList = function (kennzeichen) {
+  // Zur Fahrzeuge-Sektion wechseln
+  if (typeof showSection === "function") {
+    showSection("fahrzeuge");
+
+    // Nach kurzer Verzögerung das neue Fahrzeug hervorheben
+    setTimeout(() => {
+      const searchInput = document.getElementById("fahrzeuge-search");
+      if (searchInput) {
+        searchInput.value = kennzeichen;
+        searchInput.dispatchEvent(new Event("input"));
+        searchInput.focus();
+      }
+    }, 500);
   }
 };
 
@@ -1049,6 +1309,22 @@ function showNotification(message, type = "info") {
     alert(message);
   }
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+  const fahrzeugSelect = document.getElementById("handel-fahrzeug");
+  if (fahrzeugSelect) {
+    // Enter-Taste auf Fahrzeug-Dropdown → Fokus auf Kennzeichen-Feld
+    fahrzeugSelect.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !this.value) {
+        e.preventDefault();
+        const kennzeichenField = document.getElementById("handel-kennzeichen");
+        if (kennzeichenField) {
+          kennzeichenField.focus();
+        }
+      }
+    });
+  }
+});
 
 // Modal-Schließen bei Escape oder Klick außerhalb
 document.addEventListener("keydown", (e) => {

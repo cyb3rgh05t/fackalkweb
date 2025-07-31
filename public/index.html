@@ -1493,7 +1493,12 @@
             </div>
 
             <div class="form-group">
-              <label for="handel-kunde" class="form-label">Kunde</label>
+              <label for="handel-kunde" class="form-label">
+                Kunde
+                <span style="color: #ef4444; font-size: 0.8em"
+                  >*bei neuen Fahrzeugen</span
+                >
+              </label>
               <select id="handel-kunde" class="form-select"></select>
             </div>
 
@@ -1519,10 +1524,19 @@
             <h3><i class="fas fa-car"></i> Fahrzeugdetails</h3>
             <div class="form-grid">
               <div class="form-group">
-                <label for="handel-vin" class="form-label"
-                  >Fahrzeug-Ident-Nr. (VIN)</label
-                >
-                <input type="text" id="handel-vin" class="form-input" />
+                <label for="handel-vin" class="form-label">
+                  VIN
+                  <span style="color: #ef4444; font-size: 0.8em"
+                    >*bei neuen Fahrzeugen</span
+                  >
+                </label>
+                <input
+                  type="text"
+                  id="handel-vin"
+                  class="form-input"
+                  maxlength="17"
+                  placeholder="17-stellige VIN"
+                />
               </div>
               <div class="form-group">
                 <label for="handel-kennzeichen" class="form-label"
@@ -1607,7 +1621,10 @@
                 <label for="handel-verkauft-an" class="form-label"
                   >Verkauft an</label
                 >
-                <input type="text" id="handel-verkauft-an" class="form-input" />
+                <select id="handel-verkauft-an" class="form-select">
+                  <option value="">Bitte wählen (optional)</option>
+                  <!-- Wird via JavaScript befüllt -->
+                </select>
               </div>
               <div class="form-group">
                 <label for="handel-status" class="form-label">Status</label>

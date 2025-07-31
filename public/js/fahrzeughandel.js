@@ -1,6 +1,8 @@
 // public/js/fahrzeughandel.js
 // JavaScript für Fahrzeug Ankauf/Verkauf Funktionalität
 
+import { apiCall } from "./utils.js";
+
 // Globaler State
 let fahrzeughandelData = [];
 let fahrzeughandelStats = {};
@@ -220,6 +222,15 @@ function updateFahrzeughandelTable() {
           })" title="Bearbeiten">
             <i class="fas fa-edit"></i>
           </button>
+          ${
+            geschaeft.typ === "verkauf"
+              ? `
+      <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); createRechnungFromHandel(${geschaeft.id})" title="Rechnung erstellen">
+        <i class="fas fa-file-invoice"></i>
+      </button>
+    `
+              : ""
+          }
           <button class="btn btn-sm btn-danger" onclick="deleteFahrzeughandel(${
             geschaeft.id
           }, '${geschaeft.handel_nr}')" title="Löschen">
@@ -233,6 +244,96 @@ function updateFahrzeughandelTable() {
     .join("");
 
   console.log(`✅ Tabelle aktualisiert: ${filteredData.length} Einträge`);
+}
+
+async function createRechnungFromHandel(handelId) {
+  try {
+    // 1. Handels-Datensatz abrufen (Verkaufsdetails)
+    const handel = await apiCall(`/api/fahrzeughandel/${handelId}`);
+    if (!handel || !handel.id) {
+      throw new Error(`Handelsgeschäft mit ID ${handelId} nicht gefunden`);
+    }
+    if (handel.typ !== "verkauf") {
+      throw new Error(
+        "Nur Verkäufe können in eine Rechnung umgewandelt werden"
+      );
+    }
+
+    // 2. Prüfen, ob ein gültiger Kunden-ID als Käufer vorliegt
+    const kundenId = parseInt(handel.verkauft_an);
+    if (isNaN(kundenId)) {
+      throw new Error(
+        "Für diesen Verkauf ist kein gültiger Kunde (Käufer) hinterlegt."
+      );
+    }
+    // (Hinweis: 'verkauft_an' ist eine Zeichenkette. Ist sie numerisch, so handelt es sich um eine Kunden-ID:contentReference[oaicite:7]{index=7}.)
+
+    // 3. Rechnungsposition(en) aus Verkaufsdaten erstellen
+    const mwstSatz = parseFloat(getSetting("mwst_satz", "19")) || 19;
+    const verkaufspreisBrutto = parseFloat(handel.verkaufspreis) || 0;
+    if (verkaufspreisBrutto <= 0) {
+      throw new Error(
+        "Kein Verkaufspreis vorhanden – Rechnung kann nicht erstellt werden."
+      );
+    }
+    // Nettopreis aus Brutto berechnen (z.B. bei 19% MwSt)
+    const nettopreis = verkaufspreisBrutto / (1 + mwstSatz / 100);
+    const nettopreisGerundet = parseFloat(nettopreis.toFixed(2));
+    // Position: Fahrzeugverkauf
+    const beschreibung = `Fahrzeugverkauf ${handel.marke} ${handel.modell}${
+      handel.kennzeichen ? " (" + handel.kennzeichen + ")" : ""
+    }`;
+    const rechnungsPositionen = [
+      {
+        kategorie: "ZUSATZ", // Kategorie festlegen (z.B. "ZUSATZ")
+        beschreibung: beschreibung,
+        menge: 1,
+        einheit: "Pauschal",
+        einzelpreis: nettopreisGerundet,
+        mwst_prozent: mwstSatz,
+        gesamt: nettopreisGerundet,
+      },
+    ];
+
+    // 4. Rechnungs-Datenobjekt zusammenstellen
+    const rechnungsData = {
+      // auftrag_id lassen wir weg (kein Auftrag, sondern Verkauf)
+      kunden_id: kundenId,
+      fahrzeug_id: handel.fahrzeug_id || null,
+      rechnungsdatum: new Date().toISOString().split("T")[0], // heutiges Datum
+      auftragsdatum: handel.datum, // Datum des Verkaufs
+      positionen: rechnungsPositionen,
+      rabatt_prozent: 0,
+      status: "offen",
+    };
+
+    // 5. Rechnung per API erstellen
+    const result = await apiCall("/api/rechnungen", "POST", rechnungsData);
+    console.log(
+      `📋 Rechnung aus Verkauf ${handel.handel_nr} erstellt:`,
+      result
+    );
+    showNotification(
+      `Rechnung ${result.rechnung_nr} erfolgreich aus Handelsgeschäft ${handel.handel_nr} erstellt`,
+      "success"
+    );
+
+    // 6. Verkauf als 'abgeschlossen' markieren, falls noch nicht geschehen
+    if (handel.status !== "abgeschlossen") {
+      handel.status = "abgeschlossen";
+      await apiCall(`/api/fahrzeughandel/${handelId}`, "PUT", handel);
+    }
+
+    // 7. Listen/Interface aktualisieren
+    await loadFahrzeughandel(); // Handels-Liste neu laden (z.B. Status-Änderung sichtbar)
+    showSection("rechnungen"); // zur Rechnungsübersicht wechseln
+  } catch (error) {
+    console.error("Fehler in createRechnungFromHandel:", error);
+    showNotification(
+      `Fehler beim Erstellen der Rechnung: ${error.message}`,
+      "error"
+    );
+  }
 }
 
 // Statistiken-Anzeige aktualisieren
@@ -1340,5 +1441,7 @@ document.addEventListener("click", (e) => {
     closeFahrzeughandelModal();
   }
 });
+
+window.createRechnungFromHandel = createRechnungFromHandel;
 
 console.log("✅ Fahrzeughandel-Modul geladen");

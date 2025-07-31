@@ -18,7 +18,8 @@
     "test-installation": "node scripts/test-installation.js",
     "backup": "node scripts/backup.js",
     "reset-db": "node scripts/setup.js --reset",
-    "setup-reset": "node scripts/setup.js --reset"
+    "setup-reset": "node scripts/setup.js --reset",
+    "setup-demo": "node scripts/setup.js --demo"
   },
   "dependencies": {
     "bcrypt": "^5.1.0",

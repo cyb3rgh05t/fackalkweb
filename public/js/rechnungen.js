@@ -77,15 +77,15 @@ export async function loadRechnungen() {
                 </td>
                 <td>${formatCurrency(rechnung.gesamtbetrag)}</td>
                 <td>
-                    <button class="btn btn-sm btn-secondary" onclick="viewRechnung(${
-                      rechnung.id
-                    })" title="Anzeigen">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-primary" onclick="editRechnung(${
+                    <button class="btn btn-sm btn-secondary" onclick="editRechnung(${
                       rechnung.id
                     })" title="Bearbeiten">
                         <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-primary" onclick="viewRechnung(${
+                      rechnung.id
+                    })" title="Anzeigen">
+                        <i class="fas fa-eye"></i>
                     </button>
                     <button class="btn btn-sm btn-success" onclick="printRechnung(${
                       rechnung.id

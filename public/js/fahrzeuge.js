@@ -15,7 +15,9 @@ export async function loadFahrzeuge() {
     tbody.innerHTML = window.fahrzeuge
       .map(
         (f) => `
-        <tr>
+        <tr onclick="viewFahrzeugDetails(${
+          f.id
+        })" style="cursor: pointer;" onmouseover="this.style.backgroundColor='var(--clr-surface-a10)'" onmouseout="this.style.backgroundColor=''">
           <td>
             <strong>${f.kennzeichen}</strong>
             ${
@@ -56,16 +58,16 @@ export async function loadFahrzeuge() {
                 : ""
             }
           </td>
-          <td>
-            <button class="btn btn-sm btn-secondary" onclick="viewFahrzeug(${
-              f.id
-            })" title="Details anzeigen">
-              <i class="fas fa-eye"></i>
-            </button>
-            <button class="btn btn-sm btn-primary" onclick="editFahrzeug(${
+          <td onclick="event.stopPropagation()">
+            <button class="btn btn-sm btn-secondary" onclick="editFahrzeug(${
               f.id
             })" title="Bearbeiten">
               <i class="fas fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-primary" onclick="viewFahrzeugDetails(${
+              f.id
+            })" title="Details anzeigen">
+              <i class="fas fa-eye"></i>
             </button>
             <button class="btn btn-sm btn-success" onclick="createAuftragForFahrzeug(${
               f.id
@@ -322,104 +324,155 @@ async function viewFahrzeugDetails(id) {
       (a, b) => new Date(b.datum) - new Date(a.datum)
     )[0];
     const gesamtAuftraege = fahrzeugAuftraege.length;
+    const offeneAuftraege = fahrzeugAuftraege.filter(
+      (a) => a.status === "offen" || a.status === "in-bearbeitung"
+    ).length;
     const gesamtUmsatz = fahrzeugRechnungen
       .filter((r) => r.status === "bezahlt")
       .reduce((sum, r) => sum + (r.gesamtbetrag || 0), 0);
 
-    const auftraegeHistoryHtml =
-      fahrzeugAuftraege
-        .sort((a, b) => new Date(b.datum) - new Date(a.datum))
-        .slice(0, 10)
-        .map(
-          (a) => `
-        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
-          <div style="display: flex; justify-content: space-between; align-items: start;">
-            <div>
-              <strong>${a.auftrag_nr}</strong><br>
-              <small>${formatDate(a.datum)}</small>
+    // Letzte Aufträge HTML (für die rechte Spalte)
+    const letzteAuftraegeHtml =
+      fahrzeugAuftraege.length > 0
+        ? fahrzeugAuftraege
+            .sort((a, b) => new Date(b.datum) - new Date(a.datum))
+            .slice(0, 5)
+            .map(
+              (a) => `
+            <div style="background: var(--clr-surface-a10); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; border-left: 3px solid var(--accent-primary);">
+              <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div>
+                  <strong>${a.auftrag_nr}</strong>
+                  <br><small style="color: var(--text-muted);">${formatDate(
+                    a.datum
+                  )}</small>
+                </div>
+                <div style="text-align: right;">
+                  <span class="status status-${a.status}">${a.status}</span>
+                  <br><small>${formatCurrency(a.gesamt_kosten || 0)}</small>
+                </div>
+              </div>
+              ${
+                a.bemerkungen
+                  ? `<div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">${a.bemerkungen}</div>`
+                  : ""
+              }
             </div>
-            <div style="text-align: right;">
-              <span class="status status-${a.status}">${a.status}</span><br>
-              <small>${formatCurrency(a.gesamt_kosten)}</small>
-            </div>
-          </div>
-          ${
-            a.bemerkungen
-              ? `<div style="margin-top: 0.5rem; color: var(--text-muted); font-size: 0.9em;">${a.bemerkungen}</div>`
-              : ""
-          }
-        </div>
-      `
-        )
-        .join("") ||
-      '<div style="color: var(--text-muted); font-style: italic;">Keine Aufträge vorhanden</div>';
+          `
+            )
+            .join("")
+        : `<div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+           <i class="fas fa-info-circle" style="font-size: 2rem; opacity: 0.5; margin-bottom: 1rem;"></i>
+           <div>Noch keine Aufträge für dieses Fahrzeug</div>
+         </div>`;
 
+    // Fahrzeugdaten HTML (für die linke Spalte)
+    const fahrzeugdatenHtml = `
+      <div style="background: var(--clr-surface-a10); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">Kennzeichen:</span>
+          <strong>${fahrzeug.kennzeichen || "-"}</strong>
+        </div>
+      </div>
+      <div style="background: var(--clr-surface-a10); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">Marke:</span>
+          <strong>${fahrzeug.marke || "-"}</strong>
+        </div>
+      </div>
+      <div style="background: var(--clr-surface-a10); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">Modell:</span>
+          <strong>${fahrzeug.modell || "-"}</strong>
+        </div>
+      </div>
+      <div style="background: var(--clr-surface-a10); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">Baujahr:</span>
+          <strong>${fahrzeug.baujahr || "-"}</strong>
+        </div>
+      </div>
+      <div style="background: var(--clr-surface-a10); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">VIN:</span>
+          <strong style="font-family: monospace; font-size: 0.9rem;">${
+            fahrzeug.vin || "-"
+          }</strong>
+        </div>
+      </div>
+      <div style="background: var(--clr-surface-a10); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">Farbe:</span>
+          <strong>${fahrzeug.farbe || "-"} ${
+      fahrzeug.farbcode ? `(${fahrzeug.farbcode})` : ""
+    }</strong>
+        </div>
+      </div>
+      <div style="background: var(--clr-surface-a10); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem;">
+        <div style="display: flex; justify-content: space-between;">
+          <span style="color: var(--text-muted);">Kunde:</span>
+          <strong>${fahrzeug.kunde_name || "-"}</strong>
+        </div>
+      </div>
+    `;
+
+    // MAIN CONTENT mit Grid-Layout wie beim Kundendetails-Modal
     const content = `
-      <div class="form-grid" style="margin-bottom: 2rem;">
-        <div class="form-group">
-          <label class="form-label">Kennzeichen:</label>
-          <div style="font-size: 1.2em; font-weight: bold; color: var(--accent-primary);">${
-            fahrzeug.kennzeichen
+      <!-- Grid-Layout wie im Screenshot -->
+      <div style="display: grid; grid-template-columns: auto auto; gap: 2rem; margin-bottom: 2rem;">
+        
+        <div>
+          <label class="form-label">Fahrzeug seit:</label>
+          <div>${
+            fahrzeug.erstellt_am
+              ? new Date(fahrzeug.erstellt_am).toLocaleDateString("de-DE")
+              : "-"
           }</div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Fahrzeug:</label>
-          <div><strong>${fahrzeug.marke} ${fahrzeug.modell}</strong></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Besitzer:</label>
-          <div>${fahrzeug.kunde_name}</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Baujahr:</label>
-          <div>${fahrzeug.baujahr || "Nicht angegeben"}</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">VIN:</label>
-          <div style="font-family: monospace; word-break: break-all;">${
-            fahrzeug.vin || "Nicht angegeben"
+        <div>
+          <label class="form-label">Letzter Auftrag:</label>
+          <div>${
+            letzterAuftrag
+              ? formatDate(letzterAuftrag.datum)
+              : "Noch kein Auftrag"
           }</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Farbe:</label>
-          <div>
-            ${fahrzeug.farbe || "Nicht angegeben"}
-            ${
-              fahrzeug.farbcode
-                ? `<br><small style="font-family: monospace; color: var(--text-muted);">Code: ${fahrzeug.farbcode}</small>`
-                : ""
-            }
-          </div>
         </div>
       </div>
       
-      <!-- Statistiken -->
+      <!-- Statistiken (wie im Kundendetails) -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
         <div style="background: var(--accent-primary); color: white; padding: 1rem; border-radius: 8px; text-align: center;">
           <div style="font-size: 1.5rem; font-weight: bold;">${gesamtAuftraege}</div>
-          <div style="font-size: 0.9rem; opacity: 0.9;">Aufträge gesamt</div>
+          <div style="font-size: 0.9rem; opacity: 0.9;">Aufträge</div>
+        </div>
+        <div style="background: var(--accent-danger); color: white; padding: 1rem; border-radius: 8px; text-align: center;">
+          <div style="font-size: 1.5rem; font-weight: bold;">${offeneAuftraege}</div>
+          <div style="font-size: 0.9rem; opacity: 0.9;">Offene Aufträge</div>
         </div>
         <div style="background: var(--accent-success); color: white; padding: 1rem; border-radius: 8px; text-align: center;">
-          <div style="font-size: 1.2rem; font-weight: bold;">${formatCurrency(
-            gesamtUmsatz
-          )}</div>
+          <div style="font-size: 1.2rem; font-weight: bold;">${new Intl.NumberFormat(
+            "de-DE",
+            { style: "currency", currency: "EUR" }
+          ).format(gesamtUmsatz)}</div>
           <div style="font-size: 0.9rem; opacity: 0.9;">Gesamtumsatz</div>
         </div>
         <div style="background: var(--accent-warning); color: white; padding: 1rem; border-radius: 8px; text-align: center;">
-          <div style="font-size: 1rem; font-weight: bold;">${
-            letzterAuftrag ? formatDate(letzterAuftrag.datum) : "Nie"
+          <div style="font-size: 1.2rem; font-weight: bold;">${
+            fahrzeug.baujahr || "???"
           }</div>
-          <div style="font-size: 0.9rem; opacity: 0.9;">Letzter Service</div>
+          <div style="font-size: 0.9rem; opacity: 0.9;">Baujahr</div>
         </div>
       </div>
       
-      <!-- Servicehistorie -->
-      <div>
-        <h4 style="margin-bottom: 1rem;">
-          <i class="fas fa-history"></i> Servicehistorie
-        </h4>
-        <div style="max-height: 300px; overflow-y: auto;">
-          ${auftraegeHistoryHtml}
+      <!-- Zwei-Spalten Layout für Fahrzeugdaten und Letzte Aufträge -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <div>
+          <h4><i class="fas fa-car"></i> Fahrzeugdaten</h4>
+          ${fahrzeugdatenHtml}
+        </div>
+        <div>
+          <h4><i class="fas fa-history"></i> Letzte Aufträge</h4>
+          ${letzteAuftraegeHtml}
         </div>
       </div>
     `;
@@ -437,8 +490,10 @@ async function viewFahrzeugDetails(id) {
     createModal(`Fahrzeugdetails: ${fahrzeug.kennzeichen}`, content, footer);
   } catch (error) {
     showNotification("Fehler beim Laden der Fahrzeugdetails", "error");
+    console.error("Fehler:", error);
   }
 }
+window.viewFahrzeugDetails = viewFahrzeugDetails;
 
 window.deleteFahrzeug = async function (id) {
   const fahrzeug = window.fahrzeuge.find((f) => f.id === id);

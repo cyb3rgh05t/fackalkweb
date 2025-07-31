@@ -10,19 +10,48 @@ export async function loadKunden() {
     tbody.innerHTML = window.kunden
       .map(
         (k) => `
-        <tr>
-          <td>${k.kunden_nr}</td>
-          <td>${k.name}</td>
-          <td>${k.strasse || ""} ${k.plz || ""} ${k.ort || ""}</td>
-          <td>${k.telefon || "-"}</td>
-          <td>${k.email || "-"}</td>
+        <tr onclick="viewKundenDetails(${
+          k.id
+        })" style="cursor: pointer;" onmouseover="this.style.backgroundColor='var(--clr-surface-a10)'" onmouseout="this.style.backgroundColor=''">
           <td>
+            <strong>${k.kunden_nr}</strong>
+          </td>
+          <td>
+            <strong>${k.name}</strong>
+          </td>
+          <td>
+            <div>${k.strasse || ""}</div>
+            ${
+              k.plz || k.ort
+                ? `<small style="color: var(--text-muted);">${k.plz || ""} ${
+                    k.ort || ""
+                  }</small>`
+                : ""
+            }
+          </td>
+          <td>
+            <div>${k.telefon || "-"}</div>
+            ${
+              k.telefon
+                ? `<small style="color: var(--text-muted);">Tel</small>`
+                : ""
+            }
+          </td>
+          <td>
+            <div>${k.email || "-"}</div>
+            ${
+              k.email
+                ? `<small style="color: var(--text-muted);">E-Mail</small>`
+                : ""
+            }
+          </td>
+          <td onclick="event.stopPropagation()">
             <button class="btn btn-sm btn-secondary" onclick="editKunde(${
               k.id
             })" title="Bearbeiten">
               <i class="fas fa-edit"></i>
             </button>
-            <button class="btn btn-sm btn-primary" onclick="viewKunde(${
+            <button class="btn btn-sm btn-primary" onclick="viewKundenDetails(${
               k.id
             })" title="Details anzeigen">
               <i class="fas fa-eye"></i>
@@ -249,7 +278,7 @@ window.saveKunde = async function (kundeId = null) {
   }
 };
 
-async function viewKundenDetails(id) {
+window.viewKundenDetails = async function (id) {
   try {
     const kunde = await apiCall(`/api/kunden/${id}`);
     const fahrzeuge = await apiCall(`/api/fahrzeuge?kunden_id=${id}`);
@@ -262,7 +291,7 @@ async function viewKundenDetails(id) {
 
     // Statistiken berechnen
     const offeneAuftraege = kundenAuftraege.filter(
-      (a) => a.status === "offen"
+      (a) => a.status === "offen" || a.status === "in-bearbeitung"
     ).length;
     const offeneRechnungen = kundenRechnungen.filter(
       (r) => r.status === "offen"
@@ -271,68 +300,120 @@ async function viewKundenDetails(id) {
       .filter((r) => r.status === "bezahlt")
       .reduce((sum, r) => sum + (r.gesamtbetrag || 0), 0);
 
+    // Fahrzeuge HTML (für die linke Spalte)
     const fahrzeugeHtml =
       fahrzeuge.length > 0
         ? fahrzeuge
             .map(
               (f) => `
-        <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; margin-bottom: 0.5rem;">
-          <strong>${f.kennzeichen}</strong> - ${f.marke} ${f.modell}<br>
-          <small>${f.vin ? `VIN: ${f.vin} | ` : ""}${
-                f.farbe || "Farbe nicht angegeben"
+        <div style="background: var(--clr-surface-a10); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; border-left: 3px solid var(--accent-primary);">
+          <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+              <strong>${f.kennzeichen}</strong>
+              <br><small style="color: var(--text-muted);">${f.marke} ${
+                f.modell
               }</small>
+            </div>
+            <div style="text-align: right;">
+              <small style="color: var(--text-muted);">${
+                f.baujahr || "Baujahr unbekannt"
+              }</small>
+              ${
+                f.farbe
+                  ? `<br><small style="color: var(--text-secondary);">${f.farbe}</small>`
+                  : ""
+              }
+            </div>
+          </div>
+          ${
+            f.vin
+              ? `<div style="margin-top: 0.5rem; font-size: 0.8rem; color: var(--text-secondary); font-family: monospace;">VIN: ${f.vin}</div>`
+              : ""
+          }
         </div>
       `
             )
             .join("")
-        : '<div style="color: var(--text-muted); font-style: italic;">Keine Fahrzeuge registriert</div>';
+        : `<div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+           <i class="fas fa-car" style="font-size: 2rem; opacity: 0.5; margin-bottom: 1rem;"></i>
+           <div>Noch keine Fahrzeuge registriert</div>
+         </div>`;
 
+    // Letzte Aufträge HTML (für die rechte Spalte)
     const letzteAuftraegeHtml =
-      kundenAuftraege
-        .slice(0, 5)
-        .map(
-          (a) => `
-      <div style="background: var(--bg-tertiary); padding: 0.5rem; border-radius: 4px; margin-bottom: 0.25rem; display: flex; justify-content: space-between;">
-        <span>${a.auftrag_nr} - ${new Date(a.datum).toLocaleDateString(
-            "de-DE"
-          )}</span>
-        <span class="status status-${a.status}">${a.status}</span>
-      </div>
-    `
-        )
-        .join("") ||
-      '<div style="color: var(--text-muted); font-style: italic;">Keine Aufträge vorhanden</div>';
+      kundenAuftraege.length > 0
+        ? kundenAuftraege
+            .sort((a, b) => new Date(b.datum) - new Date(a.datum))
+            .slice(0, 5)
+            .map(
+              (a) => `
+        <div style="background: var(--clr-surface-a10); padding: 0.75rem; border-radius: 6px; margin-bottom: 0.5rem; border-left: 3px solid var(--accent-primary);">
+          <div style="display: flex; justify-content: space-between; align-items: start;">
+            <div>
+              <strong>${a.auftrag_nr}</strong>
+              <br><small style="color: var(--text-muted);">${new Date(
+                a.datum
+              ).toLocaleDateString("de-DE")}</small>
+            </div>
+            <div style="text-align: right;">
+              <span class="status status-${a.status}">${a.status}</span>
+              <br><small>${new Intl.NumberFormat("de-DE", {
+                style: "currency",
+                currency: "EUR",
+              }).format(a.gesamt_kosten || 0)}</small>
+            </div>
+          </div>
+          ${
+            a.bemerkungen
+              ? `<div style="margin-top: 0.5rem; font-size: 0.85rem; color: var(--text-secondary);">${a.bemerkungen}</div>`
+              : ""
+          }
+        </div>
+      `
+            )
+            .join("")
+        : `<div style="text-align: center; color: var(--text-muted); padding: 2rem;">
+           <i class="fas fa-info-circle" style="font-size: 2rem; opacity: 0.5; margin-bottom: 1rem;"></i>
+           <div>Noch keine Aufträge vorhanden</div>
+         </div>`;
 
+    // MAIN CONTENT - EXAKT wie im Screenshot mit Grid-Layout
     const content = `
-      <div class="form-grid" style="margin-bottom: 2rem;">
-        <div class="form-group">
-          <label class="form-label">Kunden-Nr.:</label>
-          <div>${kunde.kunden_nr}</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Name:</label>
-          <div><strong>${kunde.name}</strong></div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Adresse:</label>
-          <div>${kunde.strasse || ""}<br>${kunde.plz || ""} ${
-      kunde.ort || ""
-    }</div>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Kontakt:</label>
+      <!-- Grid-Layout wie im Screenshot -->
+      <div style="display: grid; grid-template-columns: auto auto; gap: 2rem; margin-bottom: 2rem;">
+        <div>
+          <div style="margin-bottom: 1.5rem;">
+            <label class="form-label">Kunden-Nr.:</label>
+            <div>${kunde.kunden_nr}</div>
+          </div>
           <div>
-            ${kunde.telefon ? `Tel: ${kunde.telefon}<br>` : ""}
-            ${kunde.email ? `E-Mail: ${kunde.email}` : ""}
+          <label class="form-label">Adresse:</label>
+          <div>
+            ${kunde.strasse || ""}<br>
+            ${kunde.plz || ""} ${kunde.ort || ""}
           </div>
         </div>
-        <div class="form-group">
+        </div>
+        <div>
+          <div style="margin-bottom: 1.5rem;">
+            <label class="form-label">Name:</label>
+            <div><strong>${kunde.name}</strong></div>
+          </div>
+          <div>
+            <label class="form-label">Kontakt:</label>
+            <div>
+              ${kunde.telefon ? `Tel: ${kunde.telefon}<br>` : ""}
+              ${kunde.email ? `E-Mail: ${kunde.email}` : ""}
+            </div>
+          </div>
+        </div>
+        <div>
           <label class="form-label">Kunde seit:</label>
           <div>${new Date(kunde.erstellt_am).toLocaleDateString("de-DE")}</div>
         </div>
       </div>
       
-      <!-- Statistiken -->
+      <!-- Statistiken (wie im Kundendetails) -->
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
         <div style="background: var(--accent-primary); color: white; padding: 1rem; border-radius: 8px; text-align: center;">
           <div style="font-size: 1.5rem; font-weight: bold;">${
@@ -357,13 +438,14 @@ async function viewKundenDetails(id) {
         </div>
       </div>
       
+      <!-- Zwei-Spalten Layout für Fahrzeuge und Letzte Aufträge -->
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
         <div>
-          <h4>Fahrzeuge</h4>
+          <h4><i class="fas fa-car"></i> Fahrzeuge</h4>
           ${fahrzeugeHtml}
         </div>
         <div>
-          <h4>Letzte Aufträge</h4>
+          <h4><i class="fas fa-history"></i> Letzte Aufträge</h4>
           ${letzteAuftraegeHtml}
         </div>
       </div>
@@ -382,8 +464,9 @@ async function viewKundenDetails(id) {
     createModal(`Kundendetails: ${kunde.name}`, content, footer);
   } catch (error) {
     showNotification("Fehler beim Laden der Kundendetails", "error");
+    console.error("Fehler:", error);
   }
-}
+};
 
 window.deleteKunde = async function (id) {
   const kunde = window.kunden.find((k) => k.id === id);

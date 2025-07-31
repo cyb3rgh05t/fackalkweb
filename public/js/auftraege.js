@@ -39,7 +39,7 @@ async function loadAuftraege() {
           <td>${formatCurrency(auftrag.gesamt_kosten)}</td>
           <td>
             <div class="btn-group">
-              <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); editAuftrag(${
+              <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editAuftrag(${
                 auftrag.id
               })">
                 <i class="fas fa-edit"></i>
@@ -1469,9 +1469,18 @@ async function viewAuftrag(id) {
         <div class="form-group"><label class="form-label">Datum:</label><div>${formatDate(
           auftrag.datum
         )}</div></div>
-        <div class="form-group"><label class="form-label">Status:</label><div><span class="status status-${
-          auftrag.status
-        }">${auftrag.status}</span></div></div>
+        <div class="form-group"><label class="form-label">Status:</label><div><span class="status status-${auftrag.status.replace(
+          "_",
+          "-"
+        )}">${
+      auftrag.status === "in_bearbeitung"
+        ? "In Bearbeitung"
+        : auftrag.status === "offen"
+        ? "Offen"
+        : auftrag.status === "abgeschlossen"
+        ? "Abgeschlossen"
+        : auftrag.status
+    }</span></div></div>
         <div class="form-group"><label class="form-label">Netto:</label><div>${formatCurrency(
           auftrag.gesamt_kosten
         )}</div></div>

@@ -1605,11 +1605,14 @@ window.saveRechnung = async function (rechnungId = null) {
   // 2. HTML5-VALIDIERUNG PRÜFEN
   if (!form.checkValidity()) {
     console.warn("❌ HTML5-Validierung fehlgeschlagen");
+
+    // Zeige Fehlermeldungen an
     const firstInvalidElement = form.querySelector(":invalid");
     if (firstInvalidElement) {
       firstInvalidElement.focus();
       firstInvalidElement.reportValidity();
     }
+
     showNotification("Bitte füllen Sie alle Pflichtfelder aus", "error");
     return;
   }
@@ -1617,147 +1620,113 @@ window.saveRechnung = async function (rechnungId = null) {
   // 3. FORMDATA SAMMELN
   const formData = new FormData(form);
 
-  // 4. KUNDEN UND FAHRZEUG VALIDIERUNG
-  const kundenId = parseInt(formData.get("kunden_id"));
-  const fahrzeugId = parseInt(formData.get("fahrzeug_id"));
-  const rechnungsdatum = formData.get("rechnungsdatum");
+  // 4. Button-Referenz und originalText RICHTIG definieren
+  const saveButton = document.querySelector('button[onclick*="saveRechnung"]');
+  let originalText = null; // ✅ WICHTIG: Hier richtig deklarieren
 
-  let errors = [];
-  if (!kundenId || isNaN(kundenId)) {
+  if (saveButton) {
+    originalText = saveButton.textContent; // ✅ Text vor Änderung speichern
+  }
+
+  // 5. VALIDIERUNG
+  const errors = [];
+
+  // Kunde validieren
+  const kundenId = parseInt(formData.get("kunden_id"));
+  if (!kundenId || kundenId <= 0) {
     errors.push("Bitte wählen Sie einen Kunden aus");
+    markFieldAsError("kunden_id", "Kunde ist erforderlich");
   }
-  if (!fahrzeugId || isNaN(fahrzeugId)) {
+
+  // Fahrzeug validieren
+  const fahrzeugId = parseInt(formData.get("fahrzeug_id"));
+  if (!fahrzeugId || fahrzeugId <= 0) {
     errors.push("Bitte wählen Sie ein Fahrzeug aus");
+    markFieldAsError("fahrzeug_id", "Fahrzeug ist erforderlich");
   }
+
+  // Rechnungsdatum validieren
+  const rechnungsdatum = formData.get("rechnungsdatum");
   if (!rechnungsdatum) {
     errors.push("Rechnungsdatum ist erforderlich");
+    markFieldAsError("rechnungsdatum", "Datum ist erforderlich");
   }
 
-  // 5. POSITIONEN SAMMELN
+  // Positionen sammeln und validieren
   const positionen = [];
   const tbody = document.getElementById("positionen-tbody");
-  if (!tbody) {
-    errors.push("Positionen-Tabelle nicht gefunden");
-  } else {
-    Array.from(tbody.children).forEach((row, index) => {
-      const beschreibung = formData.get(`beschreibung_${index}`)?.trim();
-      const menge = parseFloat(formData.get(`menge_${index}`)) || 0;
-      const einheit = formData.get(`einheit_${index}`) || "Stk.";
-      const einzelpreis = parseFloat(formData.get(`einzelpreis_${index}`)) || 0;
-      const mwst_prozent = parseInt(formData.get(`mwst_${index}`)) || 19;
-      const gesamt = parseFloat(formData.get(`gesamt_${index}`)) || 0;
 
-      if (beschreibung && (menge > 0 || gesamt > 0)) {
+  if (tbody) {
+    Array.from(tbody.children).forEach((row, index) => {
+      const beschreibung =
+        row
+          .querySelector(`input[name="beschreibung_${index}"]`)
+          ?.value?.trim() || "";
+      const menge =
+        parseFloat(row.querySelector(`input[name="menge_${index}"]`)?.value) ||
+        0;
+      const einheit =
+        row.querySelector(`input[name="einheit_${index}"]`)?.value?.trim() ||
+        "Stk.";
+      const einzelpreis =
+        parseFloat(
+          row.querySelector(`input[name="einzelpreis_${index}"]`)?.value
+        ) || 0;
+      const mwstProzent =
+        parseInt(row.querySelector(`select[name="mwst_${index}"]`)?.value) ||
+        19;
+      const gesamt =
+        parseFloat(row.querySelector(`input[name="gesamt_${index}"]`)?.value) ||
+        0;
+
+      if (beschreibung && menge > 0) {
         positionen.push({
-          kategorie: "POSITION",
           beschreibung,
           menge,
           einheit,
           einzelpreis,
-          mwst_prozent,
+          mwst_prozent: mwstProzent,
           gesamt,
         });
       }
     });
-
-    if (positionen.length === 0) {
-      errors.push("Mindestens eine Position muss ausgefüllt werden");
-    }
   }
 
-  // 6. FEHLER ANZEIGEN
+  // Mindestens eine Position erforderlich
+  if (positionen.length === 0) {
+    errors.push(
+      "Mindestens eine Position mit Beschreibung und Menge > 0 ist erforderlich"
+    );
+  }
+
+  // 6. FEHLER ANZEIGEN FALLS VORHANDEN
   if (errors.length > 0) {
     console.error("❌ Validierungsfehler:", errors);
     showNotification(`Validierungsfehler:\n• ${errors.join("\n• ")}`, "error");
     return;
   }
 
-  // 7. HILFSFUNKTION: Deutsche Zahlen korrekt parsen
-  function parseGermanCurrency(text) {
-    if (!text) return 0;
-
-    // "4.319,70 €" → "4319.70"
-    return (
-      parseFloat(
-        text
-          .replace(/[^\d,.-]/g, "") // Alles außer Ziffern, Komma, Punkt, Minus entfernen → "4.319,70"
-          .replace(/\./g, "") // Punkte entfernen (Tausendertrennzeichen) → "4319,70"
-          .replace(",", ".") // Komma durch Punkt ersetzen (Dezimaltrennzeichen) → "4319.70"
-      ) || 0
-    );
-  }
-
-  // 8. ANZAHLUNGSFELDER SAMMELN - MIT KORREKTER ZAHLENFORMATIERUNG
-  let anzahlung = 0;
-  let restbetrag = 0;
-  let anzahlung_aktiv = false;
-  let finalStatus = formData.get("status") || "offen";
-
-  // Anzahlung-Input mit korrektem Selector
-  const anzahlungInput = document.querySelector("#anzahlung-betrag");
-
-  if (anzahlungInput && anzahlungInput.value) {
-    anzahlung = parseFloat(anzahlungInput.value) || 0;
-    anzahlung_aktiv = anzahlung > 0;
-
-    // Gesamtbetrag mit deutscher Zahlenformatierung parsen
-    const gesamtbetragElement = document.getElementById("gesamtbetrag");
-    let gesamtbetrag = 0;
-
-    if (gesamtbetragElement) {
-      gesamtbetrag = parseGermanCurrency(gesamtbetragElement.textContent);
-    }
-
-    // Restbetrag berechnen
-    restbetrag = Math.max(0, gesamtbetrag - anzahlung);
-
-    // Status automatisch setzen basierend auf Anzahlung
-    if (anzahlung > 0) {
-      if (anzahlung >= gesamtbetrag) {
-        finalStatus = "bezahlt";
-      } else {
-        finalStatus = "teilbezahlt";
-      }
-    }
-
-    console.log("💰 Anzahlungsberechnung (korrekt):", {
-      anzahlung,
-      gesamtbetrag,
-      restbetrag,
-      anzahlung_aktiv,
-      finalStatus,
-      originalGesamtbetragText: gesamtbetragElement?.textContent,
-    });
-  }
-
-  // 9. DATEN-OBJEKT ERSTELLEN
+  // 7. DATEN-OBJEKT ERSTELLEN
   const data = {
     kunden_id: kundenId,
     fahrzeug_id: fahrzeugId,
     rechnungsdatum,
     auftragsdatum: formData.get("auftragsdatum") || null,
     rabatt_prozent: parseFloat(formData.get("rabatt_prozent")) || 0,
-    status: finalStatus, // ✅ Automatisch berechneter Status verwenden
+    status: formData.get("status") || "offen",
     zahlungsbedingungen: formData.get("zahlungsbedingungen")?.trim() || "",
     gewaehrleistung: formData.get("gewaehrleistung")?.trim() || "",
     rechnungshinweise: formData.get("rechnungshinweise")?.trim() || "",
-    skonto_aktiv: formData.get("skonto_aktiv") === "on",
-    skonto_betrag: 0,
-    // ✅ ANZAHLUNGSFELDER MIT KORREKTEN WERTEN
-    anzahlung: anzahlung,
-    restbetrag: restbetrag,
-    anzahlung_aktiv: anzahlung_aktiv,
+    skonto_aktiv: formData.get("skonto_aktiv") === "on", // NEU: Skonto-Checkbox
+    skonto_betrag: 0, // NEU: Placeholder für Skonto-Betrag
     positionen,
   };
 
-  console.log("📋 Rechnungsdaten mit korrigierter Anzahlung:", data);
+  console.log("📋 Rechnungsdaten:", data);
 
-  // 10. SPEICHERN
+  // 8. SPEICHERN MIT LOADING-INDIKATOR
   try {
-    const saveButton = document.querySelector(
-      'button[onclick*="saveRechnung"]'
-    );
-    const originalText = saveButton?.textContent;
+    // Loading-Zustand anzeigen
     if (saveButton) {
       saveButton.disabled = true;
       saveButton.innerHTML =
@@ -1784,15 +1753,14 @@ window.saveRechnung = async function (rechnungId = null) {
       "error"
     );
   } finally {
-    const saveButton = document.querySelector(
-      'button[onclick*="saveRechnung"]'
-    );
+    // ✅ Loading-Zustand zurücksetzen - jetzt mit korrekt definiertem originalText
     if (saveButton && originalText) {
       saveButton.disabled = false;
       saveButton.textContent = originalText;
     }
   }
 };
+
 // Feld als fehlerhaft markieren
 function markFieldAsError(fieldName, message) {
   const field = document.querySelector(`[name="${fieldName}"]`);

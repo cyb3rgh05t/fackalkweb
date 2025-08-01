@@ -809,6 +809,8 @@ class DatabaseManager {
           anzahlung_datum DATE,
           restbetrag DECIMAL(10,2) DEFAULT 0,
           anzahlung_aktiv INTEGER DEFAULT 0,
+          skonto_aktiv BOOLEAN DEFAULT 0,
+          skonto_betrag DECIMAL(10,2) DEFAULT 0,
           zahlungsbedingungen TEXT,
           gewaehrleistung TEXT,
           rechnungshinweise TEXT DEFAULT '',

@@ -95,25 +95,26 @@ const Rechnung = {
     }),
 
   /**
-   * Neue Rechnung erstellen
+   * Neue Rechnung erstellen - KORRIGIERTE VERSION
    * @param {Object} data - Rechnungsdaten
    * @returns {Promise<Object>} Erstellte Rechnung mit ID und Nummer
    */
   create: (data) =>
     new Promise((resolve, reject) => {
+      // Nächste Rechnungsnummer generieren
       Rechnung._getNextRechnungNr()
         .then((rechnung_nr) => {
           const stmt = db.prepare(`
-            INSERT INTO rechnungen (
-              rechnung_nr, auftrag_id, kunden_id, fahrzeug_id,
-              rechnungsdatum, auftragsdatum, status,
-              zwischensumme, rabatt_prozent, rabatt_betrag,
-              netto_nach_rabatt, mwst_19, mwst_7, gesamtbetrag,
-              zahlungsbedingungen, gewaehrleistung, rechnungshinweise,
-              skonto_aktiv, skonto_betrag,
-              anzahlung_betrag, anzahlung_datum, restbetrag, anzahlung_aktiv
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `);
+          INSERT INTO rechnungen (
+            rechnung_nr, auftrag_id, kunden_id, fahrzeug_id, 
+            rechnungsdatum, auftragsdatum, status,
+            zwischensumme, rabatt_prozent, rabatt_betrag, 
+            netto_nach_rabatt, mwst_19, mwst_7, gesamtbetrag,
+            anzahlung_betrag, anzahlung_datum, restbetrag, anzahlung_aktiv,
+            skonto_aktiv, skonto_betrag,
+            zahlungsbedingungen, gewaehrleistung, rechnungshinweise
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `);
 
           stmt.run(
             [
@@ -131,15 +132,18 @@ const Rechnung = {
               parseFloat(data.mwst_19) || 0,
               parseFloat(data.mwst_7) || 0,
               parseFloat(data.gesamtbetrag) || 0,
+              // FEHLENDE SPALTEN HINZUGEFÜGT:
+              parseFloat(data.anzahlung_betrag) || 0,
+              data.anzahlung_datum || null,
+              parseFloat(data.restbetrag) || parseFloat(data.gesamtbetrag) || 0,
+              data.anzahlung_aktiv ? 1 : 0,
+              // SKONTO-SPALTEN:
+              data.skonto_aktiv ? 1 : 0,
+              parseFloat(data.skonto_betrag) || 0,
+              // TEXT-FELDER:
               data.zahlungsbedingungen || "",
               data.gewaehrleistung || "",
               data.rechnungshinweise || "",
-              data.skonto_aktiv ? 1 : 0,
-              parseFloat(data.skonto_betrag) || 0,
-              parseFloat(data.anzahlung_betrag) || 0, // NEU: Anzahlung
-              parseFloat(data.restbetrag) || 0, // NEU: Restbetrag
-              data.anzahlung_datum || null,
-              data.anzahlung_aktiv ? 1 : 0, // NEU: Anzahlung aktiv
             ],
             function (err) {
               if (err) {

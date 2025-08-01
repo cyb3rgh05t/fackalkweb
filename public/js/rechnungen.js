@@ -46,8 +46,23 @@ export async function loadRechnungen() {
       return;
     }
 
+    function addAnzahlungsInfoToRow(rechnung) {
+      if (rechnung.anzahlung_betrag > 0) {
+        return `
+      <div class="anzahlung-info" style="font-size: 0.9em; color: var(--primary); margin-top: 0.25rem;">
+        💰 Anzahlung: ${formatCurrency(rechnung.anzahlung_betrag)}
+        ${
+          rechnung.restbetrag > 0
+            ? `<br>⏳ Restbetrag: ${formatCurrency(rechnung.restbetrag)}`
+            : ""
+        }
+      </div>
+    `;
+      }
+      return "";
+    }
+
     // Komplett neue HTML generieren
-    // <tr onclick="viewRechnung(${rechnung.id})" style="cursor: pointer;" title="Klicken zum Anzeigen">
     const newTableHTML = window.rechnungen
       .map(
         (rechnung) => `
@@ -213,6 +228,10 @@ window.viewRechnung = viewRechnung;
 window.deleteRechnung = deleteRechnung;
 window.updateRechnungStatus = updateRechnungStatus;
 window.printRechnung = printRechnung;
+window.calculateAnzahlung = calculateAnzahlung;
+window.toggleAnzahlungSection = toggleAnzahlungSection;
+window.quickAnzahlungUpdate = quickAnzahlungUpdate;
+window.updateAnzahlung = updateAnzahlung;
 
 export async function showRechnungModal(rechnungId = null) {
   if (!window.kunden || window.kunden.length === 0) {
@@ -575,41 +594,127 @@ function displayRechnungModal(rechnung = null) {
     </div>
   </div>
 
-  ${
-    skontoTage && skontoProzent
-      ? `
-  <h3 style="margin: 2rem 0 1rem 0; color: var(--accent-primary); display: flex; align-items: center; gap: 0.5rem;">
-    <i class="fas fa-percentage"></i>
-    Skonto-Option für diese Rechnung
-  </h3>
-  <div class="zuschlag-container">
-    <div class="zuschlag-card">
-      <div class="zuschlag-checkbox-container">
-        <input type="checkbox" 
-               id="skonto_aktiv" 
-               name="skonto_aktiv" 
-               class="zuschlag-checkbox"
-               ${rechnung?.skonto_aktiv ? "checked" : ""} 
-               onchange="updateSkontoText()">
-        <label for="skonto_aktiv" class="zuschlag-label">
-          <div class="zuschlag-icon">
-            <i class="fas fa-percentage"></i>
+  <!-- 🎨 NEUE SKONTO & ANZAHLUNG CARDS -->
+  <div class="payment-options-container" style="margin-top: 2rem;">
+    <h3 style="margin-bottom: 1.5rem; color: #007bff;">💳 Zahlungsoptionen</h3>
+    
+    <div class="options-grid">
+      <!-- 🏷️ SKONTO CARD -->
+      ${
+        skontoTage && skontoProzent
+          ? `
+      <div class="option-card skonto-card">
+        <div class="option-checkbox-container">
+          <input type="checkbox" 
+                 id="skonto_aktiv" 
+                 name="skonto_aktiv" 
+                 class="option-checkbox"
+                 ${rechnung?.skonto_aktiv ? "checked" : ""} 
+                 onchange="toggleSkontoSection(); updateSkontoText();">
+          <label for="skonto_aktiv" class="option-label">
+            <div class="option-icon skonto">
+              <i class="fas fa-percentage"></i>
+            </div>
+            <div class="option-content">
+              <div class="option-title">Skonto</div>
+              <div class="option-amount">${skontoProzent}% in ${skontoTage} Tagen</div>
+              <div class="option-description">Frühzahlerrabatt verfügbar</div>
+            </div>
+            <div class="option-toggle">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+      </div>
+      `
+          : ""
+      }
+
+      <!-- 💰 ANZAHLUNG CARD -->
+      <div class="option-card anzahlung-card">
+        <div class="option-checkbox-container">
+          <input type="checkbox" 
+                 id="anzahlung_aktiv" 
+                 name="anzahlung_aktiv" 
+                 class="option-checkbox"
+                 ${rechnung?.anzahlung_betrag > 0 ? "checked" : ""} 
+                 onchange="toggleAnzahlungSection(); calculateAnzahlung();">
+          <label for="anzahlung_aktiv" class="option-label">
+            <div class="option-icon anzahlung">
+              <i class="fas fa-coins"></i>
+            </div>
+            <div class="option-content">
+              <div class="option-title">Anzahlung</div>
+              <div class="option-amount" id="anzahlung-display-amount">
+                ${
+                  rechnung?.anzahlung_betrag
+                    ? formatCurrency(rechnung.anzahlung_betrag)
+                    : "Betrag eingeben"
+                }
+              </div>
+              <div class="option-description">Vorauszahlung erhalten</div>
+            </div>
+            <div class="option-toggle">
+              <span class="toggle-slider"></span>
+            </div>
+          </label>
+        </div>
+        
+        <!-- ANZAHLUNG DETAILS -->
+        <div id="anzahlung-details" class="option-details" 
+             style="display: ${
+               rechnung?.anzahlung_betrag > 0 ? "block" : "none"
+             };">
+          <div class="details-grid">
+            <div class="detail-group">
+              <label for="anzahlung-betrag" class="detail-label">
+                <i class="fas fa-euro-sign"></i> Betrag
+              </label>
+              <input type="number" 
+                     id="anzahlung-betrag" 
+                     name="anzahlung_betrag" 
+                     class="detail-input" 
+                     step="0.01" 
+                     min="0" 
+                     value="${rechnung?.anzahlung_betrag || ""}"
+                     placeholder="0,00"
+                     oninput="calculateAnzahlung(); updateAnzahlungDisplay();">
+            </div>
+            
+            <div class="detail-group">
+              <label for="anzahlung-datum" class="detail-label">
+                <i class="fas fa-calendar"></i> Datum
+              </label>
+              <input type="date" 
+                     id="anzahlung-datum" 
+                     name="anzahlung_datum" 
+                     class="detail-input" 
+                     value="${rechnung?.anzahlung_datum || ""}"
+                     max="${new Date().toISOString().split("T")[0]}">
+            </div>
+            
+            <div class="detail-group">
+              <label class="detail-label">
+                <i class="fas fa-calculator"></i> Restbetrag
+              </label>
+              <div class="restbetrag-display" id="restbetrag-display">
+                ${formatCurrency(rechnung?.restbetrag || 0)}
+              </div>
+              <div class="anzahlung-status" id="anzahlung-status">
+                ${
+                  rechnung?.anzahlung_betrag > 0
+                    ? rechnung.restbetrag <= 0
+                      ? "Vollständig bezahlt"
+                      : "Teilbezahlt"
+                    : "Offen"
+                }
+              </div>
+            </div>
           </div>
-          <div class="zuschlag-content">
-            <div class="zuschlag-title">Skonto gewähren</div>
-            <div class="zuschlag-amount">${skontoProzent}% bei Zahlung in ${skontoTage} Tagen</div>
-            <div class="zuschlag-description">Frühzahlerrabatt auf dieser Rechnung anzeigen</div>
-          </div>
-          <div class="zuschlag-toggle">
-            <span class="toggle-slider"></span>
-          </div>
-        </label>
+        </div>
       </div>
     </div>
   </div>
-`
-      : ""
-  }
   
   <h3 style="margin: 2rem 0 1rem 0;">Positionen</h3>
   <div class="positions-info" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-tertiary); border-radius: 8px;">
@@ -641,7 +746,7 @@ function displayRechnungModal(rechnung = null) {
       </tbody>
     </table>
   </div>
-  
+
   <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 8px;">
     <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
       <span>Zwischensumme netto:</span>
@@ -832,9 +937,271 @@ function displayRechnungModal(rechnung = null) {
     z-index: 1;
   }
 
+  /* 🎨 THEME-ANGEPASSTE PAYMENT OPTIONS STYLES */
+  .payment-options-container {
+    background: var(--clr-surface-tonal-a10);
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    margin: 2rem 0;
+  }
+
+  .payment-options-container h3 {
+    color: var(--accent-primary);
+    margin-bottom: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .option-card {
+    background: var(--clr-surface-a20);
+    border-radius: 12px;
+    border: 2px solid transparent;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+
+  .option-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--clr-surface-a30);
+  }
+
+  .option-checkbox-container {
+    position: relative;
+  }
+
+  .option-checkbox {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .option-label {
+    display: flex;
+    align-items: center;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 12px;
+  }
+
+  .option-label:hover {
+    background: var(--clr-surface-tonal-a10);
+  }
+
+  .option-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-right: 1rem;
+    transition: all 0.3s ease;
+  }
+
+  .option-icon.skonto {
+    background: linear-gradient(135deg, var(--clr-primary-a20), var(--clr-primary-a30));
+    color: var(--clr-dark-a0);
+  }
+
+  .option-icon.anzahlung {
+    background: linear-gradient(135deg, var(--accent-warning), #f59e0b);
+    color: var(--clr-dark-a0);
+  }
+
+  .option-content {
+    flex: 1;
+  }
+
+  .option-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+  }
+
+  .option-amount {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--accent-primary);
+    margin-bottom: 0.25rem;
+  }
+
+  .option-description {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+
+  .option-toggle {
+    width: 60px;
+    height: 32px;
+    background: var(--clr-surface-a30);
+    border-radius: 16px;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  .toggle-slider {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 28px;
+    height: 28px;
+    background: var(--clr-surface-a50);
+    border-radius: 50%;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  /* AKTIVIERTE STATES */
+  .option-checkbox:checked + .option-label {
+    background: var(--clr-surface-tonal-a20);
+  }
+
+  .option-checkbox:checked + .option-label .option-card {
+    border-color: var(--accent-primary);
+  }
+
+  .option-checkbox:checked + .option-label .option-toggle {
+    background: var(--accent-primary);
+  }
+
+  .option-checkbox:checked + .option-label .toggle-slider {
+    transform: translateX(28px);
+    background: var(--clr-dark-a0);
+  }
+
+  .option-checkbox:checked + .option-label .option-icon {
+    transform: scale(1.1);
+    box-shadow: 0 6px 20px rgba(131, 222, 143, 0.3);
+  }
+
+  /* ANZAHLUNG DETAILS */
+  .option-details {
+    padding: 0 1.25rem 1.25rem 1.25rem;
+    border-top: 1px solid var(--border-color);
+    background: var(--clr-surface-tonal-a10);
+    animation: slideDown 0.3s ease;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+    to {
+      opacity: 1;
+      max-height: 200px;
+      padding-top: 1.25rem;
+      padding-bottom: 1.25rem;
+    }
+  }
+
+  .details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  .detail-group {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .detail-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .detail-label i {
+    color: var(--accent-primary);
+    font-size: 0.8rem;
+  }
+
+  .detail-input {
+    padding: 0.75rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+    background: var(--clr-surface-a20);
+    color: var(--text-primary);
+  }
+
+  .detail-input:focus {
+    outline: none;
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 0 3px rgba(131, 222, 143, 0.18);
+    background: var(--clr-surface-a10);
+  }
+
+  .restbetrag-display {
+    padding: 0.75rem;
+    background: var(--clr-surface-tonal-a20);
+    border: 2px solid var(--accent-success);
+    border-radius: 8px;
+    font-weight: 600;
+    color: var(--accent-success);
+    text-align: center;
+  }
+
+  .anzahlung-status {
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 0.8rem;
+    font-weight: 500;
+  }
+
+  .anzahlung-status.status-offen {
+    background: var(--clr-surface-tonal-a20);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+  }
+
+  .anzahlung-status.status-teilbezahlt {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--accent-warning);
+    border: 1px solid var(--accent-warning);
+  }
+
+  .anzahlung-status.status-bezahlt {
+    background: rgba(131, 222, 143, 0.2);
+    color: var(--accent-success);
+    border: 1px solid var(--accent-success);
+  }
+
   /* MOBILE RESPONSIVE */
   @media (max-width: 768px) {
     .form-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .options-grid {
+      grid-template-columns: 1fr;
+    }
+    
+    .details-grid {
       grid-template-columns: 1fr;
     }
     
@@ -846,6 +1213,17 @@ function displayRechnungModal(rechnung = null) {
     .positions-info {
       padding: 0.5rem;
       font-size: 0.875rem;
+    }
+    
+    .option-label {
+      flex-direction: column;
+      text-align: center;
+      gap: 1rem;
+    }
+    
+    .option-icon {
+      margin-right: 0;
+      margin-bottom: 0.5rem;
     }
   }
   </style>
@@ -2033,6 +2411,363 @@ async function printRechnung(id) {
   }
 }
 
+function updateAnzahlungDisplay() {
+  console.log("🔄 updateAnzahlungDisplay() aufgerufen");
+
+  const betragInput = document.getElementById("anzahlung-betrag");
+  const displayAmount = document.getElementById("anzahlung-display-amount");
+
+  console.log("📋 Elements gefunden:", {
+    betragInput: !!betragInput,
+    displayAmount: !!displayAmount,
+    betragValue: betragInput?.value,
+  });
+
+  if (betragInput && displayAmount) {
+    const betrag = parseFloat(betragInput.value) || 0;
+    const displayText = betrag > 0 ? formatCurrency(betrag) : "Betrag eingeben";
+    displayAmount.textContent = displayText;
+
+    console.log("✅ Display aktualisiert:", displayText);
+  } else {
+    console.warn("⚠️ Anzahlung Display Elemente nicht gefunden");
+  }
+}
+
+// Skonto Section Toggle
+function toggleSkontoSection() {
+  console.log("🔄 toggleSkontoSection() aufgerufen");
+
+  const checkbox = document.getElementById("skonto_aktiv");
+  const card = checkbox?.closest(".option-card");
+
+  if (card && checkbox) {
+    if (checkbox.checked) {
+      card.style.borderColor = "var(--accent-primary)";
+      card.style.background = "var(--clr-surface-tonal-a20)";
+      console.log("✅ Skonto aktiviert");
+    } else {
+      card.style.borderColor = "transparent";
+      card.style.background = "var(--clr-surface-a20)";
+      console.log("✅ Skonto deaktiviert");
+    }
+  }
+}
+
+// Anzahlung Section Toggle
+function toggleAnzahlungSection() {
+  console.log("🔄 toggleAnzahlungSection() aufgerufen");
+
+  const checkbox = document.getElementById("anzahlung_aktiv");
+  const details = document.getElementById("anzahlung-details");
+  const card = checkbox?.closest(".option-card");
+
+  console.log("📋 Toggle Elements:", {
+    checkbox: !!checkbox,
+    details: !!details,
+    card: !!card,
+    checked: checkbox?.checked,
+  });
+
+  if (!checkbox || !details) {
+    console.error("❌ Anzahlung Toggle Elemente nicht gefunden");
+    return;
+  }
+
+  if (checkbox.checked) {
+    details.style.display = "block";
+    if (card) {
+      card.style.borderColor = "var(--accent-primary)";
+      card.style.background = "var(--clr-surface-tonal-a20)";
+    }
+
+    const datumField = document.getElementById("anzahlung-datum");
+    if (datumField && !datumField.value) {
+      datumField.value = new Date().toISOString().split("T")[0];
+    }
+
+    console.log("✅ Anzahlung Details eingeblendet");
+  } else {
+    details.style.display = "none";
+    if (card) {
+      card.style.borderColor = "transparent";
+      card.style.background = "var(--clr-surface-a20)";
+    }
+
+    const betragField = document.getElementById("anzahlung-betrag");
+    const datumField = document.getElementById("anzahlung-datum");
+    if (betragField) betragField.value = "";
+    if (datumField) datumField.value = "";
+
+    updateAnzahlungDisplay();
+    calculateAnzahlung();
+
+    console.log("✅ Anzahlung Details ausgeblendet");
+  }
+}
+
+// VERBESSERTE Anzahlungsberechnung mit Debug
+function calculateAnzahlung() {
+  console.log("🔄 calculateAnzahlung() aufgerufen");
+
+  // VERSCHIEDENE MÖGLICHE GESAMTBETRAG-ELEMENTE PRÜFEN
+  const gesamtbetragElements = [
+    document.getElementById("gesamtbetrag"),
+    document.querySelector("#gesamtbetrag"),
+    document.querySelector("[id*='gesamtbetrag']"),
+    document.querySelector(".total-amount"),
+    document.querySelector("#rechnung-gesamtbetrag"),
+  ].filter((el) => el !== null);
+
+  const anzahlungInput = document.getElementById("anzahlung-betrag");
+  const restbetragElement = document.getElementById("restbetrag-display");
+  const statusElement = document.getElementById("anzahlung-status");
+
+  console.log("📋 Calculate Elements:", {
+    gesamtbetragElements: gesamtbetragElements.length,
+    anzahlungInput: !!anzahlungInput,
+    restbetragElement: !!restbetragElement,
+    statusElement: !!statusElement,
+  });
+
+  if (!anzahlungInput || !restbetragElement) {
+    console.error("❌ Wichtige Anzahlung-Elemente nicht gefunden");
+    return;
+  }
+
+  // GESAMTBETRAG ERMITTELN
+  let gesamtbetrag = 0;
+  let gesamtbetragText = "";
+
+  if (gesamtbetragElements.length > 0) {
+    const gesamtbetragElement = gesamtbetragElements[0];
+    gesamtbetragText =
+      gesamtbetragElement.textContent || gesamtbetragElement.value || "0";
+
+    // MEHRERE PARSING-VERSUCHE
+    gesamtbetrag =
+      parseFloat(gesamtbetragText.replace(/[^\d,-]/g, "").replace(",", ".")) ||
+      0;
+
+    // Fallback: nur Zahlen extrahieren
+    if (gesamtbetrag === 0) {
+      const numbers = gesamtbetragText.match(/[\d,\.]+/);
+      if (numbers) {
+        gesamtbetrag = parseFloat(numbers[0].replace(",", ".")) || 0;
+      }
+    }
+
+    console.log("💰 Gesamtbetrag ermittelt:", {
+      originalText: gesamtbetragText,
+      parsedAmount: gesamtbetrag,
+      element: gesamtbetragElement.id || gesamtbetragElement.className,
+    });
+  } else {
+    console.warn("⚠️ Kein Gesamtbetrag-Element gefunden - verwende 0");
+  }
+
+  const anzahlung = parseFloat(anzahlungInput.value) || 0;
+
+  console.log("📊 Berechnung:", {
+    gesamtbetrag,
+    anzahlung,
+    isValid: gesamtbetrag > 0,
+  });
+
+  // VALIDIERUNG
+  if (anzahlung > gesamtbetrag && gesamtbetrag > 0) {
+    anzahlungInput.value = gesamtbetrag.toFixed(2);
+    console.log("⚠️ Anzahlung auf Gesamtbetrag begrenzt");
+
+    if (typeof showNotification === "function") {
+      showNotification("Anzahlung auf Gesamtbetrag begrenzt", "warning");
+    }
+
+    return calculateAnzahlung(); // Neuberechnung
+  }
+
+  const restbetrag = gesamtbetrag - anzahlung;
+
+  // RESTBETRAG ANZEIGEN
+  try {
+    if (typeof formatCurrency === "function") {
+      restbetragElement.textContent = formatCurrency(restbetrag);
+    } else {
+      // Fallback Formatierung
+      restbetragElement.textContent = `${restbetrag
+        .toFixed(2)
+        .replace(".", ",")} €`;
+    }
+    console.log("💰 Restbetrag aktualisiert:", restbetrag);
+  } catch (error) {
+    console.error("❌ Fehler bei Restbetrag-Formatierung:", error);
+    restbetragElement.textContent = `${restbetrag.toFixed(2)} €`;
+  }
+
+  // STATUS AKTUALISIEREN
+  if (statusElement) {
+    let status = "Offen";
+    let statusClass = "status-offen";
+
+    if (anzahlung > 0) {
+      if (restbetrag <= 0) {
+        status = "Vollständig bezahlt";
+        statusClass = "status-bezahlt";
+      } else {
+        status = "Teilbezahlt";
+        statusClass = "status-teilbezahlt";
+      }
+    }
+
+    statusElement.textContent = status;
+    statusElement.className = `anzahlung-status ${statusClass}`;
+
+    console.log("📋 Status aktualisiert:", status);
+  }
+
+  // AUCH DISPLAY AKTUALISIEREN
+  updateAnzahlungDisplay();
+
+  console.log("✅ calculateAnzahlung() abgeschlossen");
+}
+
+// AUCH calculateRechnungGesamt ERWEITERN
+const originalCalculateRechnungGesamt = window.calculateRechnungGesamt;
+window.calculateRechnungGesamt = function () {
+  console.log(
+    "🔄 calculateRechnungGesamt() aufgerufen - auch Anzahlung neu berechnen"
+  );
+
+  // Ursprüngliche Funktion aufrufen
+  if (typeof originalCalculateRechnungGesamt === "function") {
+    originalCalculateRechnungGesamt();
+  }
+
+  // Kurz warten, dann Anzahlung neu berechnen
+  setTimeout(() => {
+    calculateAnzahlung();
+  }, 100);
+};
+
+// VERBESSERTE Schnelle Anzahlungsaktualisierung
+async function quickAnzahlungUpdate(rechnungId) {
+  console.log("🔄 quickAnzahlungUpdate() für Rechnung:", rechnungId);
+
+  try {
+    const rechnung = await apiCall(`/api/rechnungen/${rechnungId}`);
+
+    const content = `
+      <div class="form-group">
+        <label class="form-label">Gesamtbetrag: ${formatCurrency(
+          rechnung.gesamtbetrag
+        )}</label>
+        <label class="form-label">Aktuelle Anzahlung: ${formatCurrency(
+          rechnung.anzahlung_betrag || 0
+        )}</label>
+        <label class="form-label">Restbetrag: ${formatCurrency(
+          rechnung.restbetrag || rechnung.gesamtbetrag
+        )}</label>
+      </div>
+      
+      <div class="form-group">
+        <label for="quick-anzahlung-betrag" class="form-label">Neue Anzahlung</label>
+        <input type="number" id="quick-anzahlung-betrag" class="form-input" 
+               step="0.01" min="0" max="${rechnung.gesamtbetrag}"
+               value="${rechnung.anzahlung_betrag || 0}">
+      </div>
+      
+      <div class="form-group">
+        <label for="quick-anzahlung-datum" class="form-label">Datum</label>
+        <input type="date" id="quick-anzahlung-datum" class="form-input" 
+               value="${
+                 rechnung.anzahlung_datum ||
+                 new Date().toISOString().split("T")[0]
+               }">
+      </div>
+    `;
+
+    createModal({
+      title: `💰 Anzahlung - ${rechnung.rechnung_nr}`,
+      content,
+      size: "medium",
+      buttons: [
+        { text: "Abbrechen", class: "btn-secondary", action: "close" },
+        {
+          text: "Speichern",
+          class: "btn-primary",
+          action: async () => {
+            const betrag = document.getElementById(
+              "quick-anzahlung-betrag"
+            ).value;
+            const datum = document.getElementById(
+              "quick-anzahlung-datum"
+            ).value;
+            await updateAnzahlung(rechnungId, betrag, datum);
+          },
+        },
+      ],
+    });
+  } catch (error) {
+    console.error("❌ Fehler beim quickAnzahlungUpdate:", error);
+    if (typeof showNotification === "function") {
+      showNotification("Fehler beim Laden der Rechnung", "error");
+    }
+  }
+}
+
+// Anzahlung API Update
+async function updateAnzahlung(rechnungId, betrag, datum) {
+  console.log("🔄 updateAnzahlung() API Call:", { rechnungId, betrag, datum });
+
+  try {
+    const response = await apiCall(
+      `/api/rechnungen/${rechnungId}/anzahlung`,
+      "PUT",
+      {
+        anzahlung_betrag: betrag,
+        anzahlung_datum: datum,
+      }
+    );
+
+    console.log("✅ Anzahlung API Response:", response);
+
+    if (typeof showNotification === "function") {
+      showNotification("Anzahlung erfolgreich aktualisiert", "success");
+    }
+
+    if (typeof closeModal === "function") {
+      closeModal();
+    }
+
+    if (typeof loadRechnungen === "function") {
+      loadRechnungen();
+    }
+  } catch (error) {
+    console.error("❌ API Fehler bei updateAnzahlung:", error);
+    if (typeof showNotification === "function") {
+      showNotification(`Fehler: ${error.message}`, "error");
+    }
+  }
+}
+
+// GLOBALE FUNKTIONEN REGISTRIEREN
+window.updateAnzahlungDisplay = updateAnzahlungDisplay;
+window.toggleSkontoSection = toggleSkontoSection;
+window.toggleAnzahlungSection = toggleAnzahlungSection;
+window.calculateAnzahlung = calculateAnzahlung;
+window.quickAnzahlungUpdate = quickAnzahlungUpdate;
+window.updateAnzahlung = updateAnzahlung;
+
+// DEBUG: Funktionen testen
+console.log("🔧 Anzahlungs-Funktionen registriert:", {
+  updateAnzahlungDisplay: typeof window.updateAnzahlungDisplay,
+  toggleAnzahlungSection: typeof window.toggleAnzahlungSection,
+  calculateAnzahlung: typeof window.calculateAnzahlung,
+  formatCurrency: typeof window.formatCurrency || typeof formatCurrency,
+  showNotification: typeof window.showNotification || typeof showNotification,
+});
+
+// DEINE BESTEHENDEN FUNKTIONEN (unverändert lassen)
 window.updateSkontoText = function () {
   const skontoAktiv =
     document.querySelector('[name="skonto_aktiv"]')?.checked || false;
@@ -2055,8 +2790,8 @@ window.updateSkontoText = function () {
   zahlungsbedingungenField.value = finalText;
 };
 
-// Event Listener für Einstellungsänderungen
 window.addEventListener("settingsUpdated", () => {
   console.log("Einstellungen wurden aktualisiert - Rechnungen-Modul reagiert");
 });
+
 window.showRechnungModal = showRechnungModal;

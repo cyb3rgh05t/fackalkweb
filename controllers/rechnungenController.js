@@ -60,6 +60,25 @@ exports.create = async (req, res) => {
           zahlungsbedingungen,
           gewaehrleistung,
         };
+
+        // Anzahlungsvalidierung
+        const anzahlungBetrag = parseFloat(req.body.anzahlung_betrag || 0);
+        if (anzahlungBetrag > gesamtbetrag) {
+          return res.status(400).json({
+            error: "Anzahlung kann nicht höher als der Gesamtbetrag sein",
+          });
+        }
+
+        // Status automatisch setzen bei Anzahlung
+        if (anzahlungBetrag > 0) {
+          const restbetrag = gesamtbetrag - anzahlungBetrag;
+          if (restbetrag <= 0) {
+            data.status = "bezahlt";
+          } else {
+            data.status = "teilbezahlt";
+          }
+        }
+
         Rechnung.create(data)
           .then((result) => res.json(result))
           .catch((e) => res.status(500).json({ error: e.message }));
@@ -107,6 +126,23 @@ exports.update = async (req, res) => {
           zahlungsbedingungen,
           gewaehrleistung,
         };
+        // Anzahlungsvalidierung
+        const anzahlungBetrag = parseFloat(req.body.anzahlung_betrag || 0);
+        if (anzahlungBetrag > gesamtbetrag) {
+          return res.status(400).json({
+            error: "Anzahlung kann nicht höher als der Gesamtbetrag sein",
+          });
+        }
+
+        // Status automatisch setzen bei Anzahlung
+        if (anzahlungBetrag > 0) {
+          const restbetrag = gesamtbetrag - anzahlungBetrag;
+          if (restbetrag <= 0) {
+            data.status = "bezahlt";
+          } else {
+            data.status = "teilbezahlt";
+          }
+        }
         Rechnung.update(req.params.id, data)
           .then((result) => {
             if (result.changes === 0)
@@ -127,6 +163,46 @@ exports.remove = async (req, res) => {
     if (result.changes === 0)
       return res.status(404).json({ error: "Rechnung nicht gefunden" });
     res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Nur Anzahlung aktualisieren (neue Funktion)
+ */
+exports.updateAnzahlung = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { anzahlung_betrag, anzahlung_datum } = req.body;
+
+    const result = await Rechnung.updateAnzahlung(
+      id,
+      anzahlung_betrag,
+      anzahlung_datum
+    );
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: "Rechnung nicht gefunden" });
+    }
+
+    res.json({
+      success: true,
+      status: result.status,
+      restbetrag: result.restbetrag,
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+/**
+ * Anzahlungsstatistiken (neue Funktion)
+ */
+exports.getAnzahlungsStats = async (req, res) => {
+  try {
+    const stats = await Rechnung.getAnzahlungsStats();
+    res.json(stats);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -9,12 +9,19 @@ const Rechnung = {
     new Promise((resolve, reject) => {
       const sql = `
         SELECT r.*, 
-               k.name as kunde_name, 
-               k.kunden_nr,
-               f.kennzeichen, 
-               f.marke, 
-               f.modell, 
-               a.auftrag_nr
+       k.name as kunde_name, 
+       k.kunden_nr,
+       f.kennzeichen, 
+       f.marke, 
+       f.modell, 
+       a.auftrag_nr,
+       -- Anzahlungsberechnung
+       CASE 
+         WHEN r.anzahlung_betrag > 0 AND r.restbetrag > 0 THEN 'teilbezahlt'
+         WHEN r.restbetrag = 0 AND r.anzahlung_betrag > 0 THEN 'bezahlt'
+         ELSE r.status 
+       END as berechneter_status,
+       ROUND(r.anzahlung_betrag * 100.0 / NULLIF(r.gesamtbetrag, 0), 1) as anzahlung_prozent
         FROM rechnungen r
         LEFT JOIN kunden k ON r.kunden_id = k.id
         LEFT JOIN fahrzeuge f ON r.fahrzeug_id = f.id
@@ -99,13 +106,14 @@ const Rechnung = {
         .then((rechnung_nr) => {
           const stmt = db.prepare(`
           INSERT INTO rechnungen (
-            rechnung_nr, auftrag_id, kunden_id, fahrzeug_id, 
-            rechnungsdatum, auftragsdatum, status,
-            zwischensumme, rabatt_prozent, rabatt_betrag, 
-            netto_nach_rabatt, mwst_19, mwst_7, gesamtbetrag,
-            zahlungsbedingungen, gewaehrleistung, rechnungshinweise,
-            skonto_aktiv, skonto_betrag
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  rechnung_nr, auftrag_id, kunden_id, fahrzeug_id, 
+  rechnungsdatum, auftragsdatum, status,
+  zwischensumme, rabatt_prozent, rabatt_betrag, 
+  netto_nach_rabatt, mwst_19, mwst_7, gesamtbetrag,
+  zahlungsbedingungen, gewaehrleistung, rechnungshinweise,
+  skonto_aktiv, skonto_betrag,
+  anzahlung_betrag, anzahlung_datum, restbetrag
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
 
           stmt.run(
@@ -129,6 +137,10 @@ const Rechnung = {
               data.rechnungshinweise || "",
               data.skonto_aktiv ? 1 : 0, // NEU: Skonto-Checkbox
               parseFloat(data.skonto_betrag) || 0, // NEU: Skonto-Betrag
+              parseFloat(data.anzahlung_betrag) || 0, // anzahlung_betrag
+              data.anzahlung_datum || null, // anzahlung_datum
+              (parseFloat(data.gesamtbetrag) || 0) -
+                (parseFloat(data.anzahlung_betrag) || 0), // restbetrag
             ],
             function (err) {
               if (err) {
@@ -165,14 +177,15 @@ const Rechnung = {
     new Promise((resolve, reject) => {
       const stmt = db.prepare(`
       UPDATE rechnungen SET
-        auftrag_id = ?, kunden_id = ?, fahrzeug_id = ?,
-        rechnungsdatum = ?, auftragsdatum = ?, status = ?,
-        zwischensumme = ?, rabatt_prozent = ?, rabatt_betrag = ?,
-        netto_nach_rabatt = ?, mwst_19 = ?, mwst_7 = ?, gesamtbetrag = ?,
-        zahlungsbedingungen = ?, gewaehrleistung = ?, rechnungshinweise = ?,
-        skonto_aktiv = ?, skonto_betrag = ?,
-        aktualisiert_am = CURRENT_TIMESTAMP
-      WHERE id = ?
+  auftrag_id = ?, kunden_id = ?, fahrzeug_id = ?,
+  rechnungsdatum = ?, auftragsdatum = ?, status = ?,
+  zwischensumme = ?, rabatt_prozent = ?, rabatt_betrag = ?,
+  netto_nach_rabatt = ?, mwst_19 = ?, mwst_7 = ?, gesamtbetrag = ?,
+  zahlungsbedingungen = ?, gewaehrleistung = ?, rechnungshinweise = ?,
+  skonto_aktiv = ?, skonto_betrag = ?,
+  anzahlung_betrag = ?, anzahlung_datum = ?, restbetrag = ?,
+  aktualisiert_am = CURRENT_TIMESTAMP
+WHERE id = ?
     `);
 
       stmt.run(
@@ -195,6 +208,10 @@ const Rechnung = {
           data.rechnungshinweise || "",
           data.skonto_aktiv ? 1 : 0, // NEU: Skonto-Checkbox
           parseFloat(data.skonto_betrag) || 0, // NEU: Skonto-Betrag
+          parseFloat(data.anzahlung_betrag) || 0, // anzahlung_betrag
+          data.anzahlung_datum || null, // anzahlung_datum
+          (parseFloat(data.gesamtbetrag) || 0) -
+            (parseFloat(data.anzahlung_betrag) || 0), // restbetrag
           id,
         ],
         function (err) {
@@ -504,4 +521,68 @@ const Rechnung = {
     }),
 };
 
-module.exports = Rechnung;
+const anzahlungsFunktionen = {
+  /**
+   * Nur Anzahlung aktualisieren
+   */
+  updateAnzahlung: (id, anzahlungBetrag, anzahlungDatum) =>
+    new Promise((resolve, reject) => {
+      const gesamtbetrag = 0; // Wird aus der DB gelesen
+
+      // Erst aktuellen Gesamtbetrag holen
+      db.get(
+        "SELECT gesamtbetrag FROM rechnungen WHERE id = ?",
+        [id],
+        (err, row) => {
+          if (err) return reject(err);
+          if (!row) return reject(new Error("Rechnung nicht gefunden"));
+
+          const gesamt = parseFloat(row.gesamtbetrag) || 0;
+          const anzahlung = parseFloat(anzahlungBetrag) || 0;
+          const restbetrag = gesamt - anzahlung;
+
+          // Status automatisch setzen
+          let status = "offen";
+          if (anzahlung > 0) {
+            status = restbetrag <= 0 ? "bezahlt" : "teilbezahlt";
+          }
+
+          db.run(
+            `UPDATE rechnungen SET 
+           anzahlung_betrag = ?, anzahlung_datum = ?, restbetrag = ?, status = ?,
+           aktualisiert_am = CURRENT_TIMESTAMP 
+           WHERE id = ?`,
+            [anzahlung, anzahlungDatum || null, restbetrag, status, id],
+            function (err) {
+              if (err) return reject(err);
+              resolve({ changes: this.changes, status, restbetrag });
+            }
+          );
+        }
+      );
+    }),
+
+  /**
+   * Anzahlungsstatistiken
+   */
+  getAnzahlungsStats: () =>
+    new Promise((resolve, reject) => {
+      const sql = `
+        SELECT 
+          COUNT(*) as gesamt_rechnungen,
+          SUM(CASE WHEN anzahlung_betrag > 0 THEN 1 ELSE 0 END) as mit_anzahlung,
+          SUM(CASE WHEN status = 'teilbezahlt' THEN 1 ELSE 0 END) as teilbezahlt,
+          SUM(anzahlung_betrag) as gesamt_anzahlungen,
+          SUM(restbetrag) as gesamt_restbetraege
+        FROM rechnungen
+        WHERE status != 'storniert'
+      `;
+
+      db.get(sql, (err, stats) => {
+        if (err) return reject(err);
+        resolve(stats);
+      });
+    }),
+};
+
+module.exports = { ...Rechnung, ...anzahlungsFunktionen };

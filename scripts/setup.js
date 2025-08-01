@@ -538,8 +538,17 @@ class DatabaseManager {
     // Backup falls vorhanden
     if (await Utils.fileExists(this.dbPath)) {
       await Utils.createBackup(this.dbPath, CONFIG.PATHS.backups);
-      await fs.unlink(this.dbPath);
-      Logger.info("Alte Datenbank entfernt");
+
+      // Kurze Verzögerung um Lock zu lösen
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
+      try {
+        await fs.unlink(this.dbPath);
+        Logger.info("Alte Datenbank entfernt");
+      } catch (err) {
+        Logger.error(`Datenbank konnte nicht gelöscht werden: ${err.message}`);
+        throw err;
+      }
     }
 
     return new Promise((resolve, reject) => {
@@ -605,6 +614,7 @@ class DatabaseManager {
     const migrations = [
       "ALTER TABLE rechnungen ADD COLUMN skonto_aktiv BOOLEAN DEFAULT 0",
       "ALTER TABLE rechnungen ADD COLUMN skonto_betrag DECIMAL(10,2) DEFAULT 0",
+      "UPDATE rechnungen SET restbetrag = gesamtbetrag WHERE restbetrag = 0 OR restbetrag IS NULL",
     ];
 
     return new Promise((resolve, reject) => {
@@ -795,6 +805,9 @@ class DatabaseManager {
           mwst_19 DECIMAL(10,2) DEFAULT 0,
           mwst_7 DECIMAL(10,2) DEFAULT 0,
           gesamtbetrag DECIMAL(10,2) DEFAULT 0,
+          anzahlung_betrag DECIMAL(10,2) DEFAULT 0,
+          anzahlung_datum DATE,
+          restbetrag DECIMAL(10,2) DEFAULT 0,
           zahlungsbedingungen TEXT,
           gewaehrleistung TEXT,
           rechnungshinweise TEXT DEFAULT '',
@@ -874,6 +887,7 @@ class DatabaseManager {
       "CREATE INDEX idx_rechnung_positionen_rechnung_id ON rechnung_positionen(rechnung_id)",
       "CREATE INDEX idx_templates_typ ON templates(typ)",
       "CREATE INDEX idx_einstellungen_key ON einstellungen(key)",
+      "CREATE INDEX IF NOT EXISTS idx_rechnungen_anzahlung ON rechnungen(anzahlung_betrag)",
     ];
 
     let completed = 0;

@@ -874,15 +874,6 @@ window.showFahrzeughandelModal = function (handelId = null) {
                 <option value="reparaturbedürftig">Reparaturbedürftig</option>
               </select>
             </div>
-            
-            <!-- Normale Checkbox -->
-            <div class="form-group checkbox-group">
-              <input type="checkbox" id="handel-papiere" checked>
-              <label for="handel-papiere">
-                <i class="fas fa-file-alt" style="color: var(--accent-primary); margin-right: 0.5rem;"></i>
-                Fahrzeugpapiere vollständig
-              </label>
-            </div>
           </div>
         </div>
 
@@ -900,6 +891,14 @@ window.showFahrzeughandelModal = function (handelId = null) {
             </div>
             <div class="form-group">
               <!-- Leer für Grid-Layout -->
+            </div>
+            <!-- Normale Checkbox -->
+            <div class="form-group checkbox-group">
+              <label for="handel-papiere">
+                <i class="fas fa-file-alt" style="color: var(--accent-primary); margin-right: 0.5rem;"></i>
+                Fahrzeugpapiere vollständig
+              </label>
+              <input type="checkbox" id="handel-papiere" checked>
             </div>
           </div>
         </div>

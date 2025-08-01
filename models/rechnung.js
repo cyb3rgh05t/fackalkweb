@@ -101,20 +101,19 @@ const Rechnung = {
    */
   create: (data) =>
     new Promise((resolve, reject) => {
-      // Nächste Rechnungsnummer generieren
       Rechnung._getNextRechnungNr()
         .then((rechnung_nr) => {
           const stmt = db.prepare(`
-          INSERT INTO rechnungen (
-  rechnung_nr, auftrag_id, kunden_id, fahrzeug_id, 
-  rechnungsdatum, auftragsdatum, status,
-  zwischensumme, rabatt_prozent, rabatt_betrag, 
-  netto_nach_rabatt, mwst_19, mwst_7, gesamtbetrag,
-  zahlungsbedingungen, gewaehrleistung, rechnungshinweise,
-  skonto_aktiv, skonto_betrag,
-  anzahlung_betrag, anzahlung_datum, restbetrag
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `);
+            INSERT INTO rechnungen (
+              rechnung_nr, auftrag_id, kunden_id, fahrzeug_id,
+              rechnungsdatum, auftragsdatum, status,
+              zwischensumme, rabatt_prozent, rabatt_betrag,
+              netto_nach_rabatt, mwst_19, mwst_7, gesamtbetrag,
+              zahlungsbedingungen, gewaehrleistung, rechnungshinweise,
+              skonto_aktiv, skonto_betrag,
+              anzahlung, restbetrag, anzahlung_aktiv
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `);
 
           stmt.run(
             [
@@ -135,12 +134,11 @@ const Rechnung = {
               data.zahlungsbedingungen || "",
               data.gewaehrleistung || "",
               data.rechnungshinweise || "",
-              data.skonto_aktiv ? 1 : 0, // NEU: Skonto-Checkbox
-              parseFloat(data.skonto_betrag) || 0, // NEU: Skonto-Betrag
-              parseFloat(data.anzahlung_betrag) || 0, // anzahlung_betrag
-              data.anzahlung_datum || null, // anzahlung_datum
-              (parseFloat(data.gesamtbetrag) || 0) -
-                (parseFloat(data.anzahlung_betrag) || 0), // restbetrag
+              data.skonto_aktiv ? 1 : 0,
+              parseFloat(data.skonto_betrag) || 0,
+              parseFloat(data.anzahlung) || 0, // NEU: Anzahlung
+              parseFloat(data.restbetrag) || 0, // NEU: Restbetrag
+              data.anzahlung_aktiv ? 1 : 0, // NEU: Anzahlung aktiv
             ],
             function (err) {
               if (err) {
@@ -176,17 +174,17 @@ const Rechnung = {
   update: (id, data) =>
     new Promise((resolve, reject) => {
       const stmt = db.prepare(`
-      UPDATE rechnungen SET
-  auftrag_id = ?, kunden_id = ?, fahrzeug_id = ?,
-  rechnungsdatum = ?, auftragsdatum = ?, status = ?,
-  zwischensumme = ?, rabatt_prozent = ?, rabatt_betrag = ?,
-  netto_nach_rabatt = ?, mwst_19 = ?, mwst_7 = ?, gesamtbetrag = ?,
-  zahlungsbedingungen = ?, gewaehrleistung = ?, rechnungshinweise = ?,
-  skonto_aktiv = ?, skonto_betrag = ?,
-  anzahlung_betrag = ?, anzahlung_datum = ?, restbetrag = ?,
-  aktualisiert_am = CURRENT_TIMESTAMP
-WHERE id = ?
-    `);
+        UPDATE rechnungen SET
+          auftrag_id = ?, kunden_id = ?, fahrzeug_id = ?,
+          rechnungsdatum = ?, auftragsdatum = ?, status = ?,
+          zwischensumme = ?, rabatt_prozent = ?, rabatt_betrag = ?,
+          netto_nach_rabatt = ?, mwst_19 = ?, mwst_7 = ?, gesamtbetrag = ?,
+          zahlungsbedingungen = ?, gewaehrleistung = ?, rechnungshinweise = ?,
+          skonto_aktiv = ?, skonto_betrag = ?,
+          anzahlung = ?, restbetrag = ?, anzahlung_aktiv = ?,
+          aktualisiert_am = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
 
       stmt.run(
         [
@@ -206,17 +204,17 @@ WHERE id = ?
           data.zahlungsbedingungen || "",
           data.gewaehrleistung || "",
           data.rechnungshinweise || "",
-          data.skonto_aktiv ? 1 : 0, // NEU: Skonto-Checkbox
-          parseFloat(data.skonto_betrag) || 0, // NEU: Skonto-Betrag
-          parseFloat(data.anzahlung_betrag) || 0, // anzahlung_betrag
-          data.anzahlung_datum || null, // anzahlung_datum
-          (parseFloat(data.gesamtbetrag) || 0) -
-            (parseFloat(data.anzahlung_betrag) || 0), // restbetrag
+          data.skonto_aktiv ? 1 : 0,
+          parseFloat(data.skonto_betrag) || 0,
+          // ✅ ANZAHLUNGSFELDER HINZUFÜGEN
+          parseFloat(data.anzahlung) || 0,
+          parseFloat(data.restbetrag) || 0,
+          data.anzahlung_aktiv ? 1 : 0,
           id,
         ],
         function (err) {
           if (err) {
-            console.error("Fehler beim Aktualisieren der Rechnung:", err);
+            console.error("❌ Fehler beim Aktualisieren der Rechnung:", err);
             return reject(err);
           }
 
@@ -224,16 +222,23 @@ WHERE id = ?
             return reject(new Error("Rechnung nicht gefunden"));
           }
 
+          console.log("✅ Rechnung aktualisiert, ID:", id);
+
           // Bestehende Positionen löschen
           db.run(
             "DELETE FROM rechnung_positionen WHERE rechnung_id = ?",
             [id],
             (err) => {
-              if (err) return reject(err);
+              if (err) {
+                console.error("Fehler beim Löschen der Positionen:", err);
+                return reject(err);
+              }
 
               // Neue Positionen einfügen
               Rechnung._insertPositionen(id, data.positionen)
-                .then(() => resolve({ id }))
+                .then(() => {
+                  resolve({ success: true });
+                })
                 .catch(reject);
             }
           );

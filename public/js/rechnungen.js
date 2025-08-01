@@ -1571,7 +1571,8 @@ function updateElement(id, value) {
   }
 }
 
-// 6. ERWEITERTE SAVE-FUNKTION MIT RECHNUNGSHINWEISEN
+// FINALE VERSION: saveRechnung() mit korrekter deutscher Zahlenformatierung und Status-Fix
+
 window.saveRechnung = async function (rechnungId = null) {
   console.log("💾 Speichere Rechnung...");
 
@@ -1585,14 +1586,11 @@ window.saveRechnung = async function (rechnungId = null) {
   // 2. HTML5-VALIDIERUNG PRÜFEN
   if (!form.checkValidity()) {
     console.warn("❌ HTML5-Validierung fehlgeschlagen");
-
-    // Zeige Fehlermeldungen an
     const firstInvalidElement = form.querySelector(":invalid");
     if (firstInvalidElement) {
       firstInvalidElement.focus();
       firstInvalidElement.reportValidity();
     }
-
     showNotification("Bitte füllen Sie alle Pflichtfelder aus", "error");
     return;
   }
@@ -1600,104 +1598,143 @@ window.saveRechnung = async function (rechnungId = null) {
   // 3. FORMDATA SAMMELN
   const formData = new FormData(form);
 
-  // 4. MANUELLE VALIDIERUNG (zusätzlich zur HTML5-Validierung)
+  // 4. KUNDEN UND FAHRZEUG VALIDIERUNG
   const kundenId = parseInt(formData.get("kunden_id"));
   const fahrzeugId = parseInt(formData.get("fahrzeug_id"));
   const rechnungsdatum = formData.get("rechnungsdatum");
 
-  // Validierungsfehler sammeln
-  const errors = [];
-
-  if (!kundenId || kundenId <= 0) {
-    errors.push("Kunde muss ausgewählt werden");
-    markFieldAsError("kunden_id", "Kunde muss ausgewählt werden");
+  let errors = [];
+  if (!kundenId || isNaN(kundenId)) {
+    errors.push("Bitte wählen Sie einen Kunden aus");
+  }
+  if (!fahrzeugId || isNaN(fahrzeugId)) {
+    errors.push("Bitte wählen Sie ein Fahrzeug aus");
+  }
+  if (!rechnungsdatum) {
+    errors.push("Rechnungsdatum ist erforderlich");
   }
 
-  if (!fahrzeugId || fahrzeugId <= 0) {
-    errors.push("Fahrzeug muss ausgewählt werden");
-    markFieldAsError("fahrzeug_id", "Fahrzeug muss ausgewählt werden");
-  }
-
-  if (!rechnungsdatum || rechnungsdatum.trim() === "") {
-    errors.push("Rechnungsdatum muss angegeben werden");
-    markFieldAsError("rechnungsdatum", "Rechnungsdatum muss angegeben werden");
-  }
-
-  // 5. POSITIONEN VALIDIERUNG UND SAMMLUNG
+  // 5. POSITIONEN SAMMELN
   const positionen = [];
   const tbody = document.getElementById("positionen-tbody");
-  let hasValidPositions = false;
-
-  if (tbody) {
-    Array.from(tbody.children).forEach((row, i) => {
-      const beschreibung = row
-        .querySelector(`input[name="beschreibung_${i}"]`)
-        ?.value?.trim();
-      const menge =
-        parseFloat(row.querySelector(`input[name="menge_${i}"]`)?.value) || 0;
-      const einzelpreis =
-        parseFloat(
-          row.querySelector(`input[name="einzelpreis_${i}"]`)?.value
-        ) || 0;
-      const gesamt =
-        parseFloat(row.querySelector(`input[name="gesamt_${i}"]`)?.value) || 0;
+  if (!tbody) {
+    errors.push("Positionen-Tabelle nicht gefunden");
+  } else {
+    Array.from(tbody.children).forEach((row, index) => {
+      const beschreibung = formData.get(`beschreibung_${index}`)?.trim();
+      const menge = parseFloat(formData.get(`menge_${index}`)) || 0;
+      const einheit = formData.get(`einheit_${index}`) || "Stk.";
+      const einzelpreis = parseFloat(formData.get(`einzelpreis_${index}`)) || 0;
+      const mwst_prozent = parseInt(formData.get(`mwst_${index}`)) || 19;
+      const gesamt = parseFloat(formData.get(`gesamt_${index}`)) || 0;
 
       if (beschreibung && (menge > 0 || gesamt > 0)) {
         positionen.push({
-          kategorie:
-            row.querySelector(`input[name="kategorie_${i}"]`)?.value ||
-            "ZUSATZ",
+          kategorie: "POSITION",
           beschreibung,
           menge,
-          einheit:
-            row.querySelector(`select[name="einheit_${i}"]`)?.value || "Stk.",
+          einheit,
           einzelpreis,
-          mwst_prozent:
-            parseInt(row.querySelector(`select[name="mwst_${i}"]`)?.value) ||
-            19,
+          mwst_prozent,
           gesamt,
         });
-        hasValidPositions = true;
       }
     });
+
+    if (positionen.length === 0) {
+      errors.push("Mindestens eine Position muss ausgefüllt werden");
+    }
   }
 
-  if (!hasValidPositions) {
-    errors.push("Mindestens eine Rechnungsposition muss ausgefüllt werden");
-  }
-
-  // 6. FEHLER ANZEIGEN FALLS VORHANDEN
+  // 6. FEHLER ANZEIGEN
   if (errors.length > 0) {
     console.error("❌ Validierungsfehler:", errors);
-
-    // Validation Summary anzeigen
-    showValidationSummary(errors);
-
     showNotification(`Validierungsfehler:\n• ${errors.join("\n• ")}`, "error");
     return;
   }
 
-  // 7. DATEN-OBJEKT ERSTELLEN
+  // 7. HILFSFUNKTION: Deutsche Zahlen korrekt parsen
+  function parseGermanCurrency(text) {
+    if (!text) return 0;
+
+    // "4.319,70 €" → "4319.70"
+    return (
+      parseFloat(
+        text
+          .replace(/[^\d,.-]/g, "") // Alles außer Ziffern, Komma, Punkt, Minus entfernen → "4.319,70"
+          .replace(/\./g, "") // Punkte entfernen (Tausendertrennzeichen) → "4319,70"
+          .replace(",", ".") // Komma durch Punkt ersetzen (Dezimaltrennzeichen) → "4319.70"
+      ) || 0
+    );
+  }
+
+  // 8. ANZAHLUNGSFELDER SAMMELN - MIT KORREKTER ZAHLENFORMATIERUNG
+  let anzahlung = 0;
+  let restbetrag = 0;
+  let anzahlung_aktiv = false;
+  let finalStatus = formData.get("status") || "offen";
+
+  // Anzahlung-Input mit korrektem Selector
+  const anzahlungInput = document.querySelector("#anzahlung-betrag");
+
+  if (anzahlungInput && anzahlungInput.value) {
+    anzahlung = parseFloat(anzahlungInput.value) || 0;
+    anzahlung_aktiv = anzahlung > 0;
+
+    // Gesamtbetrag mit deutscher Zahlenformatierung parsen
+    const gesamtbetragElement = document.getElementById("gesamtbetrag");
+    let gesamtbetrag = 0;
+
+    if (gesamtbetragElement) {
+      gesamtbetrag = parseGermanCurrency(gesamtbetragElement.textContent);
+    }
+
+    // Restbetrag berechnen
+    restbetrag = Math.max(0, gesamtbetrag - anzahlung);
+
+    // Status automatisch setzen basierend auf Anzahlung
+    if (anzahlung > 0) {
+      if (anzahlung >= gesamtbetrag) {
+        finalStatus = "bezahlt";
+      } else {
+        finalStatus = "teilbezahlt";
+      }
+    }
+
+    console.log("💰 Anzahlungsberechnung (korrekt):", {
+      anzahlung,
+      gesamtbetrag,
+      restbetrag,
+      anzahlung_aktiv,
+      finalStatus,
+      originalGesamtbetragText: gesamtbetragElement?.textContent,
+    });
+  }
+
+  // 9. DATEN-OBJEKT ERSTELLEN
   const data = {
     kunden_id: kundenId,
     fahrzeug_id: fahrzeugId,
     rechnungsdatum,
     auftragsdatum: formData.get("auftragsdatum") || null,
     rabatt_prozent: parseFloat(formData.get("rabatt_prozent")) || 0,
-    status: formData.get("status") || "offen",
+    status: finalStatus, // ✅ Automatisch berechneter Status verwenden
     zahlungsbedingungen: formData.get("zahlungsbedingungen")?.trim() || "",
     gewaehrleistung: formData.get("gewaehrleistung")?.trim() || "",
     rechnungshinweise: formData.get("rechnungshinweise")?.trim() || "",
-    skonto_aktiv: formData.get("skonto_aktiv") === "on", // NEU: Skonto-Checkbox
-    skonto_betrag: 0, // NEU: Placeholder für Skonto-Betrag
+    skonto_aktiv: formData.get("skonto_aktiv") === "on",
+    skonto_betrag: 0,
+    // ✅ ANZAHLUNGSFELDER MIT KORREKTEN WERTEN
+    anzahlung: anzahlung,
+    restbetrag: restbetrag,
+    anzahlung_aktiv: anzahlung_aktiv,
     positionen,
   };
 
-  console.log("📋 Rechnungsdaten:", data);
+  console.log("📋 Rechnungsdaten mit korrigierter Anzahlung:", data);
 
-  // 8. SPEICHERN MIT LOADING-INDIKATOR
+  // 10. SPEICHERN
   try {
-    // Loading-Zustand anzeigen
     const saveButton = document.querySelector(
       'button[onclick*="saveRechnung"]'
     );
@@ -1728,7 +1765,6 @@ window.saveRechnung = async function (rechnungId = null) {
       "error"
     );
   } finally {
-    // Loading-Zustand zurücksetzen
     const saveButton = document.querySelector(
       'button[onclick*="saveRechnung"]'
     );
@@ -1738,9 +1774,6 @@ window.saveRechnung = async function (rechnungId = null) {
     }
   }
 };
-
-// VALIDIERUNGS-HILFSFUNKTIONEN für Rechnungen
-
 // Feld als fehlerhaft markieren
 function markFieldAsError(fieldName, message) {
   const field = document.querySelector(`[name="${fieldName}"]`);

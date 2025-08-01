@@ -160,6 +160,25 @@ export async function loadRechnungen() {
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
+               <td>
+  ${
+    rechnung.anzahlung_betrag > 0
+      ? `
+        <span class="badge badge-info">Anz: ${formatCurrency(
+          rechnung.anzahlung_betrag
+        )}</span><br>
+        <span class="badge badge-warning">Rest: ${formatCurrency(
+          rechnung.restbetrag
+        )}</span><br>
+        <small class="text-muted">${
+          rechnung.anzahlung_datum
+            ? "am " + formatDate(rechnung.anzahlung_datum)
+            : ""
+        }</small>
+      `
+      : "-"
+  }
+</td> 
             </tr>
         `
       )

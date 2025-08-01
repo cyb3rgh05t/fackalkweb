@@ -111,7 +111,7 @@ const Rechnung = {
               netto_nach_rabatt, mwst_19, mwst_7, gesamtbetrag,
               zahlungsbedingungen, gewaehrleistung, rechnungshinweise,
               skonto_aktiv, skonto_betrag,
-              anzahlung, restbetrag, anzahlung_aktiv
+              anzahlung_betrag, anzahlung_datum, restbetrag, anzahlung_aktiv
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `);
 
@@ -136,8 +136,9 @@ const Rechnung = {
               data.rechnungshinweise || "",
               data.skonto_aktiv ? 1 : 0,
               parseFloat(data.skonto_betrag) || 0,
-              parseFloat(data.anzahlung) || 0, // NEU: Anzahlung
+              parseFloat(data.anzahlung_betrag) || 0, // NEU: Anzahlung
               parseFloat(data.restbetrag) || 0, // NEU: Restbetrag
+              data.anzahlung_datum || null,
               data.anzahlung_aktiv ? 1 : 0, // NEU: Anzahlung aktiv
             ],
             function (err) {
@@ -181,7 +182,7 @@ const Rechnung = {
           netto_nach_rabatt = ?, mwst_19 = ?, mwst_7 = ?, gesamtbetrag = ?,
           zahlungsbedingungen = ?, gewaehrleistung = ?, rechnungshinweise = ?,
           skonto_aktiv = ?, skonto_betrag = ?,
-          anzahlung = ?, restbetrag = ?, anzahlung_aktiv = ?,
+          anzahlung_betrag = ?, anzahlung_datum = ?, restbetrag = ?, anzahlung_aktiv = ?,
           aktualisiert_am = CURRENT_TIMESTAMP
         WHERE id = ?
       `);
@@ -206,8 +207,8 @@ const Rechnung = {
           data.rechnungshinweise || "",
           data.skonto_aktiv ? 1 : 0,
           parseFloat(data.skonto_betrag) || 0,
-          // ✅ ANZAHLUNGSFELDER HINZUFÜGEN
-          parseFloat(data.anzahlung) || 0,
+          data.anzahlung_datum || null,
+          parseFloat(data.anzahlung_betrag) || 0,
           parseFloat(data.restbetrag) || 0,
           data.anzahlung_aktiv ? 1 : 0,
           id,

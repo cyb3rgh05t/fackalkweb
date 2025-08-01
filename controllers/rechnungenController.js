@@ -60,7 +60,7 @@ exports.create = async (req, res) => {
           zahlungsbedingungen,
           gewaehrleistung,
         };
-
+        data.anzahlung_datum = req.body.anzahlung_datum || null;
         // Anzahlungsvalidierung
         const anzahlungBetrag = parseFloat(req.body.anzahlung_betrag || 0);
         if (anzahlungBetrag > gesamtbetrag) {
@@ -126,8 +126,10 @@ exports.update = async (req, res) => {
           zahlungsbedingungen,
           gewaehrleistung,
         };
+        data.anzahlung_datum = req.body.anzahlung_datum || null;
         // Anzahlungsvalidierung
         const anzahlungBetrag = parseFloat(req.body.anzahlung_betrag || 0);
+        data.restbetrag = gesamtbetrag - anzahlungBetrag;
         if (anzahlungBetrag > gesamtbetrag) {
           return res.status(400).json({
             error: "Anzahlung kann nicht höher als der Gesamtbetrag sein",
@@ -137,6 +139,7 @@ exports.update = async (req, res) => {
         // Status automatisch setzen bei Anzahlung
         if (anzahlungBetrag > 0) {
           const restbetrag = gesamtbetrag - anzahlungBetrag;
+          data.restbetrag = restbetrag;
           if (restbetrag <= 0) {
             data.status = "bezahlt";
           } else {

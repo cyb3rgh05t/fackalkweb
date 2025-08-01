@@ -267,7 +267,6 @@ async function createRechnungFromHandel(handelId) {
         "Für diesen Verkauf ist kein gültiger Kunde (Käufer) hinterlegt."
       );
     }
-    // (Hinweis: 'verkauft_an' ist eine Zeichenkette. Ist sie numerisch, so handelt es sich um eine Kunden-ID:contentReference[oaicite:7]{index=7}.)
 
     // 3. Rechnungsposition(en) aus Verkaufsdaten erstellen
     const mwstSatz = parseFloat(getSetting("mwst_satz", "19")) || 19;
@@ -455,7 +454,7 @@ async function handleFormSubmit(event) {
       "success"
     );
 
-    closeFahrzeughandelModal();
+    closeFahrzeughandelModalDynamic();
     await loadFahrzeughandel(); // Daten neu laden
   } catch (error) {
     console.error("Fehler beim Speichern:", error);
@@ -509,7 +508,7 @@ function getFormData() {
     bemerkungen: document.getElementById("handel-bemerkungen").value || null,
     interne_notizen:
       document.getElementById("handel-interne-notizen").value || null,
-    verkauft_an: verkauftAnWert, // 🎯 Verbesserter verkauft_an Wert
+    verkauft_an: verkauftAnWert,
     status: document.getElementById("handel-status").value,
   };
 }
@@ -544,7 +543,7 @@ function validateFormData(data) {
     highlightField("handel-datum");
   }
 
-  // 🆕 NEUE VALIDIERUNG: Bei neuem Fahrzeug (kein fahrzeug_id) sind VIN und Kunde Pflicht
+  // Bei neuem Fahrzeug (kein fahrzeug_id) sind VIN und Kunde Pflicht
   const istNeuesFahrzeug = !data.fahrzeug_id;
 
   if (istNeuesFahrzeug) {
@@ -639,41 +638,10 @@ function highlightField(fieldId) {
   }
 }
 
-// Validierungs-Fehler anzeigen
-function showValidationErrors(errors) {
-  const errorHtml = `
-    <div class="validation-summary">
-      <div class="validation-header">
-        <i class="fas fa-exclamation-triangle"></i>
-        Bitte korrigieren Sie folgende Fehler:
-      </div>
-      <ul>
-        ${errors.map((error) => `<li>${error}</li>`).join("")}
-      </ul>
-    </div>
-  `;
-
-  // Bestehende Fehler entfernen
-  const existingError = document.querySelector(".validation-summary");
-  if (existingError) {
-    existingError.remove();
-  }
-
-  // Neue Fehler am Anfang des Forms einfügen
-  const form = document.getElementById("fahrzeughandel-form");
-  if (form) {
-    form.insertAdjacentHTML("afterbegin", errorHtml);
-
-    // Nach oben scrollen zu Fehlern
-    form.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-}
-
 // CSS für Fehler-Styling hinzufügen
 const errorStyles = `
 <style>
-.form-input.error,
-.form-select.error {
+.validation-error {
   border-color: #ef4444 !important;
   box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
   animation: shake 0.3s ease-in-out;
@@ -721,46 +689,122 @@ if (!document.querySelector("#fahrzeughandel-error-styles")) {
   document.head.appendChild(styleElement);
 }
 
-// Modal öffnen
+// Modal CSS Styles
+const improvedModalStyles = `
+<style>
+/* 3-Spalten Grid für bessere Übersicht */
+#fahrzeughandel-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+/* Grid-Span Klassen für 3-Spalten Layout */
+.form-span-2-of-3 {
+  grid-column: span 2;
+}
+
+.form-span-3 {
+  grid-column: span 3;
+}
+
+/* Schöne normale Checkbox */
+.checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-primary, #3b82f6);
+  cursor: pointer;
+  transform: scale(1.1);
+}
+
+.checkbox-group label {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  user-select: none;
+}
+
+.checkbox-group label:hover {
+  color: var(--accent-primary, #3b82f6);
+}
+
+/* Mobile Anpassung für 3-Spalten */
+@media (max-width: 768px) {
+  #fahrzeughandel-form .form-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .form-span-2-of-3,
+  .form-span-3 {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 1024px) {
+  #fahrzeughandel-form .form-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .form-span-2-of-3 {
+    grid-column: span 2;
+  }
+  
+  .form-span-3 {
+    grid-column: span 2;
+  }
+}
+</style>
+`;
+
+// Styles automatisch hinzufügen
+if (!document.querySelector("#improved-modal-styles")) {
+  const styleElement = document.createElement("div");
+  styleElement.id = "improved-modal-styles";
+  styleElement.innerHTML = improvedModalStyles;
+  document.head.appendChild(styleElement);
+}
+
+// MODAL-FUNKTIONEN
 window.showFahrzeughandelModal = function (handelId = null) {
-  console.log(
-    "🚀 Dynamisches Fahrzeughandel-Modal öffnen (mit originalem CSS)...",
-    handelId
-  );
+  console.log("🚀 Fahrzeughandel-Modal öffnen...", handelId);
 
   editingHandelId = handelId;
 
-  // Altes Modal entfernen falls vorhanden
+  // Altes Modal entfernen
   const existingModal = document.querySelector(".fahrzeughandel-modal-dynamic");
   if (existingModal) {
     existingModal.remove();
   }
 
-  // Modal-Titel
   const title = handelId
     ? "Handelsgeschäft bearbeiten"
     : "Neues Handelsgeschäft";
-
-  // Modal mit ORIGINALEN CSS-Klassen erstellen
   const modal = document.createElement("div");
-  modal.className = "modal fahrzeughandel-modal-dynamic active"; // Wichtig: 'active' für sofortige Sichtbarkeit
+  modal.className = "modal fahrzeughandel-modal-dynamic active";
 
-  // Modal HTML mit EXAKT den gleichen CSS-Klassen wie im Original
   modal.innerHTML = `
-    <div class="modal-content card fade-in" style="max-width: 1200px; width: 95vw; margin: 2rem auto;">
-      <!-- Modal Header - EXAKT wie im Original -->
+    <div class="modal-content card fade-in" style="max-width: 800px; width: 90vw; margin: 2rem auto;">
       <div class="modal-header">
-        <h2 class="modal-title" id="fahrzeughandel-modal-title">
-          ${title}
-        </h2>
+        <h2 class="modal-title">${title}</h2>
         <button class="modal-close" type="button" onclick="closeFahrzeughandelModalDynamic()">
           <i class="fas fa-times"></i>
         </button>
       </div>
 
-      <!-- Form mit ORIGINALER Struktur -->
       <form id="fahrzeughandel-form" onsubmit="saveFahrzeughandel(event)">
-        <!-- Typ & Kunde - ORIGINALES GRID -->
+        <!-- Grunddaten - 3 Spalten -->
         <div class="form-grid">
           <div class="form-group">
             <label for="handel-typ" class="form-label">Typ</label>
@@ -770,27 +814,24 @@ window.showFahrzeughandelModal = function (handelId = null) {
               <option value="verkauf">Verkauf</option>
             </select>
           </div>
-
           <div class="form-group">
             <label for="handel-kunde" class="form-label">
-              Kunde
-              <span style="color: #ef4444; font-size: 0.8em">*bei neuen Fahrzeugen</span>
+              Kunde <span style="color: #ef4444; font-size: 0.8em">*bei neuen Fahrzeugen</span>
             </label>
             <select id="handel-kunde" class="form-select"></select>
           </div>
-
-          <div class="form-group">
-            <label for="handel-fahrzeug" class="form-label">Fahrzeug auswählen</label>
-            <select id="handel-fahrzeug" class="form-select" onchange="loadFahrzeugData()"></select>
-          </div>
-
           <div class="form-group">
             <label for="handel-datum" class="form-label">Datum</label>
             <input type="date" id="handel-datum" class="form-input" required>
           </div>
+          
+          <div class="form-group form-span-3">
+            <label for="handel-fahrzeug" class="form-label">Fahrzeug auswählen</label>
+            <select id="handel-fahrzeug" class="form-select" onchange="loadFahrzeugData()"></select>
+          </div>
         </div>
 
-        <!-- Fahrzeugdaten Section - ORIGINALE CSS-Klassen -->
+        <!-- Fahrzeugdaten - 3 Spalten -->
         <div class="form-section">
           <h3><i class="fas fa-car"></i> Fahrzeugdaten</h3>
           <div class="form-grid">
@@ -798,27 +839,32 @@ window.showFahrzeughandelModal = function (handelId = null) {
               <label for="handel-kennzeichen" class="form-label">Kennzeichen</label>
               <input type="text" id="handel-kennzeichen" class="form-input" placeholder="z.B. DO-AB 123">
             </div>
-
             <div class="form-group">
               <label for="handel-marke" class="form-label">Marke</label>
               <input type="text" id="handel-marke" class="form-input" placeholder="z.B. Volkswagen">
             </div>
-
             <div class="form-group">
               <label for="handel-modell" class="form-label">Modell</label>
               <input type="text" id="handel-modell" class="form-input" placeholder="z.B. Golf">
             </div>
-
+            
+            <div class="form-group">
+              <label for="handel-vin" class="form-label">VIN-Nummer</label>
+              <input type="text" id="handel-vin" class="form-input" placeholder="17-stellige VIN" maxlength="17">
+            </div>
             <div class="form-group">
               <label for="handel-baujahr" class="form-label">Baujahr</label>
               <input type="number" id="handel-baujahr" class="form-input" min="1950" max="2030">
             </div>
-
             <div class="form-group">
-              <label for="handel-km" class="form-label">Kilometerstand</label>
-              <input type="number" id="handel-km" class="form-input" placeholder="0">
+              <label for="handel-kilometerstand" class="form-label">Kilometerstand</label>
+              <input type="number" id="handel-kilometerstand" class="form-input" placeholder="0">
             </div>
-
+            
+            <div class="form-group">
+              <label for="handel-farbe" class="form-label">Farbe</label>
+              <input type="text" id="handel-farbe" class="form-input" placeholder="z.B. Schwarz">
+            </div>
             <div class="form-group">
               <label for="handel-zustand" class="form-label">Zustand</label>
               <select id="handel-zustand" class="form-select">
@@ -828,28 +874,53 @@ window.showFahrzeughandelModal = function (handelId = null) {
                 <option value="reparaturbedürftig">Reparaturbedürftig</option>
               </select>
             </div>
+            
+            <!-- Normale Checkbox -->
+            <div class="form-group checkbox-group">
+              <input type="checkbox" id="handel-papiere" checked>
+              <label for="handel-papiere">
+                <i class="fas fa-file-alt" style="color: var(--accent-primary); margin-right: 0.5rem;"></i>
+                Fahrzeugpapiere vollständig
+              </label>
+            </div>
           </div>
         </div>
 
-        <!-- Finanzielle Details - ORIGINALE CSS-Klassen -->
+        <!-- Technische Details - 3 Spalten -->
+        <div class="form-section">
+          <h3><i class="fas fa-cogs"></i> Technische Details</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="handel-tuev" class="form-label">TÜV bis</label>
+              <input type="date" id="handel-tuev" class="form-input">
+            </div>
+            <div class="form-group">
+              <label for="handel-au" class="form-label">AU bis</label>
+              <input type="date" id="handel-au" class="form-input">
+            </div>
+            <div class="form-group">
+              <!-- Leer für Grid-Layout -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Finanzielle Details - 3 Spalten -->
         <div class="form-section">
           <h3><i class="fas fa-euro-sign"></i> Finanzielle Details</h3>
           <div class="form-grid">
             <div class="form-group">
-              <label for="handel-einkaufspreis" class="form-label">Einkaufspreis (€)</label>
-              <input type="number" step="0.01" id="handel-einkaufspreis" class="form-input" onchange="calculateGewinn()">
+              <label for="handel-ankaufspreis" class="form-label">Ankaufspreis (€)</label>
+              <input type="number" step="0.01" id="handel-ankaufspreis" class="form-input" onchange="calculateProfit()">
             </div>
-
             <div class="form-group">
               <label for="handel-verkaufspreis" class="form-label">Verkaufspreis (€)</label>
-              <input type="number" step="0.01" id="handel-verkaufspreis" class="form-input" onchange="calculateGewinn()">
+              <input type="number" step="0.01" id="handel-verkaufspreis" class="form-input" onchange="calculateProfit()">
             </div>
-
             <div class="form-group">
               <label for="handel-gewinn" class="form-label">Gewinn/Verlust (€)</label>
               <input type="number" step="0.01" id="handel-gewinn" class="form-input" readonly>
             </div>
-
+            
             <div class="form-group">
               <label for="handel-status" class="form-label">Status</label>
               <select id="handel-status" class="form-select">
@@ -858,31 +929,28 @@ window.showFahrzeughandelModal = function (handelId = null) {
                 <option value="storniert">Storniert</option>
               </select>
             </div>
-          </div>
-        </div>
-
-        <!-- Zusätzliche Informationen mit ORIGINALEN CSS-Klassen -->
-        <div class="form-section">
-          <h3><i class="fas fa-info-circle"></i> Zusätzliche Informationen</h3>
-          <div class="form-grid">
-            <div class="form-group checkbox-group">
-              <input type="checkbox" id="handel-papiere" checked>
-              <label for="handel-papiere">Fahrzeugpapiere vollständig</label>
-            </div>
-
-            <div class="form-group">
+            <div class="form-group form-span-2-of-3">
               <label for="handel-verkauft-an" class="form-label">Verkauft an (Käufer)</label>
               <select id="handel-verkauft-an" class="form-select"></select>
             </div>
+          </div>
+        </div>
 
-            <div class="form-group form-span-4">
+        <!-- Notizen - 3 Spalten, aber volle Breite -->
+        <div class="form-section">
+          <h3><i class="fas fa-sticky-note"></i> Notizen</h3>
+          <div class="form-grid">
+            <div class="form-group form-span-3">
               <label for="handel-bemerkungen" class="form-label">Bemerkungen</label>
-              <textarea id="handel-bemerkungen" class="form-textarea" rows="3" placeholder="Zusätzliche Notizen..."></textarea>
+              <textarea id="handel-bemerkungen" class="form-textarea" rows="3" placeholder="Zusätzliche Notizen für Kunden..."></textarea>
+            </div>
+            <div class="form-group form-span-3">
+              <label for="handel-interne-notizen" class="form-label">Interne Notizen</label>
+              <textarea id="handel-interne-notizen" class="form-textarea" rows="3" placeholder="Interne Notizen (nicht für Kunden sichtbar)..."></textarea>
             </div>
           </div>
         </div>
 
-        <!-- Modal Footer mit ORIGINALEN Button-Styles -->
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" onclick="closeFahrzeughandelModalDynamic()">
             <i class="fas fa-times"></i> Abbrechen
@@ -897,51 +965,73 @@ window.showFahrzeughandelModal = function (handelId = null) {
     </div>
   `;
 
-  // Modal an body anhängen
   document.body.appendChild(modal);
-
-  // Body Scroll verhindern
   document.body.style.overflow = "hidden";
 
-  // Nach Modal-Erstellung: Initialisierung
+  // EVENT-LISTENER für Modal-Schließung
+  setupModalCloseEvents(modal);
+
   setTimeout(() => {
     initializeFahrzeughandelModal(handelId);
   }, 100);
 
-  console.log("✅ Fahrzeughandel-Modal mit originalem Design erstellt");
+  console.log("✅ Fahrzeughandel-Modal erstellt");
 };
 
-// Modal schließen - Verbesserte Version
+// Event-Listener für Modal-Schließung
+function setupModalCloseEvents(modal) {
+  const escapeHandler = (e) => {
+    if (e.key === "Escape" && modal && document.body.contains(modal)) {
+      closeFahrzeughandelModalDynamic();
+    }
+  };
+
+  const clickOutsideHandler = (e) => {
+    if (e.target === modal) {
+      closeFahrzeughandelModalDynamic();
+    }
+  };
+
+  document.addEventListener("keydown", escapeHandler);
+  modal.addEventListener("click", clickOutsideHandler);
+
+  modal._escapeHandler = escapeHandler;
+  modal._clickHandler = clickOutsideHandler;
+}
+
+// Modal schließen
 window.closeFahrzeughandelModalDynamic = function () {
-  console.log("🔒 Dynamisches Fahrzeughandel-Modal schließen...");
+  console.log("🔒 Modal schließen...");
 
   const modal = document.querySelector(".fahrzeughandel-modal-dynamic");
   if (modal) {
+    // Event-Listeners entfernen
+    if (modal._escapeHandler) {
+      document.removeEventListener("keydown", modal._escapeHandler);
+    }
+    if (modal._clickHandler) {
+      modal.removeEventListener("click", modal._clickHandler);
+    }
+
     modal.remove();
   }
 
-  // Body Scroll wieder aktivieren
   document.body.style.overflow = "auto";
 
-  // Editing-ID zurücksetzen
   if (typeof editingHandelId !== "undefined") {
     editingHandelId = null;
   }
 
-  console.log("✅ Dynamisches Modal geschlossen");
+  console.log("✅ Modal geschlossen");
 };
 
 function initializeFahrzeughandelModal(handelId) {
   // Dropdowns füllen
-  if (typeof populateDropdowns === "function") {
-    populateDropdowns();
-  }
+  populateDropdowns();
 
   if (handelId) {
     // Bearbeitungsmodus: Daten laden
-    if (typeof loadHandelForEdit === "function") {
-      loadHandelForEdit(handelId);
-    }
+    loadHandelForEdit(handelId);
   } else {
     // Neuer Eintrag: Standardwerte setzen
     const statusEl = document.getElementById("handel-status");
@@ -960,70 +1050,8 @@ function initializeFahrzeughandelModal(handelId) {
     }
   }
 
-  console.log("✅ Fahrzeughandel-Modal mit originalen Styles initialisiert");
+  console.log("✅ Fahrzeughandel-Modal initialisiert");
 }
-
-// Event-Listener für das Schließen - Neu aufsetzen
-function setupModalEventListeners() {
-  const modal = document.getElementById("fahrzeughandel-modal");
-  if (!modal) return;
-
-  // 1. Escape-Taste
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") {
-      const modal = document.querySelector(".fahrzeughandel-modal-dynamic");
-      if (modal) {
-        closeFahrzeughandelModalDynamic();
-      }
-    }
-  });
-
-  document.addEventListener("click", (e) => {
-    const modal = document.querySelector(".fahrzeughandel-modal-dynamic");
-    if (modal && e.target === modal) {
-      closeFahrzeughandelModalDynamic();
-    }
-  });
-
-  // 3. X-Button (falls vorhanden)
-  const closeButton = modal.querySelector(".modal-close");
-  if (closeButton) {
-    closeButton.addEventListener("click", function (e) {
-      e.preventDefault();
-      closeFahrzeughandelModal();
-    });
-  }
-
-  console.log("✅ Modal Event-Listener eingerichtet");
-}
-
-// Event-Listener beim Laden der Seite einrichten
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", setupModalEventListeners);
-} else {
-  setupModalEventListeners();
-}
-
-// Debug-Funktionen
-window.debugModal = function () {
-  const modal = document.getElementById("fahrzeughandel-modal");
-  console.log("Modal Element:", modal);
-  console.log("Modal Classes:", modal?.classList?.toString());
-  console.log("Modal Display:", window.getComputedStyle(modal)?.display);
-  console.log("Modal Visibility:", window.getComputedStyle(modal)?.visibility);
-  console.log("Modal Opacity:", window.getComputedStyle(modal)?.opacity);
-};
-
-// Fallback-Schließ-Funktion (falls andere nicht funktioniert)
-window.forceCloseModal = function () {
-  const modal = document.getElementById("fahrzeughandel-modal");
-  if (modal) {
-    modal.style.display = "none !important";
-    modal.classList.remove("active");
-    document.body.style.overflow = "auto";
-    console.log("🔧 Modal zwangsweise geschlossen");
-  }
-};
 
 // Dropdowns mit Daten füllen
 function populateDropdowns() {
@@ -1041,7 +1069,7 @@ function populateDropdowns() {
     });
   }
 
-  // 🆕 VERKAUFT AN Dropdown (Käufer)
+  // VERKAUFT AN Dropdown (Käufer)
   const verkauftAnSelect = document.getElementById("handel-verkauft-an");
   if (verkauftAnSelect) {
     verkauftAnSelect.innerHTML =
@@ -1055,7 +1083,7 @@ function populateDropdowns() {
     });
   }
 
-  // Fahrzeuge-Dropdown (unverändert)
+  // Fahrzeuge-Dropdown
   const fahrzeugSelect = document.getElementById("handel-fahrzeug");
   if (fahrzeugSelect) {
     fahrzeugSelect.innerHTML = `
@@ -1086,24 +1114,30 @@ async function loadHandelForEdit(handelId) {
     if (!response.ok) throw new Error("Handelsgeschäft nicht gefunden");
 
     const handel = await response.json();
+    console.log("🔍 Handelsgeschäft geladen:", handel);
+    console.log("🔍 VIN aus API:", handel.vin);
 
     // Form mit Daten füllen
     fillFormWithData(handel);
   } catch (error) {
     console.error("Fehler beim Laden des Handelsgeschäfts:", error);
     showNotification("Fehler beim Laden der Daten", "error");
-    closeFahrzeughandelModal();
+    closeFahrzeughandelModalDynamic();
   }
 }
 
 // Form mit Daten füllen
 function fillFormWithData(handel) {
+  console.log("🔍 Fülle Form mit Daten:", handel);
+
+  // ✅ WICHTIG: VIN ist jetzt in der Liste!
   const fields = [
     "typ",
     "datum",
     "kennzeichen",
     "marke",
     "modell",
+    "vin", // ✅ VIN HINZUGEFÜGT!
     "baujahr",
     "kilometerstand",
     "farbe",
@@ -1123,6 +1157,11 @@ function fillFormWithData(handel) {
     );
     if (element && handel[field] !== null && handel[field] !== undefined) {
       element.value = handel[field];
+
+      // Debug für VIN
+      if (field === "vin") {
+        console.log("✅ VIN gesetzt:", handel[field], "Element:", element);
+      }
     }
   });
 
@@ -1138,17 +1177,13 @@ function fillFormWithData(handel) {
     document.getElementById("handel-fahrzeug").value = handel.fahrzeug_id;
   }
 
-  // 🆕 VERKAUFT AN Dropdown - prüfe ob es eine Kunden-ID ist oder nur Text
+  // VERKAUFT AN Dropdown
   if (handel.verkauft_an) {
     const verkauftAnSelect = document.getElementById("handel-verkauft-an");
-
-    // Prüfe ob verkauft_an eine Nummer (Kunden-ID) ist
     const kundenId = parseInt(handel.verkauft_an);
     if (!isNaN(kundenId) && availableKunden.find((k) => k.id === kundenId)) {
-      // Es ist eine Kunden-ID
       verkauftAnSelect.value = kundenId;
     } else {
-      // Es ist noch ein alter Text-Wert - füge ihn als Custom-Option hinzu
       const customOption = document.createElement("option");
       customOption.value = "custom";
       customOption.textContent = `📝 ${handel.verkauft_an} (manuell eingetragen)`;
@@ -1159,13 +1194,16 @@ function fillFormWithData(handel) {
 
   // Gewinn berechnen
   calculateProfit();
+
+  // Final VIN Check
+  const vinElement = document.getElementById("handel-vin");
+  console.log("🏁 Final VIN Check - Element Value:", vinElement?.value);
 }
 
 // Filter-Funktionen
 window.filterHandel = function (filter) {
   currentFilter = filter;
 
-  // Aktiven Button markieren
   document.querySelectorAll(".filter-buttons .btn").forEach((btn) => {
     btn.setAttribute("data-active", "false");
   });
@@ -1187,24 +1225,22 @@ window.loadFahrzeugData = function () {
   const kennzeichenField = document.getElementById("handel-kennzeichen");
   const markeField = document.getElementById("handel-marke");
   const modellField = document.getElementById("handel-modell");
-  const vinField = document.getElementById("handel-vin"); // 🎯 VIN-Feld
+  const vinField = document.getElementById("handel-vin");
   const baujahrField = document.getElementById("handel-baujahr");
   const farbeField = document.getElementById("handel-farbe");
   const kilometerstandField = document.getElementById("handel-kilometerstand");
 
   if (!selectedId) {
-    // "Neu eingeben oder auswählen" gewählt → Felder leeren und aktivieren
-    console.log("🆕 Neues Fahrzeug eingeben - Felder werden geleert");
-
+    // Neues Fahrzeug eingeben - Felder leeren
     if (kennzeichenField) kennzeichenField.value = "";
     if (markeField) markeField.value = "";
     if (modellField) modellField.value = "";
-    if (vinField) vinField.value = ""; // 🎯 VIN leeren
+    if (vinField) vinField.value = "";
     if (baujahrField) baujahrField.value = "";
     if (farbeField) farbeField.value = "";
     if (kilometerstandField) kilometerstandField.value = "";
 
-    // Felder aktivieren (falls sie deaktiviert waren)
+    // Felder aktivieren
     [
       kennzeichenField,
       markeField,
@@ -1218,15 +1254,9 @@ window.loadFahrzeugData = function () {
         field.disabled = false;
         field.style.backgroundColor = "";
         field.style.opacity = "1";
-        // Visueller Hinweis dass Felder editierbar sind
-        field.style.borderColor = "#3b82f6";
-        setTimeout(() => {
-          if (field) field.style.borderColor = "";
-        }, 2000);
       }
     });
 
-    // Fokus auf erstes Feld setzen
     if (kennzeichenField) {
       kennzeichenField.focus();
     }
@@ -1234,38 +1264,17 @@ window.loadFahrzeugData = function () {
     return;
   }
 
-  // Existierendes Fahrzeug ausgewählt → Daten laden
-  console.log("🚗 Fahrzeugdaten laden für ID:", selectedId);
-
+  // Existierendes Fahrzeug laden
   const fahrzeug = availableFahrzeuge.find((f) => f.id == selectedId);
   if (fahrzeug) {
-    // Daten aus bestehendem Fahrzeug laden - INKLUSIVE VIN
     if (kennzeichenField) kennzeichenField.value = fahrzeug.kennzeichen || "";
     if (markeField) markeField.value = fahrzeug.marke || "";
     if (modellField) modellField.value = fahrzeug.modell || "";
-    if (vinField) vinField.value = fahrzeug.vin || ""; // 🎯 VIN aus existierendem Fahrzeug laden
+    if (vinField) vinField.value = fahrzeug.vin || "";
     if (baujahrField) baujahrField.value = fahrzeug.baujahr || "";
     if (farbeField) farbeField.value = fahrzeug.farbe || "";
     if (kilometerstandField)
       kilometerstandField.value = fahrzeug.kilometerstand || "";
-
-    // Visueller Hinweis dass Daten geladen wurden
-    [
-      kennzeichenField,
-      markeField,
-      modellField,
-      vinField,
-      baujahrField,
-      farbeField,
-      kilometerstandField,
-    ].forEach((field) => {
-      if (field && field.value) {
-        field.style.borderColor = "#10b981";
-        setTimeout(() => {
-          if (field) field.style.borderColor = "";
-        }, 2000);
-      }
-    });
 
     console.log(
       "✅ Fahrzeugdaten geladen:",
@@ -1290,7 +1299,6 @@ window.handleTypChange = function () {
     ?.closest(".form-group");
 
   if (typ === "ankauf") {
-    // Bei Ankauf: Verkaufspreis und Gewinn weniger wichtig
     if (verkaufspreisGroup) {
       verkaufspreisGroup.style.opacity = "0.6";
       const label = verkaufspreisGroup.querySelector("label");
@@ -1305,7 +1313,6 @@ window.handleTypChange = function () {
       verkauftAnGroup.style.display = "none";
     }
   } else if (typ === "verkauf") {
-    // Bei Verkauf: Alle Felder wichtig
     if (verkaufspreisGroup) {
       verkaufspreisGroup.style.opacity = "1";
       const label = verkaufspreisGroup.querySelector("label");
@@ -1320,7 +1327,6 @@ window.handleTypChange = function () {
       verkauftAnGroup.style.display = "block";
     }
   } else {
-    // Kein Typ gewählt: Alle normal anzeigen
     [verkaufspreisGroup, gewinnGroup, verkauftAnGroup].forEach((group) => {
       if (group) {
         group.style.opacity = "1";
@@ -1329,7 +1335,6 @@ window.handleTypChange = function () {
     });
   }
 
-  // Gewinn neu berechnen
   calculateProfit();
 };
 
@@ -1345,7 +1350,6 @@ window.calculateProfit = function () {
   if (gewinnField) {
     gewinnField.value = gewinn.toFixed(2);
 
-    // Visuelle Hinweise für Gewinn/Verlust
     gewinnField.classList.remove("profit-positive", "profit-negative");
     if (gewinn > 0) {
       gewinnField.classList.add("profit-positive");
@@ -1364,21 +1368,31 @@ window.editFahrzeughandel = function (handelId) {
   showFahrzeughandelModal(handelId);
 };
 
-window.saveFahrzeughandel = async function () {
+// ✅ REPARIERTE saveFahrzeughandel Funktion
+window.saveFahrzeughandel = async function (event) {
+  // Form-Submit verhindern
+  if (event) {
+    event.preventDefault();
+  }
+
   const submitButton = document.querySelector(
     "#fahrzeughandel-form .btn-primary"
   );
-  const submitText = document.getElementById("submit-text") || submitButton;
-  const originalText = submitText.textContent;
+  const originalText = submitButton.textContent;
 
-  // Button-Status setzen
+  // Button deaktivieren
   submitButton.disabled = true;
-  submitText.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Speichern...';
+  submitButton.innerHTML =
+    '<i class="fas fa-spinner fa-spin"></i> Speichern...';
 
   try {
-    // Validierung
+    // Validierung ZUERST
     const formData = getFormData();
+
     if (!validateFormData(formData)) {
+      // Button wieder aktivieren bei Validierungsfehlern
+      submitButton.disabled = false;
+      submitButton.textContent = originalText;
       return;
     }
 
@@ -1386,14 +1400,11 @@ window.saveFahrzeughandel = async function () {
     const url = editingHandelId
       ? `/api/fahrzeughandel/${editingHandelId}`
       : "/api/fahrzeughandel";
-
     const method = editingHandelId ? "PUT" : "POST";
 
     const response = await fetch(url, {
       method: method,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(formData),
     });
 
@@ -1404,11 +1415,10 @@ window.saveFahrzeughandel = async function () {
 
     const result = await response.json();
 
-    // 🆕 Erfolgsmeldung mit Info über erstelltes Fahrzeug
+    // Erfolgsmeldung
     let message = editingHandelId
       ? "Handelsgeschäft aktualisiert"
       : "Handelsgeschäft erstellt";
-
     if (result.fahrzeug_erstellt) {
       message += " (Fahrzeug automatisch erstellt)";
     }
@@ -1416,64 +1426,42 @@ window.saveFahrzeughandel = async function () {
     showNotification(message, "success");
 
     // Modal schließen
-    closeFahrzeughandelModal();
+    closeFahrzeughandelModalDynamic();
 
-    // 🎯 Fahrzeughandel-Daten neu laden
-    if (typeof loadFahrzeughandel === "function") {
-      await loadFahrzeughandel();
-    }
+    // NUR Fahrzeughandel-Daten neu laden, NICHT die ganze App
+    await loadFahrzeughandelData();
+    await loadFahrzeughandelStats();
+    updateFahrzeughandelTable();
+    updateStatsDisplay();
 
-    // 🆕 NEUE LOGIK: Fahrzeuge-Liste aktualisieren wenn neues Fahrzeug erstellt wurde
+    // Fahrzeuge-Dropdown aktualisieren falls neues Fahrzeug erstellt
     if (result.fahrzeug_erstellt) {
-      console.log("🔄 Fahrzeuge-Liste wird aktualisiert nach Neuerstellung");
-
-      // Globale Fahrzeuge-Liste aktualisieren
       try {
-        if (typeof loadFahrzeuge === "function") {
-          await loadFahrzeuge();
-          console.log("✅ Fahrzeuge-Liste aktualisiert");
+        const response = await fetch("/api/fahrzeughandel/options/fahrzeuge");
+        if (response.ok) {
+          availableFahrzeuge = await response.json();
         }
-
-        // Available Fahrzeuge für Dropdowns aktualisieren
-        if (typeof availableFahrzeuge !== "undefined") {
-          try {
-            const response = await fetch(
-              "/api/fahrzeughandel/options/fahrzeuge"
-            );
-            if (response.ok) {
-              availableFahrzeuge = await response.json();
-              console.log("✅ Dropdown-Fahrzeuge aktualisiert");
-            }
-          } catch (error) {
-            console.warn(
-              "Warnung: Dropdown-Fahrzeuge konnten nicht aktualisiert werden:",
-              error
-            );
-          }
-        }
-
-        // Zusätzliche Benachrichtigung
-        setTimeout(() => {
-          showNotification(
-            `Fahrzeug "${result.handelsgeschaeft?.kennzeichen}" ist jetzt in der Fahrzeuge-Sektion verfügbar`,
-            "info"
-          );
-        }, 1500);
       } catch (error) {
         console.warn(
-          "Warnung: Fahrzeuge-Liste konnte nicht aktualisiert werden:",
+          "Warnung: Dropdown-Fahrzeuge konnten nicht aktualisiert werden:",
           error
         );
-        // Nicht kritisch - Benutzer kann manuell aktualisieren
       }
+
+      setTimeout(() => {
+        showNotification(
+          `Fahrzeug "${result.handelsgeschaeft?.kennzeichen}" wurde erstellt`,
+          "info"
+        );
+      }, 1500);
     }
   } catch (error) {
-    console.error("Fehler beim Speichern:", error);
+    console.error("❌ Fehler beim Speichern:", error);
     showNotification(`Fehler: ${error.message}`, "error");
-  } finally {
-    // Button wieder aktivieren
+
+    // Button wieder aktivieren bei Fehlern
     submitButton.disabled = false;
-    submitText.textContent = originalText;
+    submitButton.textContent = originalText;
   }
 };
 
@@ -1497,27 +1485,10 @@ window.deleteFahrzeughandel = async function (handelId, handelNr) {
     }
 
     showNotification(`Handelsgeschäft ${handelNr} gelöscht`, "success");
-    await loadFahrzeughandel(); // Daten neu laden
+    await loadFahrzeughandel();
   } catch (error) {
     console.error("Fehler beim Löschen:", error);
     showNotification(`Fehler beim Löschen: ${error.message}`, "error");
-  }
-};
-
-window.showNewVehicleInList = function (kennzeichen) {
-  // Zur Fahrzeuge-Sektion wechseln
-  if (typeof showSection === "function") {
-    showSection("fahrzeuge");
-
-    // Nach kurzer Verzögerung das neue Fahrzeug hervorheben
-    setTimeout(() => {
-      const searchInput = document.getElementById("fahrzeuge-search");
-      if (searchInput) {
-        searchInput.value = kennzeichen;
-        searchInput.dispatchEvent(new Event("input"));
-        searchInput.focus();
-      }
-    }, 500);
   }
 };
 
@@ -1552,20 +1523,18 @@ function debounce(func, wait) {
 }
 
 function showNotification(message, type = "info") {
-  // Integration in das bestehende Notification-System
   if (window.showNotification) {
     window.showNotification(message, type);
   } else {
-    // Fallback
     console.log(`[${type.toUpperCase()}] ${message}`);
     alert(message);
   }
 }
 
+// Event-Listener für DOMContentLoaded
 document.addEventListener("DOMContentLoaded", function () {
   const fahrzeugSelect = document.getElementById("handel-fahrzeug");
   if (fahrzeugSelect) {
-    // Enter-Taste auf Fahrzeug-Dropdown → Fokus auf Kennzeichen-Feld
     fahrzeugSelect.addEventListener("keydown", function (e) {
       if (e.key === "Enter" && !this.value) {
         e.preventDefault();
@@ -1578,21 +1547,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
-// Modal-Schließen bei Escape oder Klick außerhalb
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") {
-    closeFahrzeughandelModal();
-  }
-});
-
-// Klick außerhalb Modal
-document.addEventListener("click", (e) => {
-  const modal = document.getElementById("fahrzeughandel-modal");
-  if (e.target === modal) {
-    closeFahrzeughandelModal();
-  }
-});
-
+// Global verfügbar machen
 window.createRechnungFromHandel = createRechnungFromHandel;
 
-console.log("✅ Fahrzeughandel-Modul geladen");
+console.log("✅ Fahrzeughandel-Modul geladen - Komplett und funktionsfähig");

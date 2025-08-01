@@ -34,11 +34,12 @@ const generateHandelNr = () => {
   });
 };
 
-const calculateProfit = (ankaufspreis, verkaufspreis) => {
+// ✅ Helper-Funktion (falls noch nicht vorhanden)
+function calculateProfit(ankaufspreis, verkaufspreis) {
   const ankauf = parseFloat(ankaufspreis) || 0;
   const verkauf = parseFloat(verkaufspreis) || 0;
   return verkauf - ankauf;
-};
+}
 
 // GET /api/fahrzeughandel - Alle Handelsgeschäfte abrufen
 router.get("/", (req, res) => {
@@ -168,32 +169,30 @@ router.get("/:id", (req, res) => {
   const { id } = req.params;
 
   const sql = `
-    SELECT 
-      fh.*,
-      k.name as kunde_name,
-      k.kunden_nr,
-      k.telefon as kunde_telefon,
-      k.email as kunde_email,
-      f.kennzeichen as original_kennzeichen,
-      f.marke as original_marke,
-      f.modell as original_modell,
-      f.vin as original_vin,
-      -- 🆕 Käufer-Info laden falls verkauft_an eine Kunden-ID ist
-      k2.name as kaeufer_name,
-      k2.kunden_nr as kaeufer_nr
-    FROM fahrzeug_handel fh
-    LEFT JOIN kunden k ON fh.kunden_id = k.id
-    LEFT JOIN fahrzeuge f ON fh.fahrzeug_id = f.id
-    -- 🆕 Zweiter JOIN für Käufer-Daten
-    LEFT JOIN kunden k2 ON (
-      CASE 
-        WHEN fh.verkauft_an GLOB '[0-9]*' 
-        THEN CAST(fh.verkauft_an AS INTEGER) = k2.id
-        ELSE 0
-      END
-    )
-    WHERE fh.id = ?
-  `;
+  SELECT fh.*,
+    k.name as kunde_name,
+    k.kunden_nr,
+    k.telefon as kunde_telefon,
+    k.email as kunde_email,
+    f.kennzeichen as original_kennzeichen,
+    f.marke as original_marke,
+    f.modell as original_modell,
+    COALESCE(fh.vin, f.vin) as vin, -- VIN aus Handelsgeschäft, fallback auf Fahrzeug
+    f.vin as fahrzeug_vin, -- Original VIN aus Fahrzeug
+    k2.name as kaeufer_name,
+    k2.kunden_nr as kaeufer_nr
+  FROM fahrzeug_handel fh
+  LEFT JOIN kunden k ON fh.kunden_id = k.id
+  LEFT JOIN fahrzeuge f ON fh.fahrzeug_id = f.id
+  LEFT JOIN kunden k2 ON (
+    CASE 
+      WHEN fh.verkauft_an GLOB '[0-9]*' 
+      THEN CAST(fh.verkauft_an AS INTEGER) = k2.id
+      ELSE 0
+    END
+  )
+  WHERE fh.id = ?
+`;
 
   db.get(sql, [id], (err, row) => {
     if (err) {
@@ -362,12 +361,12 @@ router.post("/", async (req, res) => {
 
     // Handelsgeschäft erstellen
     const sql = `
-      INSERT INTO fahrzeug_handel (
-        handel_nr, typ, kunden_id, fahrzeug_id, datum, kennzeichen, marke, modell,
-        baujahr, kilometerstand, farbe, zustand, ankaufspreis, verkaufspreis, gewinn,
-        tuev_bis, au_bis, papiere_vollstaendig, bemerkungen, interne_notizen, verkauft_an
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+  INSERT INTO fahrzeug_handel (
+    handel_nr, typ, kunden_id, fahrzeug_id, datum, kennzeichen, marke, modell, vin,
+    baujahr, kilometerstand, farbe, zustand, ankaufspreis, verkaufspreis, gewinn,
+    tuev_bis, au_bis, papiere_vollstaendig, bemerkungen, interne_notizen, verkauft_an
+  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`;
 
     const params = [
       handelNr,
@@ -378,6 +377,7 @@ router.post("/", async (req, res) => {
       kennzeichen.toUpperCase(),
       marke,
       modell,
+      vin || null, // ✅ VIN hier hinzugefügt!
       baujahr,
       kilometerstand,
       farbe,
@@ -562,11 +562,8 @@ router.get("/options/fahrzeuge", (req, res) => {
 });
 
 router.put("/:id", async (req, res) => {
-  console.log(
-    "🔄 PUT /api/fahrzeughandel/:id aufgerufen",
-    req.params.id,
-    req.body
-  );
+  console.log("🔄 PUT /api/fahrzeughandel/:id aufgerufen", req.params.id);
+  console.log("📋 Request Body:", req.body);
 
   const { id } = req.params;
   const {
@@ -593,6 +590,16 @@ router.put("/:id", async (req, res) => {
     verkauft_an,
   } = req.body;
 
+  // 🔧 DEBUG: Fahrzeug-ID genauer prüfen
+  console.log("🔍 Fahrzeug-ID Debug:", {
+    fahrzeug_id: fahrzeug_id,
+    type: typeof fahrzeug_id,
+    isString: typeof fahrzeug_id === "string",
+    isNumber: typeof fahrzeug_id === "number",
+    parsed: parseInt(fahrzeug_id),
+    isEmpty: !fahrzeug_id || fahrzeug_id === "" || fahrzeug_id === "null",
+  });
+
   try {
     // Validierung
     if (!typ || !["ankauf", "verkauf"].includes(typ)) {
@@ -607,83 +614,233 @@ router.put("/:id", async (req, res) => {
         .json({ error: "Kennzeichen, Marke und Modell sind erforderlich" });
     }
 
-    // Gewinn neu berechnen
+    // Gewinn berechnen
     const gewinn = calculateProfit(ankaufspreis, verkaufspreis);
 
-    const sql = `
-      UPDATE fahrzeug_handel SET
-        typ = ?, kunden_id = ?, fahrzeug_id = ?, datum = ?, kennzeichen = ?,
-        marke = ?, modell = ?, baujahr = ?, kilometerstand = ?, farbe = ?,
-        zustand = ?, ankaufspreis = ?, verkaufspreis = ?, gewinn = ?, status = ?,
-        tuev_bis = ?, au_bis = ?, papiere_vollstaendig = ?, bemerkungen = ?,
-        interne_notizen = ?, verkauft_an = ?, aktualisiert_am = CURRENT_TIMESTAMP,
-        abgeschlossen_am = CASE WHEN ? = 'abgeschlossen' AND status != 'abgeschlossen' 
-                                THEN CURRENT_TIMESTAMP ELSE abgeschlossen_am END
-      WHERE id = ?
-    `;
+    // ✅ SCHRITT 1: Handelsgeschäft aktualisieren
+    console.log("📝 Aktualisiere Handelsgeschäft ID:", id);
 
-    const params = [
-      typ,
-      kunden_id || null,
-      fahrzeug_id || null,
-      datum,
-      kennzeichen.toUpperCase(),
-      marke,
-      modell,
-      baujahr || null,
-      kilometerstand || null,
-      farbe || null,
-      zustand || "gut",
-      parseFloat(ankaufspreis) || 0,
-      parseFloat(verkaufspreis) || 0,
-      gewinn,
-      status || "offen",
-      tuev_bis || null,
-      au_bis || null,
-      papiere_vollstaendig !== false,
-      bemerkungen || null,
-      interne_notizen || null,
-      verkauft_an || null,
-      status, // Für abgeschlossen_am Check
-      id,
-    ];
+    const handelResult = await new Promise((resolve, reject) => {
+      const sql = `
+        UPDATE fahrzeug_handel SET
+          typ = ?, kunden_id = ?, fahrzeug_id = ?, datum = ?, kennzeichen = ?,
+          marke = ?, modell = ?, vin = ?, baujahr = ?, kilometerstand = ?, farbe = ?,
+          zustand = ?, ankaufspreis = ?, verkaufspreis = ?, gewinn = ?, status = ?,
+          tuev_bis = ?, au_bis = ?, papiere_vollstaendig = ?, bemerkungen = ?,
+          interne_notizen = ?, verkauft_an = ?, aktualisiert_am = CURRENT_TIMESTAMP,
+          abgeschlossen_am = CASE WHEN ? = 'abgeschlossen' AND status != 'abgeschlossen' 
+                                  THEN CURRENT_TIMESTAMP ELSE abgeschlossen_am END
+        WHERE id = ?
+      `;
 
-    db.run(sql, params, function (err) {
-      if (err) {
-        console.error("Fehler beim Aktualisieren des Handelsgeschäfts:", err);
-        res.status(500).json({ error: "Datenbankfehler: " + err.message });
-        return;
+      const params = [
+        typ,
+        kunden_id || null,
+        fahrzeug_id || null,
+        datum,
+        kennzeichen.toUpperCase(),
+        marke,
+        modell,
+        vin || null,
+        baujahr || null,
+        kilometerstand || null,
+        farbe || null,
+        zustand || "gut",
+        parseFloat(ankaufspreis) || 0,
+        parseFloat(verkaufspreis) || 0,
+        gewinn,
+        status || "offen",
+        tuev_bis || null,
+        au_bis || null,
+        papiere_vollstaendig !== false,
+        bemerkungen || null,
+        interne_notizen || null,
+        verkauft_an || null,
+        status,
+        id,
+      ];
+
+      console.log("📝 Handelsgeschäft SQL-Params:", params.slice(0, 10)); // Erste 10 Params zeigen
+
+      db.run(sql, params, function (err) {
+        if (err) {
+          console.error("❌ Handelsgeschäft Update Fehler:", err);
+          reject(err);
+        } else if (this.changes === 0) {
+          reject(new Error("Handelsgeschäft nicht gefunden"));
+        } else {
+          console.log(
+            "✅ Handelsgeschäft aktualisiert, Änderungen:",
+            this.changes
+          );
+          resolve(this.changes);
+        }
+      });
+    });
+
+    // ✅ SCHRITT 2: Fahrzeug synchronisieren - VERBESSERTE LOGIC
+    let fahrzeugSyncResult = 0;
+    let fahrzeugSyncError = null;
+
+    // 🔧 REPARIERT: Bessere Fahrzeug-ID-Prüfung
+    const fahrzeugIdNumber = parseInt(fahrzeug_id);
+    const hasFahrzeugId =
+      fahrzeug_id &&
+      fahrzeug_id !== "null" &&
+      fahrzeug_id !== "" &&
+      !isNaN(fahrzeugIdNumber) &&
+      fahrzeugIdNumber > 0;
+
+    console.log("🚗 Fahrzeug-Synchronisation Check:", {
+      fahrzeug_id_original: fahrzeug_id,
+      fahrzeug_id_parsed: fahrzeugIdNumber,
+      has_fahrzeug_id: hasFahrzeugId,
+    });
+
+    if (hasFahrzeugId) {
+      console.log(
+        `🚗 Starte Fahrzeug-Synchronisation für ID ${fahrzeugIdNumber}`
+      );
+
+      try {
+        // 🔧 ZUERST: Prüfen ob Fahrzeug existiert
+        const existingFahrzeug = await new Promise((resolve, reject) => {
+          db.get(
+            "SELECT * FROM fahrzeuge WHERE id = ?",
+            [fahrzeugIdNumber],
+            (err, row) => {
+              if (err) {
+                console.error("❌ Fehler beim Prüfen des Fahrzeugs:", err);
+                reject(err);
+              } else {
+                console.log(
+                  "🔍 Gefundenes Fahrzeug:",
+                  row
+                    ? {
+                        id: row.id,
+                        kennzeichen: row.kennzeichen,
+                        marke: row.marke,
+                        modell: row.modell,
+                        vin: row.vin,
+                      }
+                    : null
+                );
+                resolve(row);
+              }
+            }
+          );
+        });
+
+        if (!existingFahrzeug) {
+          console.warn(
+            `⚠️ Fahrzeug mit ID ${fahrzeugIdNumber} nicht gefunden - Skip Synchronisation`
+          );
+          fahrzeugSyncError = `Fahrzeug ID ${fahrzeugIdNumber} nicht gefunden`;
+        } else {
+          // Fahrzeug existiert - synchronisieren
+          fahrzeugSyncResult = await new Promise((resolve, reject) => {
+            const fahrzeugSql = `
+              UPDATE fahrzeuge SET
+                kennzeichen = ?, marke = ?, modell = ?, vin = ?, 
+                baujahr = ?, farbe = ?, kunden_id = ?, 
+                aktualisiert_am = CURRENT_TIMESTAMP
+              WHERE id = ?
+            `;
+
+            const fahrzeugParams = [
+              kennzeichen.toUpperCase(),
+              marke,
+              modell,
+              vin || null,
+              baujahr || null,
+              farbe || null,
+              kunden_id || null,
+              fahrzeugIdNumber,
+            ];
+
+            console.log("🚗 Fahrzeug-Update SQL:", fahrzeugSql);
+            console.log("🚗 Fahrzeug-Update Params:", fahrzeugParams);
+
+            db.run(fahrzeugSql, fahrzeugParams, function (err) {
+              if (err) {
+                console.error("❌ Fahrzeug-Update SQL Fehler:", err);
+                reject(err);
+              } else {
+                const changes = this.changes;
+                console.log(
+                  `🚗 Fahrzeug-Update abgeschlossen - Änderungen: ${changes}`
+                );
+                if (changes > 0) {
+                  console.log(
+                    `✅ Fahrzeug ID ${fahrzeugIdNumber} erfolgreich synchronisiert`
+                  );
+                } else {
+                  console.warn(
+                    `⚠️ Fahrzeug ID ${fahrzeugIdNumber} - keine Änderungen`
+                  );
+                }
+                resolve(changes);
+              }
+            });
+          });
+        }
+      } catch (fahrzeugError) {
+        console.error("❌ Fahrzeug-Synchronisation Fehler:", fahrzeugError);
+        fahrzeugSyncError = fahrzeugError.message;
+        // Nicht den ganzen Request abbrechen
       }
+    } else {
+      console.log("ℹ️ Keine gültige Fahrzeug-ID - keine Synchronisation", {
+        fahrzeug_id,
+        fahrzeugIdNumber,
+        hasFahrzeugId,
+      });
+    }
 
-      if (this.changes === 0) {
-        res.status(404).json({ error: "Handelsgeschäft nicht gefunden" });
-        return;
-      }
-
-      console.log("✅ Handelsgeschäft aktualisiert, ID:", id);
-
-      // Aktualisiertes Handelsgeschäft zurückgeben
+    // ✅ SCHRITT 3: Aktualisierte Daten zurückgeben
+    const updatedHandel = await new Promise((resolve, reject) => {
       db.get("SELECT * FROM fahrzeug_handel WHERE id = ?", [id], (err, row) => {
         if (err) {
           console.error(
-            "Fehler beim Abrufen des aktualisierten Handelsgeschäfts:",
+            "❌ Fehler beim Abrufen der aktualisierten Daten:",
             err
           );
-          res.status(500).json({
-            error: "Handelsgeschäft aktualisiert, aber Abrufen fehlgeschlagen",
-          });
-          return;
+          reject(err);
+        } else {
+          resolve(row);
         }
-
-        res.json({
-          message: "Handelsgeschäft erfolgreich aktualisiert",
-          handelsgeschaeft: row,
-        });
       });
     });
+
+    // 🔧 VERBESSERTE Erfolgreiche Antwort
+    const response = {
+      message: "Handelsgeschäft erfolgreich aktualisiert",
+      handelsgeschaeft: updatedHandel,
+      updates: {
+        handelsgeschaeft: true,
+        fahrzeug_synchronisiert: fahrzeugSyncResult > 0,
+        fahrzeug_id: hasFahrzeugId ? fahrzeugIdNumber : null,
+        fahrzeug_sync_attempts: hasFahrzeugId ? 1 : 0,
+        fahrzeug_sync_error: fahrzeugSyncError,
+      },
+    };
+
+    if (fahrzeugSyncResult > 0) {
+      response.message += " (Fahrzeugdaten synchronisiert)";
+    } else if (fahrzeugSyncError) {
+      response.message += ` (Fahrzeug-Sync fehlgeschlagen: ${fahrzeugSyncError})`;
+    }
+
+    console.log("✅ PUT Request erfolgreich abgeschlossen:", response.updates);
+    res.json(response);
   } catch (error) {
-    console.error("Fehler beim Aktualisieren des Handelsgeschäfts:", error);
-    res.status(500).json({ error: "Server-Fehler: " + error.message });
+    console.error("❌ PUT Request Fehler:", error);
+
+    if (error.message === "Handelsgeschäft nicht gefunden") {
+      res.status(404).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: "Server-Fehler: " + error.message });
+    }
   }
 });
 

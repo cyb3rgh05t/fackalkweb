@@ -282,6 +282,7 @@ class FahrzeughandelMigration {
           baujahr INTEGER,
           kilometerstand INTEGER,
           farbe TEXT,
+          vin TEXT,
           zustand TEXT DEFAULT 'gut' CHECK (zustand IN ('sehr gut', 'gut', 'befriedigend', 'mangelhaft')),
           
           -- TÜV und Papiere
@@ -728,6 +729,7 @@ class DatabaseManager {
           farbe TEXT,
           farbcode TEXT,
           erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
+          aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE CASCADE
         )`,
       },

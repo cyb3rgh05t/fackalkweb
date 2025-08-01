@@ -1415,31 +1415,92 @@ window.saveFahrzeughandel = async function (event) {
 
     const result = await response.json();
 
-    // Erfolgsmeldung
+    // ✅ ERWEITERTE Erfolgsmeldung
     let message = editingHandelId
       ? "Handelsgeschäft aktualisiert"
       : "Handelsgeschäft erstellt";
+
     if (result.fahrzeug_erstellt) {
       message += " (Fahrzeug automatisch erstellt)";
     }
 
+    // ✅ NEU: Fahrzeug-Synchronisation berücksichtigen
+    if (result.updates && result.updates.fahrzeug_synchronisiert) {
+      message += " (Fahrzeugdaten synchronisiert)";
+    }
+
     showNotification(message, "success");
+
+    // ✅ NEU: Cache-Invalidierung bei Fahrzeug-Updates
+    if (
+      editingHandelId &&
+      result.updates &&
+      result.updates.fahrzeug_synchronisiert
+    ) {
+      console.log("🔄 Fahrzeug wurde synchronisiert - invalidiere Caches");
+
+      // Browser-Storage cleanen (falls verwendet)
+      if (typeof localStorage !== "undefined") {
+        Object.keys(localStorage).forEach((key) => {
+          if (
+            key.startsWith("fahrzeuge_") ||
+            key.startsWith("cache_fahrzeuge")
+          ) {
+            localStorage.removeItem(key);
+            console.log("🗑️ Cache-Key entfernt:", key);
+          }
+        });
+      }
+
+      // Global Event für andere Komponenten senden
+      if (typeof window.dispatchEvent === "function") {
+        window.dispatchEvent(
+          new CustomEvent("fahrzeugDataChanged", {
+            detail: {
+              type: "updated_from_handel",
+              fahrzeug_id: result.updates.fahrzeug_id,
+              handelsgeschaeft_id: editingHandelId,
+            },
+          })
+        );
+      }
+    }
 
     // Modal schließen
     closeFahrzeughandelModalDynamic();
 
-    // NUR Fahrzeughandel-Daten neu laden, NICHT die ganze App
-    await loadFahrzeughandelData();
-    await loadFahrzeughandelStats();
+    // ✅ ERWEITERTE Daten-Aktualisierung
+    await Promise.all([
+      loadFahrzeughandelData(),
+      loadFahrzeughandelStats(),
+      // ✅ NEU: Fahrzeuge auch neu laden wenn synchronisiert
+      result.updates &&
+      result.updates.fahrzeug_synchronisiert &&
+      typeof loadFahrzeuge === "function"
+        ? loadFahrzeuge()
+        : Promise.resolve(),
+    ]);
+
     updateFahrzeughandelTable();
     updateStatsDisplay();
 
-    // Fahrzeuge-Dropdown aktualisieren falls neues Fahrzeug erstellt
+    // ✅ ERWEITERTE Fahrzeuge-Dropdown Aktualisierung
+    let shouldUpdateDropdown = false;
+
     if (result.fahrzeug_erstellt) {
+      shouldUpdateDropdown = true;
+    }
+
+    if (result.updates && result.updates.fahrzeug_synchronisiert) {
+      shouldUpdateDropdown = true;
+    }
+
+    if (shouldUpdateDropdown) {
       try {
         const response = await fetch("/api/fahrzeughandel/options/fahrzeuge");
         if (response.ok) {
           availableFahrzeuge = await response.json();
+          console.log("✅ Fahrzeuge-Dropdown aktualisiert");
         }
       } catch (error) {
         console.warn(
@@ -1447,13 +1508,32 @@ window.saveFahrzeughandel = async function (event) {
           error
         );
       }
+    }
 
+    // ✅ ERWEITERTE Benachrichtigungen
+    if (result.fahrzeug_erstellt) {
       setTimeout(() => {
         showNotification(
           `Fahrzeug "${result.handelsgeschaeft?.kennzeichen}" wurde erstellt`,
           "info"
         );
-      }, 1500);
+      }, 1000);
+    } else if (result.updates && result.updates.fahrzeug_synchronisiert) {
+      setTimeout(() => {
+        showNotification(
+          `Fahrzeugdaten wurden in der Hauptsektion aktualisiert`,
+          "info"
+        );
+      }, 1000);
+    }
+
+    // ✅ NEU: Debug-Ausgabe für Entwicklung
+    if (result.updates) {
+      console.log("✅ Update-Status:", {
+        handelsgeschaeft: result.updates.handelsgeschaeft,
+        fahrzeug_synchronisiert: result.updates.fahrzeug_synchronisiert,
+        fahrzeug_id: result.updates.fahrzeug_id,
+      });
     }
   } catch (error) {
     console.error("❌ Fehler beim Speichern:", error);
@@ -1462,6 +1542,12 @@ window.saveFahrzeughandel = async function (event) {
     // Button wieder aktivieren bei Fehlern
     submitButton.disabled = false;
     submitButton.textContent = originalText;
+  } finally {
+    // ✅ NEU: Sicherstellen dass Button immer wieder aktiviert wird
+    if (submitButton.disabled) {
+      submitButton.disabled = false;
+      submitButton.textContent = originalText;
+    }
   }
 };
 

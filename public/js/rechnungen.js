@@ -8,7 +8,6 @@ import { addSearchToTable } from "./search.js";
 import { createModal, closeModal } from "./modals.js";
 import { getSetting, getSettings } from "./einstellungen.js";
 
-// ✅ FUNKTIONEN ZUERST DEFINIEREN UND SOFORT EXPORTIEREN
 async function updateRechnungStatus(id, status) {
   try {
     const rechnung = await apiCall(`/api/rechnungen/${id}`);
@@ -27,20 +26,17 @@ export async function loadRechnungen() {
   try {
     console.log("🔄 Lade Rechnungen...");
 
-    // ✅ 1. Loading-Indikator anzeigen
     const tableBody = document.querySelector("#rechnungen-table tbody");
     if (tableBody) {
       tableBody.innerHTML =
         '<tr><td colspan="6" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Laden...</td></tr>';
     }
 
-    // ✅ 2. API-Aufruf mit Cache-Busting
     const cacheBuster = Date.now();
     window.rechnungen = await apiCall(`/api/rechnungen?_=${cacheBuster}`);
 
     console.log(`📊 ${window.rechnungen.length} Rechnungen geladen`);
 
-    // ✅ 3. Tabelle leeren und neu befüllen (sichere DOM-Manipulation)
     if (!tableBody) {
       console.error("❌ Tabellen-Body nicht gefunden!");
       return;
@@ -50,10 +46,10 @@ export async function loadRechnungen() {
       if (rechnung.anzahlung_betrag > 0) {
         return `
       <div class="anzahlung-info" style="font-size: 0.9em; color: var(--primary); margin-top: 0.25rem;">
-        💰 Anzahlung: ${formatCurrency(rechnung.anzahlung_betrag)}
+        Anzahlung: ${formatCurrency(rechnung.anzahlung_betrag)}
         ${
           rechnung.restbetrag > 0
-            ? `<br>⏳ Restbetrag: ${formatCurrency(rechnung.restbetrag)}`
+            ? `<br>Restbetrag: ${formatCurrency(rechnung.restbetrag)}`
             : ""
         }
       </div>
@@ -137,7 +133,10 @@ export async function loadRechnungen() {
                         }>⚫ Storniert</option>
                     </select>
                 </td>
-                <td>${formatCurrency(rechnung.gesamtbetrag)}</td>
+                <td>
+                       ${formatCurrency(rechnung.gesamtbetrag)}
+                       ${addAnzahlungsInfoToRow(rechnung)}
+                </td>
                 <td>
                     <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editRechnung(${
                       rechnung.id
@@ -160,25 +159,7 @@ export async function loadRechnungen() {
                         <i class="fas fa-trash"></i>
                     </button>
                 </td>
-               <td>
-  ${
-    rechnung.anzahlung_betrag > 0
-      ? `
-        <span class="badge badge-info">Anz: ${formatCurrency(
-          rechnung.anzahlung_betrag
-        )}</span><br>
-        <span class="badge badge-warning">Rest: ${formatCurrency(
-          rechnung.restbetrag
-        )}</span><br>
-        <small class="text-muted">${
-          rechnung.anzahlung_datum
-            ? "am " + formatDate(rechnung.anzahlung_datum)
-            : ""
-        }</small>
-      `
-      : "-"
-  }
-</td> 
+               
             </tr>
         `
       )
@@ -613,12 +594,10 @@ function displayRechnungModal(rechnung = null) {
     </div>
   </div>
 
-  <!-- 🎨 NEUE SKONTO & ANZAHLUNG CARDS -->
   <div class="payment-options-container" style="margin-top: 2rem;">
     <h3 style="margin-bottom: 1.5rem; color: #007bff;">💳 Zahlungsoptionen</h3>
     
     <div class="options-grid">
-      <!-- 🏷️ SKONTO CARD -->
       ${
         skontoTage && skontoProzent
           ? `
@@ -648,8 +627,6 @@ function displayRechnungModal(rechnung = null) {
       `
           : ""
       }
-
-      <!-- 💰 ANZAHLUNG CARD -->
       <div class="option-card anzahlung-card">
         <div class="option-checkbox-container">
           <input type="checkbox" 
@@ -679,7 +656,6 @@ function displayRechnungModal(rechnung = null) {
           </label>
         </div>
         
-        <!-- ANZAHLUNG DETAILS -->
         <div id="anzahlung-details" class="option-details" 
              style="display: ${
                rechnung?.anzahlung_betrag > 0 ? "block" : "none"
@@ -956,7 +932,6 @@ function displayRechnungModal(rechnung = null) {
     z-index: 1;
   }
 
-  /* 🎨 THEME-ANGEPASSTE PAYMENT OPTIONS STYLES */
   .payment-options-container {
     background: var(--clr-surface-tonal-a10);
     border-radius: 12px;
@@ -1357,7 +1332,6 @@ window.addNewPosition = function () {
 
     console.log(`✅ Neue Arbeitszeit-Position ${newIndex} hinzugefügt`);
   } else {
-    // RECHNUNGSMODAL: Rechnungsposition hinzufügen
     const newRow = document.createElement("tr");
     newRow.id = `position-row-${newIndex}`;
     newRow.innerHTML = `
@@ -1427,7 +1401,6 @@ window.addNewPosition = function () {
   }
 };
 
-// 3. POSITION ENTFERNEN
 window.removePosition = function (index) {
   const row = document.getElementById(`position-row-${index}`);
   if (row) {
@@ -1582,7 +1555,6 @@ window.calculateRechnungGesamt = function () {
   updateElement("gesamtbetrag", formatCurrency(gesamtbetrag));
 };
 
-// 5. HILFSFUNKTIONEN
 function updateElement(id, value) {
   const element = document.getElementById(id);
   if (element) {
@@ -1590,19 +1562,15 @@ function updateElement(id, value) {
   }
 }
 
-// FINALE VERSION: saveRechnung() mit korrekter deutscher Zahlenformatierung und Status-Fix
-
 window.saveRechnung = async function (rechnungId = null) {
   console.log("💾 Speichere Rechnung...");
 
-  // 1. FORM-ELEMENT HOLEN
   const form = document.getElementById("rechnung-form");
   if (!form) {
     showNotification("Fehler: Formular nicht gefunden", "error");
     return;
   }
 
-  // 2. HTML5-VALIDIERUNG PRÜFEN
   if (!form.checkValidity()) {
     console.warn("❌ HTML5-Validierung fehlgeschlagen");
 
@@ -1617,7 +1585,6 @@ window.saveRechnung = async function (rechnungId = null) {
     return;
   }
 
-  // 3. FORMDATA SAMMELN
   const formData = new FormData(form);
 
   // 4. Button-Referenz und originalText RICHTIG definieren
@@ -1628,7 +1595,6 @@ window.saveRechnung = async function (rechnungId = null) {
     originalText = saveButton.textContent; // ✅ Text vor Änderung speichern
   }
 
-  // 5. VALIDIERUNG
   const errors = [];
 
   // Kunde validieren
@@ -1699,14 +1665,12 @@ window.saveRechnung = async function (rechnungId = null) {
     );
   }
 
-  // 6. FEHLER ANZEIGEN FALLS VORHANDEN
   if (errors.length > 0) {
     console.error("❌ Validierungsfehler:", errors);
     showNotification(`Validierungsfehler:\n• ${errors.join("\n• ")}`, "error");
     return;
   }
 
-  // 7. DATEN-OBJEKT ERSTELLEN
   const data = {
     kunden_id: kundenId,
     fahrzeug_id: fahrzeugId,
@@ -1717,14 +1681,23 @@ window.saveRechnung = async function (rechnungId = null) {
     zahlungsbedingungen: formData.get("zahlungsbedingungen")?.trim() || "",
     gewaehrleistung: formData.get("gewaehrleistung")?.trim() || "",
     rechnungshinweise: formData.get("rechnungshinweise")?.trim() || "",
-    skonto_aktiv: formData.get("skonto_aktiv") === "on", // NEU: Skonto-Checkbox
-    skonto_betrag: 0, // NEU: Placeholder für Skonto-Betrag
+    skonto_aktiv: formData.get("skonto_aktiv") === "on",
+    skonto_betrag: 0,
+    anzahlung_aktiv: formData.get("anzahlung_aktiv") === "on",
+    anzahlung_betrag: parseFloat(formData.get("anzahlung_betrag")) || 0,
+    anzahlung_datum: formData.get("anzahlung_datum") || null,
+    restbetrag:
+      parseFloat(
+        document
+          .getElementById("restbetrag-display")
+          ?.textContent?.replace(/[^\d,-]/g, "")
+          .replace(",", ".")
+      ) || 0,
     positionen,
   };
 
   console.log("📋 Rechnungsdaten:", data);
 
-  // 8. SPEICHERN MIT LOADING-INDIKATOR
   try {
     // Loading-Zustand anzeigen
     if (saveButton) {
@@ -1753,7 +1726,6 @@ window.saveRechnung = async function (rechnungId = null) {
       "error"
     );
   } finally {
-    // ✅ Loading-Zustand zurücksetzen - jetzt mit korrekt definiertem originalText
     if (saveButton && originalText) {
       saveButton.disabled = false;
       saveButton.textContent = originalText;
@@ -1891,7 +1863,6 @@ window.validateRechnungsdatum = function () {
   }
 };
 
-// ERWEITERTE KUNDENFUNKTION mit Validierung für Rechnungen
 window.loadKundenFahrzeuge = async function (
   kundenId,
   selectedFahrzeugId = null
@@ -1949,7 +1920,6 @@ window.loadKundenFahrzeuge = async function (
   }
 };
 
-// ERWEITERTE POSITIONSVALIDIERUNG
 window.validatePositions = function () {
   const tbody = document.getElementById("positionen-tbody");
   if (!tbody) return true;
@@ -2047,7 +2017,7 @@ async function deleteRechnung(id) {
         "zustand",
         "rechnungsstatus",
       ];
-      statusWert = "Status unbekannt"; // ✅ Fallback-Wert setzen
+      statusWert = "Status unbekannt";
 
       for (const feld of möglicheStatusFelder) {
         if (rechnung[feld]) {
@@ -2159,15 +2129,12 @@ Trotzdem löschen?`;
         }
       }
 
-      // ✅ Loading-Notification
       if (typeof showNotification === "function") {
         showNotification("Rechnung wird gelöscht...", "info");
       }
 
-      // ✅ API-Aufruf zum Löschen
       await apiCall(`/api/rechnungen/${id}`, "DELETE");
 
-      // ✅ Erfolgs-Dialog
       const erfolgsBetrag = betragWert
         ? `\nBetrag: € ${parseFloat(betragWert).toFixed(2)}`
         : "";
@@ -2182,17 +2149,14 @@ Trotzdem löschen?`;
         "Rechnung gelöscht"
       );
 
-      // ✅ WICHTIG: Tabelle sofort aktualisieren mit forciertem Reload
       console.log("🔄 Aktualisiere Tabelle nach Löschung...");
 
       if (typeof showNotification === "function") {
         showNotification("Rechnung erfolgreich gelöscht", "success");
       }
 
-      // ✅ GARANTIERTER TABLE-REFRESH
       await loadRechnungen();
 
-      // ✅ Zusätzlich: Dashboard aktualisieren falls verfügbar
       if (typeof window.loadDashboard === "function") {
         setTimeout(() => window.loadDashboard(), 500);
       }
@@ -2214,12 +2178,10 @@ Trotzdem löschen?`;
       showNotification("Fehler beim Löschen der Rechnung", "error");
     }
 
-    // ✅ Auch bei Fehler Tabelle neu laden (für den Fall dass doch gelöscht wurde)
     setTimeout(() => loadRechnungen(), 1000);
   }
 }
 
-// ✅ Exportiere beide Funktionen
 window.deleteRechnung = deleteRechnung;
 
 async function viewRechnung(id) {
@@ -2250,7 +2212,6 @@ async function viewRechnung(id) {
         )
         .join("") || '<tr><td colspan="5">Keine Positionen</td></tr>';
 
-    // MAIN CONTENT mit Grid-Layout wie viewAuftrag
     const content = `
       <div style="text-align: center; margin-bottom: 2rem;">
         <h2 style="color: #007bff; margin-bottom: 0;">RECHNUNG</h2>
@@ -2526,11 +2487,9 @@ function toggleAnzahlungSection() {
   }
 }
 
-// VERBESSERTE Anzahlungsberechnung mit Debug
 function calculateAnzahlung() {
   console.log("🔄 calculateAnzahlung() aufgerufen");
 
-  // VERSCHIEDENE MÖGLICHE GESAMTBETRAG-ELEMENTE PRÜFEN
   const gesamtbetragElements = [
     document.getElementById("gesamtbetrag"),
     document.querySelector("#gesamtbetrag"),
@@ -2555,7 +2514,6 @@ function calculateAnzahlung() {
     return;
   }
 
-  // GESAMTBETRAG ERMITTELN
   let gesamtbetrag = 0;
   let gesamtbetragText = "";
 
@@ -2564,12 +2522,10 @@ function calculateAnzahlung() {
     gesamtbetragText =
       gesamtbetragElement.textContent || gesamtbetragElement.value || "0";
 
-    // MEHRERE PARSING-VERSUCHE
     gesamtbetrag =
       parseFloat(gesamtbetragText.replace(/[^\d,-]/g, "").replace(",", ".")) ||
       0;
 
-    // Fallback: nur Zahlen extrahieren
     if (gesamtbetrag === 0) {
       const numbers = gesamtbetragText.match(/[\d,\.]+/);
       if (numbers) {
@@ -2594,7 +2550,6 @@ function calculateAnzahlung() {
     isValid: gesamtbetrag > 0,
   });
 
-  // VALIDIERUNG
   if (anzahlung > gesamtbetrag && gesamtbetrag > 0) {
     anzahlungInput.value = gesamtbetrag.toFixed(2);
     console.log("⚠️ Anzahlung auf Gesamtbetrag begrenzt");
@@ -2603,12 +2558,11 @@ function calculateAnzahlung() {
       showNotification("Anzahlung auf Gesamtbetrag begrenzt", "warning");
     }
 
-    return calculateAnzahlung(); // Neuberechnung
+    return calculateAnzahlung();
   }
 
   const restbetrag = gesamtbetrag - anzahlung;
 
-  // RESTBETRAG ANZEIGEN
   try {
     if (typeof formatCurrency === "function") {
       restbetragElement.textContent = formatCurrency(restbetrag);
@@ -2645,13 +2599,11 @@ function calculateAnzahlung() {
     console.log("📋 Status aktualisiert:", status);
   }
 
-  // AUCH DISPLAY AKTUALISIEREN
   updateAnzahlungDisplay();
 
   console.log("✅ calculateAnzahlung() abgeschlossen");
 }
 
-// AUCH calculateRechnungGesamt ERWEITERN
 const originalCalculateRechnungGesamt = window.calculateRechnungGesamt;
 window.calculateRechnungGesamt = function () {
   console.log(
@@ -2669,7 +2621,6 @@ window.calculateRechnungGesamt = function () {
   }, 100);
 };
 
-// VERBESSERTE Schnelle Anzahlungsaktualisierung
 async function quickAnzahlungUpdate(rechnungId) {
   console.log("🔄 quickAnzahlungUpdate() für Rechnung:", rechnungId);
 

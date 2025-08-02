@@ -91,6 +91,19 @@ exports.create = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
+    // NEUE PRÜFUNG: Aktuelle Rechnung laden um Status zu prüfen
+    const aktuelleRechnung = await Rechnung.findById(req.params.id);
+    if (!aktuelleRechnung) {
+      return res.status(404).json({ error: "Rechnung nicht gefunden" });
+    }
+
+    // NEUE PRÜFUNG: Verhindere Änderung von bezahlten Rechnungen
+    if (aktuelleRechnung.status === "bezahlt") {
+      return res.status(400).json({
+        error: "Bezahlte Rechnungen können nicht mehr geändert werden",
+      });
+    }
+
     let zwischensumme = 0;
     let mwst19Basis = 0;
     let mwst7Basis = 0;
@@ -106,6 +119,7 @@ exports.update = async (req, res) => {
     const mwst19 = mwst19Basis * (1 - rabattProzent / 100) * 0.19;
     const mwst7 = mwst7Basis * (1 - rabattProzent / 100) * 0.07;
     const gesamtbetrag = nettoNachRabatt + mwst19 + mwst7;
+
     db.all(
       'SELECT key, value FROM einstellungen WHERE key IN ("zahlungsbedingungen", "gewaehrleistung")',
       (err, settings) => {
@@ -127,6 +141,7 @@ exports.update = async (req, res) => {
           gewaehrleistung,
         };
         data.anzahlung_datum = req.body.anzahlung_datum || null;
+
         // Anzahlungsvalidierung
         const anzahlungBetrag = parseFloat(req.body.anzahlung_betrag || 0);
         data.restbetrag = gesamtbetrag - anzahlungBetrag;
@@ -146,6 +161,7 @@ exports.update = async (req, res) => {
             data.status = "teilbezahlt";
           }
         }
+
         Rechnung.update(req.params.id, data)
           .then((result) => {
             if (result.changes === 0)

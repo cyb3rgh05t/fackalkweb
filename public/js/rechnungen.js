@@ -11,7 +11,29 @@ import { getSetting, getSettings } from "./einstellungen.js";
 async function updateRechnungStatus(id, status) {
   try {
     const rechnung = await apiCall(`/api/rechnungen/${id}`);
+
+    // NEUE PRÜFUNG: Verhindere Änderung von bezahlten Rechnungen
+    if (rechnung.status === "bezahlt") {
+      showNotification(
+        "Bezahlte Rechnungen können nicht mehr geändert werden",
+        "warning"
+      );
+      return;
+    }
+
     rechnung.status = status;
+
+    // NEUE LOGIK: Wenn Status auf "bezahlt" gesetzt wird, Anzahlung anpassen
+    if (status === "bezahlt") {
+      // Anzahlung auf Gesamtbetrag setzen, damit Restbetrag = 0 wird
+      rechnung.anzahlung_betrag = rechnung.gesamtbetrag;
+      rechnung.restbetrag = 0;
+      // Anzahlungsdatum setzen, falls noch nicht vorhanden
+      if (!rechnung.anzahlung_datum) {
+        rechnung.anzahlung_datum = new Date().toISOString().split("T")[0];
+      }
+    }
+
     await apiCall(`/api/rechnungen/${id}`, "PUT", rechnung);
     showNotification("Status erfolgreich aktualisiert", "success");
     loadRechnungen();
@@ -72,67 +94,70 @@ export async function loadRechnungen() {
         }</td>
                 <td>${formatDate(rechnung.rechnungsdatum)}</td>
                 <td>
-                    <select class="form-select status-dropdown status-${
-                      rechnung.status
-                    }" 
-                            onchange="updateRechnungStatus(${
-                              rechnung.id
-                            }, this.value)" 
-                            onclick="event.stopPropagation()"
-                            style="
-                              font-weight: 600; 
-                              border-radius: 20px; 
-                              padding: 0.25rem 0.75rem;
-                              font-size: 0.85rem;
-                              border: 2px solid;
-                              background: ${
-                                rechnung.status === "offen"
-                                  ? "rgba(245, 158, 11, 0.1)"
-                                  : rechnung.status === "bezahlt"
-                                  ? "rgba(34, 197, 94, 0.1)"
-                                  : rechnung.status === "mahnung"
-                                  ? "rgba(239, 68, 68, 0.1)"
-                                  : rechnung.status === "storniert"
-                                  ? "rgba(107, 114, 128, 0.1)"
-                                  : "transparent"
-                              };
-                              color: ${
-                                rechnung.status === "offen"
-                                  ? "#f59e0b"
-                                  : rechnung.status === "bezahlt"
-                                  ? "#22c55e"
-                                  : rechnung.status === "mahnung"
-                                  ? "#ef4444"
-                                  : rechnung.status === "storniert"
-                                  ? "#6b7280"
-                                  : "inherit"
-                              };
-                              border-color: ${
-                                rechnung.status === "offen"
-                                  ? "#f59e0b"
-                                  : rechnung.status === "bezahlt"
-                                  ? "#22c55e"
-                                  : rechnung.status === "mahnung"
-                                  ? "#ef4444"
-                                  : rechnung.status === "storniert"
-                                  ? "#6b7280"
-                                  : "#d1d5db"
-                              };
-                            ">
-                        <option value="offen" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;" ${
-                          rechnung.status === "offen" ? "selected" : ""
-                        }>🟡 Offen</option>
-                        <option value="bezahlt" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;" ${
-                          rechnung.status === "bezahlt" ? "selected" : ""
-                        }>🟢 Bezahlt</option>
-                        <option value="mahnung" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;" ${
-                          rechnung.status === "mahnung" ? "selected" : ""
-                        }>🔴 Mahnung</option>
-                        <option value="storniert" style="background: rgba(107, 114, 128, 0.1); color: #6b7280;" ${
-                          rechnung.status === "storniert" ? "selected" : ""
-                        }>⚫ Storniert</option>
-                    </select>
-                </td>
+    ${
+      rechnung.status === "bezahlt"
+        ? `<span class="status-badge status-bezahlt" style="
+             font-weight: 600; 
+             border-radius: 20px; 
+             padding: 0.35rem 0.75rem;
+             font-size: 0.85rem;
+             background: rgba(34, 197, 94, 0.1);
+             color: #22c55e;
+             border: 2px solid #22c55e;
+             display: inline-block;
+           ">🟢 Bezahlt</span>`
+        : `<select class="form-select status-dropdown status-${
+            rechnung.status
+          }" 
+                   onchange="updateRechnungStatus(${rechnung.id}, this.value)" 
+                   onclick="event.stopPropagation()"
+                   style="
+                     font-weight: 600; 
+                     border-radius: 20px; 
+                     padding: 0.25rem 0.75rem;
+                     font-size: 0.85rem;
+                     border: 2px solid;
+                     background: ${
+                       rechnung.status === "offen"
+                         ? "rgba(245, 158, 11, 0.1)"
+                         : rechnung.status === "teilbezahlt"
+                         ? "rgba(59, 130, 246, 0.1)"
+                         : rechnung.status === "mahnung"
+                         ? "rgba(239, 68, 68, 0.1)"
+                         : rechnung.status === "storniert"
+                         ? "rgba(107, 114, 128, 0.1)"
+                         : "transparent"
+                     };
+                     color: ${
+                       rechnung.status === "offen"
+                         ? "#f59e0b"
+                         : rechnung.status === "teilbezahlt"
+                         ? "#3b82f6"
+                         : rechnung.status === "mahnung"
+                         ? "#ef4444"
+                         : rechnung.status === "storniert"
+                         ? "#6b7280"
+                         : "#333"
+                     };
+                   ">
+               <option value="offen" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;" ${
+                 rechnung.status === "offen" ? "selected" : ""
+               }>🟡 Offen</option>
+               <option value="teilbezahlt" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;" ${
+                 rechnung.status === "teilbezahlt" ? "selected" : ""
+               }>🔵 Teilbezahlt</option>
+               <option value="bezahlt" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;" ${
+                 rechnung.status === "bezahlt" ? "selected" : ""
+               }>🟢 Bezahlt</option>
+               <option value="mahnung" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;" ${
+                 rechnung.status === "mahnung" ? "selected" : ""
+               }>🔴 Mahnung</option>
+               <option value="storniert" style="background: rgba(107, 114, 128, 0.1); color: #6b7280;" ${
+                 rechnung.status === "storniert" ? "selected" : ""
+               }>⚫ Storniert</option>
+           </select>`
+    }
+</td>
                 <td>
                        ${formatCurrency(rechnung.gesamtbetrag)}
                        ${addAnzahlungsInfoToRow(rechnung)}
@@ -165,10 +190,8 @@ export async function loadRechnungen() {
       )
       .join("");
 
-    // ✅ 4. DOM in einem Zug aktualisieren (bessere Performance)
     tableBody.innerHTML = newTableHTML;
 
-    // ✅ 5. Suchfunktion nach erfolgreichem DOM-Update hinzufügen
     await new Promise((resolve) => {
       // RequestAnimationFrame für sicheren DOM-Update
       requestAnimationFrame(() => {
@@ -187,7 +210,6 @@ export async function loadRechnungen() {
       });
     });
 
-    // ✅ 6. Success-Log und event dispatch
     console.log("✅ Rechnungen-Tabelle erfolgreich aktualisiert");
 
     // Event für andere Module dispatchen

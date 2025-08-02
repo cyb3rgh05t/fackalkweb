@@ -795,7 +795,7 @@ window.showFahrzeughandelModal = function (handelId = null) {
   modal.className = "modal fahrzeughandel-modal-dynamic active";
 
   modal.innerHTML = `
-    <div class="modal-content card fade-in" style="max-width: 800px; width: 90vw; margin: 2rem auto;">
+    <div class="modal-content card fade-in" style="max-width: 650px; width: 70vw; margin: 2rem auto;">
       <div class="modal-header">
         <h2 class="modal-title">${title}</h2>
         <button class="modal-close" type="button" onclick="closeFahrzeughandelModalDynamic()">
@@ -825,7 +825,7 @@ window.showFahrzeughandelModal = function (handelId = null) {
             <input type="date" id="handel-datum" class="form-input" required>
           </div>
           
-          <div class="form-group form-span-3">
+          <div class="form-group">
             <label for="handel-fahrzeug" class="form-label">Fahrzeug auswählen</label>
             <select id="handel-fahrzeug" class="form-select" onchange="loadFahrzeugData()"></select>
           </div>

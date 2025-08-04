@@ -253,7 +253,7 @@ function createLayoutContent() {
         <div class="layout-section" id="elements-section">
           <h3><i class="fas fa-th-large"></i> Layout-Elemente</h3>
           
-          <div class="form-section">
+          
             <h4>Logo-Einstellungen</h4>
             <div class="form-grid">
               <div class="form-group">
@@ -272,9 +272,9 @@ function createLayoutContent() {
                 <input type="text" class="form-input" name="layout_logo_max_height" placeholder="100px">
               </div>
             </div>
-          </div>
           
-          <div class="form-section">
+          
+          
             <h4>Footer-Einstellungen</h4>
             <div class="form-grid">
               <div class="form-group">
@@ -296,9 +296,9 @@ function createLayoutContent() {
                 <input type="text" class="form-input" name="layout_footer_font_size" placeholder="12px">
               </div>
             </div>
-          </div>
           
-          <div class="form-section">
+          
+          
             <h4>Unterschriften-Bereich</h4>
             <div class="form-grid">
               <div class="form-group">
@@ -317,7 +317,7 @@ function createLayoutContent() {
               </div>
             </div>
           </div>
-        </div>
+        
         
         <!-- Druck Sektion -->
         <div class="layout-section" id="print-section">

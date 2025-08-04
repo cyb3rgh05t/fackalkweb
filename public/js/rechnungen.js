@@ -11,8 +11,6 @@ import { getSetting, getSettings } from "./einstellungen.js";
 async function updateRechnungStatus(id, status) {
   try {
     const rechnung = await apiCall(`/api/rechnungen/${id}`);
-
-    // ERWEITERTE PRÜFUNG: Verhindere Änderung von finalen Status (bezahlt, storniert, mahnung)
     if (
       rechnung.status === "bezahlt" ||
       rechnung.status === "storniert" ||
@@ -39,7 +37,6 @@ async function updateRechnungStatus(id, status) {
       return;
     }
 
-    // ERWEITERTE PRÜFUNG: Bei Änderung zu finalem Status zusätzliche Bestätigung
     const finalStates = ["bezahlt", "storniert", "mahnung"];
     if (finalStates.includes(status)) {
       const confirmMessages = {
@@ -79,7 +76,6 @@ async function updateRechnungStatus(id, status) {
 
     rechnung.status = status;
 
-    // ERWEITERTE LOGIK: Status-spezifische Anpassungen
     if (status === "bezahlt") {
       // Anzahlung auf Gesamtbetrag setzen, damit Restbetrag = 0 wird
       rechnung.anzahlung_betrag = rechnung.gesamtbetrag;
@@ -117,12 +113,6 @@ async function updateRechnungStatus(id, status) {
   }
 }
 
-// =======================================================================================
-// RECHNUNGEN ACTION-BUTTONS - BEARBEITEN BEI BEZAHLTEN RECHNUNGEN AUSBLENDEN
-// Diese Funktion ersetzt die hardcodierten Action-Buttons in der Rechnungen-Tabelle
-// =======================================================================================
-
-// ✅ FUNKTION ZUR GENERIERUNG DER ACTION-BUTTONS FÜR RECHNUNGEN
 function generateRechnungActionButtons(rechnung) {
   // Wenn Status final ist (bezahlt, storniert, mahnung), nur eingeschränkte Buttons anzeigen
   if (
@@ -224,7 +214,6 @@ export async function loadRechnungen() {
       return "";
     }
 
-    // ✅ KOMPLETT NEUE HTML-GENERIERUNG MIT VERBESSERTER ACTION-BUTTON-LOGIK
     const newTableHTML = window.rechnungen
       .map(
         (rechnung) => `

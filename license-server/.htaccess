@@ -1,1 +1,5 @@
- 
+RewriteEngine On
+
+# Avoid redirect loop by checking if we're already on /admin/login
+RewriteCond %{REQUEST_URI} !^/admin/login.php$ [NC]
+RewriteRule ^$ /admin/login.php [L,R=301]

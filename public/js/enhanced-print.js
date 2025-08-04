@@ -445,6 +445,10 @@
         }
         
         .footer {
+          position: fixed;
+          left: 0;
+          bottom: 10px;
+          width: 100%;
           margin-top: ${
             settings.layout_footer_margin_top ||
             DEFAULT_LAYOUT_SETTINGS.layout_footer_margin_top
@@ -1084,7 +1088,7 @@
     // Footer generieren
     generateFooter() {
       return `
-    <div class="footer" style="position: fixed; left: 0; bottom: 10px; width: 100%; font-size: 0.5rem; color: #666; line-height: 1.3; text-align: center;">
+    <div class="footer">
       <p>
         ${getSetting("firmenname", "Meine Firma")} | 
         ${getSetting("rechtsform", "")} ${getSetting(

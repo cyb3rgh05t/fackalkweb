@@ -1,6 +1,3 @@
-// public/js/fahrzeughandel.js
-// JavaScript für Fahrzeug Ankauf/Verkauf Funktionalität
-
 import { apiCall } from "./utils.js";
 import { createModal, closeModal } from "./modals.js";
 

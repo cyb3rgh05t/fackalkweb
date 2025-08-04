@@ -9,7 +9,8 @@ requireLogin(); // Diese Zeile schützt die Seite
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔐 Lizenz-Verwaltung</title>
+    <title>Lizenz-Verwaltung</title>
+    <link rel="icon" type="image/x-icon" href="../assets/icon/favicon.ico" />
     <link rel="stylesheet" href="../assets/style.css?v5">
     <link rel="stylesheet" href="../assets/index.css?v3">
 </head>

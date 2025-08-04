@@ -1,6 +1,3 @@
-// routes/fahrzeughandel.js
-// API-Route für Fahrzeug Ankauf/Verkauf Funktionalität
-
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
@@ -53,26 +50,32 @@ router.get("/", (req, res) => {
       f.kennzeichen as original_kennzeichen,
       f.marke as original_marke,
       f.modell as original_modell,
-      -- 🆕 Käufer-Info für Anzeige
+      f.kilometerstand as fahrzeug_kilometerstand,
+      -- 🆕 ERWEITERTE KÄUFER-INFO mit kaeufer_id
       k2.name as kaeufer_name,
-      k2.kunden_nr as kaeufer_nr
+      k2.kunden_nr as kaeufer_nr,
+      k2.telefon as kaeufer_telefon,
+      k2.email as kaeufer_email,
+      -- 🆕 FALLBACK für verkauft_an ohne kaeufer_id
+      k3.name as verkauft_an_kunde_name,
+      k3.kunden_nr as verkauft_an_kunde_nr
     FROM fahrzeug_handel fh
     LEFT JOIN kunden k ON fh.kunden_id = k.id
     LEFT JOIN fahrzeuge f ON fh.fahrzeug_id = f.id
-    -- 🆕 JOIN für Käufer-Daten
-    LEFT JOIN kunden k2 ON (
-      CASE 
-        WHEN fh.verkauft_an GLOB '[0-9]*' 
-        THEN CAST(fh.verkauft_an AS INTEGER) = k2.id
-        ELSE 0
-      END
+    -- 🆕 JOIN über kaeufer_id (preferred)
+    LEFT JOIN kunden k2 ON fh.kaeufer_id = k2.id
+    -- 🆕 FALLBACK JOIN über verkauft_an (legacy)
+    LEFT JOIN kunden k3 ON (
+      fh.kaeufer_id IS NULL 
+      AND fh.verkauft_an GLOB '[0-9]*' 
+      AND CAST(fh.verkauft_an AS INTEGER) = k3.id
     )
     WHERE 1=1
   `;
 
-  const params = []; // 🎯 HIER war das Problem - params war nicht definiert!
+  const params = [];
 
-  // Suchfilter
+  // Suchfilter (erweitert)
   if (search) {
     sql += ` AND (
       fh.handel_nr LIKE ? OR 
@@ -80,10 +83,14 @@ router.get("/", (req, res) => {
       fh.marke LIKE ? OR 
       fh.modell LIKE ? OR
       fh.verkauft_an LIKE ? OR
-      k.name LIKE ?
+      k.name LIKE ? OR
+      k2.name LIKE ? OR
+      k3.name LIKE ?
     )`;
     const searchTerm = `%${search}%`;
     params.push(
+      searchTerm,
+      searchTerm,
       searchTerm,
       searchTerm,
       searchTerm,
@@ -109,10 +116,9 @@ router.get("/", (req, res) => {
   params.push(parseInt(limit), parseInt(offset));
 
   console.log(
-    "📋 GET /api/fahrzeughandel - SQL:",
+    "📋 Erweiterte GET /api/fahrzeughandel - SQL:",
     sql.substring(0, 100) + "..."
   );
-  console.log("📋 GET /api/fahrzeughandel - Params:", params);
 
   db.all(sql, params, (err, rows) => {
     if (err) {
@@ -123,22 +129,43 @@ router.get("/", (req, res) => {
 
     console.log(`✅ ${rows.length} Handelsgeschäfte gefunden`);
 
-    // 🆕 Verkauft_an Werte für Anzeige anreichern
+    // 🆕 ERWEITERTE Verkauft_an-Werte für Anzeige anreichern
     rows.forEach((row) => {
+      // Priorität: kaeufer_id > verkauft_an als Kunden-ID > verkauft_an als Text
       if (row.kaeufer_name) {
+        // Käufer über kaeufer_id gefunden (preferred)
         row.verkauft_an_display = `${row.kaeufer_name} (${row.kaeufer_nr})`;
+        row.verkauft_an_type = "kunde_id";
+        row.kaeufer_info = {
+          id: row.kaeufer_id,
+          name: row.kaeufer_name,
+          kunden_nr: row.kaeufer_nr,
+          telefon: row.kaeufer_telefon,
+          email: row.kaeufer_email,
+        };
+      } else if (row.verkauft_an_kunde_name) {
+        // Käufer über verkauft_an als ID gefunden (legacy)
+        row.verkauft_an_display = `${row.verkauft_an_kunde_name} (${row.verkauft_an_kunde_nr})`;
+        row.verkauft_an_type = "verkauft_an_id";
       } else if (row.verkauft_an) {
+        // Verkauft_an als Text
         row.verkauft_an_display = row.verkauft_an;
+        row.verkauft_an_type = "text";
+      } else {
+        // Kein Käufer angegeben
+        row.verkauft_an_display = "<em>Nicht angegeben</em>";
+        row.verkauft_an_type = "none";
       }
     });
 
-    // Zusätzliche Statistiken abrufen
+    // Erweiterte Statistiken
     const statsQuery = `
       SELECT 
         COUNT(*) as gesamt,
         COUNT(CASE WHEN typ = 'ankauf' THEN 1 END) as ankauf_count,
         COUNT(CASE WHEN typ = 'verkauf' THEN 1 END) as verkauf_count,
         COUNT(CASE WHEN status = 'offen' THEN 1 END) as offen_count,
+        COUNT(CASE WHEN typ = 'verkauf' AND kaeufer_id IS NOT NULL THEN 1 END) as verkauf_mit_kaeufer_id,
         SUM(CASE WHEN typ = 'ankauf' AND status = 'abgeschlossen' THEN ankaufspreis ELSE 0 END) as gesamt_ankauf,
         SUM(CASE WHEN typ = 'verkauf' AND status = 'abgeschlossen' THEN verkaufspreis ELSE 0 END) as gesamt_verkauf,
         SUM(CASE WHEN status = 'abgeschlossen' THEN gewinn ELSE 0 END) as gesamt_gewinn
@@ -177,20 +204,22 @@ router.get("/:id", (req, res) => {
     f.kennzeichen as original_kennzeichen,
     f.marke as original_marke,
     f.modell as original_modell,
-    COALESCE(fh.vin, f.vin) as vin, -- VIN aus Handelsgeschäft, fallback auf Fahrzeug
-    f.vin as fahrzeug_vin, -- Original VIN aus Fahrzeug
+    f.kilometerstand as fahrzeug_kilometerstand,
+    COALESCE(fh.vin, f.vin) as vin,
+    f.vin as fahrzeug_vin,
+    -- 🆕 ERWEITERTE KÄUFER-INFO
+    k2.id as kaeufer_kunde_id,
     k2.name as kaeufer_name,
-    k2.kunden_nr as kaeufer_nr
+    k2.kunden_nr as kaeufer_nr,
+    k2.telefon as kaeufer_telefon,
+    k2.email as kaeufer_email,
+    k2.strasse as kaeufer_strasse,
+    k2.plz as kaeufer_plz,
+    k2.ort as kaeufer_ort
   FROM fahrzeug_handel fh
   LEFT JOIN kunden k ON fh.kunden_id = k.id
   LEFT JOIN fahrzeuge f ON fh.fahrzeug_id = f.id
-  LEFT JOIN kunden k2 ON (
-    CASE 
-      WHEN fh.verkauft_an GLOB '[0-9]*' 
-      THEN CAST(fh.verkauft_an AS INTEGER) = k2.id
-      ELSE 0
-    END
-  )
+  LEFT JOIN kunden k2 ON fh.kaeufer_id = k2.id
   WHERE fh.id = ?
 `;
 
@@ -206,16 +235,70 @@ router.get("/:id", (req, res) => {
       return;
     }
 
-    // 🆕 Verkauft_an Wert anreichern
+    // 🆕 ERWEITERTE Verkauft_an-Werte anreichern
     if (row.kaeufer_name) {
       row.verkauft_an_display = `${row.kaeufer_name} (${row.kaeufer_nr})`;
-      row.verkauft_an_type = "kunde";
+      row.verkauft_an_type = "kunde_id";
+      row.kaeufer_info = {
+        id: row.kaeufer_kunde_id,
+        name: row.kaeufer_name,
+        kunden_nr: row.kaeufer_nr,
+        telefon: row.kaeufer_telefon,
+        email: row.kaeufer_email,
+        adresse: {
+          strasse: row.kaeufer_strasse,
+          plz: row.kaeufer_plz,
+          ort: row.kaeufer_ort,
+        },
+      };
     } else if (row.verkauft_an) {
-      row.verkauft_an_display = row.verkauft_an;
-      row.verkauft_an_type = "text";
+      // Fallback: Versuche verkauft_an als Kunden-ID zu interpretieren
+      const verkauftAnId = parseInt(row.verkauft_an);
+      if (!isNaN(verkauftAnId)) {
+        row.verkauft_an_display = `Kunde ID ${verkauftAnId} (nicht verlinkt)`;
+        row.verkauft_an_type = "unlinked_id";
+      } else {
+        row.verkauft_an_display = row.verkauft_an;
+        row.verkauft_an_type = "text";
+      }
     }
 
     res.json(row);
+  });
+});
+
+// ✅ NEUE ROUTE FÜR KÄUFER-STATISTIKEN
+router.get("/stats/kaeufer", (req, res) => {
+  const sql = `
+    SELECT 
+      k.id,
+      k.name,
+      k.kunden_nr,
+      COUNT(fh.id) as anzahl_kaeufe,
+      SUM(fh.verkaufspreis) as gesamt_kaufvolumen,
+      AVG(fh.verkaufspreis) as durchschnitt_kaufpreis,
+      MIN(fh.datum) as erster_kauf,
+      MAX(fh.datum) as letzter_kauf
+    FROM kunden k
+    INNER JOIN fahrzeug_handel fh ON k.id = fh.kaeufer_id
+    WHERE fh.typ = 'verkauf' AND fh.status = 'abgeschlossen'
+    GROUP BY k.id, k.name, k.kunden_nr
+    ORDER BY gesamt_kaufvolumen DESC
+    LIMIT 20
+  `;
+
+  db.all(sql, (err, rows) => {
+    if (err) {
+      console.error("❌ Fehler bei Käufer-Statistiken:", err);
+      res.status(500).json({ error: "Datenbankfehler" });
+      return;
+    }
+
+    console.log(`📊 ${rows.length} Top-Käufer gefunden`);
+    res.json({
+      top_kaeufer: rows,
+      zeitstempel: new Date().toISOString(),
+    });
   });
 });
 
@@ -617,7 +700,6 @@ router.put("/:id", async (req, res) => {
     // Gewinn berechnen
     const gewinn = calculateProfit(ankaufspreis, verkaufspreis);
 
-    // ✅ SCHRITT 1: Handelsgeschäft aktualisieren
     console.log("📝 Aktualisiere Handelsgeschäft ID:", id);
 
     const handelResult = await new Promise((resolve, reject) => {
@@ -660,7 +742,7 @@ router.put("/:id", async (req, res) => {
         id,
       ];
 
-      console.log("📝 Handelsgeschäft SQL-Params:", params.slice(0, 10)); // Erste 10 Params zeigen
+      console.log("📝 Handelsgeschäft SQL-Params:", params.slice(0, 10));
 
       db.run(sql, params, function (err) {
         if (err) {
@@ -678,11 +760,11 @@ router.put("/:id", async (req, res) => {
       });
     });
 
-    // ✅ SCHRITT 2: Fahrzeug synchronisieren - VERBESSERTE LOGIC
+    // ✅ SCHRITT 2: Erweiterte Fahrzeug-Synchronisation mit Besitzerwechsel
     let fahrzeugSyncResult = 0;
     let fahrzeugSyncError = null;
+    let besitzerwechselStatus = null;
 
-    // 🔧 REPARIERT: Bessere Fahrzeug-ID-Prüfung
     const fahrzeugIdNumber = parseInt(fahrzeug_id);
     const hasFahrzeugId =
       fahrzeug_id &&
@@ -695,15 +777,18 @@ router.put("/:id", async (req, res) => {
       fahrzeug_id_original: fahrzeug_id,
       fahrzeug_id_parsed: fahrzeugIdNumber,
       has_fahrzeug_id: hasFahrzeugId,
+      typ: typ,
+      status: status,
+      verkauft_an: verkauft_an,
     });
 
     if (hasFahrzeugId) {
       console.log(
-        `🚗 Starte Fahrzeug-Synchronisation für ID ${fahrzeugIdNumber}`
+        `🚗 Starte erweiterte Fahrzeug-Synchronisation für ID ${fahrzeugIdNumber}`
       );
 
       try {
-        // 🔧 ZUERST: Prüfen ob Fahrzeug existiert
+        // Prüfen ob Fahrzeug existiert
         const existingFahrzeug = await new Promise((resolve, reject) => {
           db.get(
             "SELECT * FROM fahrzeuge WHERE id = ?",
@@ -719,6 +804,7 @@ router.put("/:id", async (req, res) => {
                     ? {
                         id: row.id,
                         kennzeichen: row.kennzeichen,
+                        aktueller_besitzer: row.kunden_id,
                         marke: row.marke,
                         modell: row.modell,
                         vin: row.vin,
@@ -732,53 +818,179 @@ router.put("/:id", async (req, res) => {
         });
 
         if (!existingFahrzeug) {
-          console.warn(
-            `⚠️ Fahrzeug mit ID ${fahrzeugIdNumber} nicht gefunden - Skip Synchronisation`
-          );
+          console.warn(`⚠️ Fahrzeug mit ID ${fahrzeugIdNumber} nicht gefunden`);
           fahrzeugSyncError = `Fahrzeug ID ${fahrzeugIdNumber} nicht gefunden`;
         } else {
-          // Fahrzeug existiert - synchronisieren
+          // ✅ NEUE LOGIK: Besitzerwechsel bei Verkaufsabschluss
+          let updateData = {
+            kennzeichen: kennzeichen.toUpperCase(),
+            marke: marke,
+            modell: modell,
+            vin: vin || existingFahrzeug.vin,
+            baujahr: baujahr || existingFahrzeug.baujahr,
+            farbe: farbe || existingFahrzeug.farbe,
+            kilometerstand:
+              kilometerstand || existingFahrzeug.kilometerstand || 0,
+            kunden_id: existingFahrzeug.kunden_id, // Standardmäßig alter Besitzer
+          };
+
+          // 🎯 KERNFUNKTION: Besitzerwechsel bei abgeschlossenem Verkauf
+          if (typ === "verkauf" && status === "abgeschlossen" && verkauft_an) {
+            const neuerBesitzerId = parseInt(verkauft_an);
+
+            // Prüfen ob verkauft_an eine gültige Kunden-ID ist
+            if (!isNaN(neuerBesitzerId) && neuerBesitzerId > 0) {
+              console.log(
+                `🔄 BESITZERWECHSEL ERKANNT: Fahrzeug ${kennzeichen} von Kunde ${existingFahrzeug.kunden_id} zu Kunde ${neuerBesitzerId}`
+              );
+
+              // Prüfen ob neuer Besitzer existiert
+              const neuerBesitzer = await new Promise((resolve, reject) => {
+                db.get(
+                  "SELECT * FROM kunden WHERE id = ?",
+                  [neuerBesitzerId],
+                  (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                  }
+                );
+              });
+
+              if (neuerBesitzer) {
+                updateData.kunden_id = neuerBesitzerId;
+                besitzerwechselStatus = `Besitzer gewechselt von Kunde ${existingFahrzeug.kunden_id} zu ${neuerBesitzer.name} (${neuerBesitzer.kunden_nr})`;
+                console.log(
+                  `✅ Neuer Besitzer gefunden: ${neuerBesitzer.name} (${neuerBesitzer.kunden_nr})`
+                );
+              } else {
+                console.warn(
+                  `⚠️ Neuer Besitzer ID ${neuerBesitzerId} nicht gefunden - Besitzer bleibt unverändert`
+                );
+                fahrzeugSyncError = `Neuer Besitzer ID ${neuerBesitzerId} nicht gefunden`;
+                besitzerwechselStatus = `Besitzerwechsel fehlgeschlagen - Kunde ${neuerBesitzerId} nicht gefunden`;
+              }
+            } else {
+              console.log(
+                `📝 Verkauft_an "${verkauft_an}" ist keine Kunden-ID - Besitzer bleibt unverändert`
+              );
+              besitzerwechselStatus = `Verkauft_an ist keine Kunden-ID - kein Besitzerwechsel`;
+            }
+          }
+
+          // Fahrzeug aktualisieren (MIT kilometerstand nach Migration)
           fahrzeugSyncResult = await new Promise((resolve, reject) => {
             const fahrzeugSql = `
               UPDATE fahrzeuge SET
-                kennzeichen = ?, marke = ?, modell = ?, vin = ?, 
-                baujahr = ?, farbe = ?, kunden_id = ?, 
+                kunden_id = ?,
+                kennzeichen = ?, 
+                marke = ?, 
+                modell = ?, 
+                vin = ?, 
+                baujahr = ?, 
+                farbe = ?,
+                kilometerstand = ?,
                 aktualisiert_am = CURRENT_TIMESTAMP
               WHERE id = ?
             `;
 
             const fahrzeugParams = [
-              kennzeichen.toUpperCase(),
-              marke,
-              modell,
-              vin || null,
-              baujahr || null,
-              farbe || null,
-              kunden_id || null,
+              updateData.kunden_id, // Besitzer (neu oder alt)
+              updateData.kennzeichen,
+              updateData.marke,
+              updateData.modell,
+              updateData.vin,
+              updateData.baujahr,
+              updateData.farbe,
+              updateData.kilometerstand,
               fahrzeugIdNumber,
             ];
 
-            console.log("🚗 Fahrzeug-Update SQL:", fahrzeugSql);
-            console.log("🚗 Fahrzeug-Update Params:", fahrzeugParams);
+            console.log("🔄 Fahrzeug-Update SQL-Params:", {
+              neuer_besitzer: updateData.kunden_id,
+              kennzeichen: updateData.kennzeichen,
+              fahrzeug_id: fahrzeugIdNumber,
+              vin: updateData.vin,
+              farbe: updateData.farbe,
+              kilometerstand: updateData.kilometerstand,
+            });
 
             db.run(fahrzeugSql, fahrzeugParams, function (err) {
               if (err) {
                 console.error("❌ Fahrzeug-Update SQL Fehler:", err);
-                reject(err);
+
+                // Fallback: Wenn kilometerstand-Spalte nicht existiert, versuche ohne
+                if (err.message.includes("no such column: kilometerstand")) {
+                  console.log(
+                    "⚠️ kilometerstand-Spalte nicht gefunden - Fallback ohne kilometerstand"
+                  );
+
+                  const fallbackSql = `
+                    UPDATE fahrzeuge SET
+                      kunden_id = ?, kennzeichen = ?, marke = ?, modell = ?, 
+                      vin = ?, baujahr = ?, farbe = ?, aktualisiert_am = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                  `;
+
+                  const fallbackParams = fahrzeugParams
+                    .slice(0, -2)
+                    .concat([fahrzeugIdNumber]);
+
+                  db.run(fallbackSql, fallbackParams, function (fallbackErr) {
+                    if (fallbackErr) {
+                      console.error(
+                        "❌ Auch Fallback-Update fehlgeschlagen:",
+                        fallbackErr
+                      );
+                      reject(fallbackErr);
+                    } else {
+                      console.log(
+                        "✅ Fallback-Update erfolgreich (ohne kilometerstand)"
+                      );
+                      console.log(
+                        "💡 Tipp: Führen Sie die Kilometerstand-Migration aus für vollständige Funktionalität"
+                      );
+                      resolve(this.changes);
+                    }
+                  });
+                } else {
+                  reject(err);
+                }
               } else {
                 const changes = this.changes;
                 console.log(
                   `🚗 Fahrzeug-Update abgeschlossen - Änderungen: ${changes}`
                 );
+
                 if (changes > 0) {
                   console.log(
                     `✅ Fahrzeug ID ${fahrzeugIdNumber} erfolgreich synchronisiert`
                   );
+
+                  // Erfolgreiche Besitzerwechsel-Meldung
+                  if (updateData.kunden_id !== existingFahrzeug.kunden_id) {
+                    console.log(
+                      `🎉 BESITZERWECHSEL ERFOLGREICH: Fahrzeug ${kennzeichen} gehört jetzt Kunde ${updateData.kunden_id}`
+                    );
+                  }
+
+                  // Kilometerstand-Update-Meldung
+                  if (
+                    updateData.kilometerstand &&
+                    updateData.kilometerstand !==
+                      existingFahrzeug.kilometerstand
+                  ) {
+                    console.log(
+                      `📊 KILOMETERSTAND AKTUALISIERT: ${
+                        existingFahrzeug.kilometerstand || 0
+                      } → ${updateData.kilometerstand} km`
+                    );
+                  }
                 } else {
                   console.warn(
                     `⚠️ Fahrzeug ID ${fahrzeugIdNumber} - keine Änderungen`
                   );
                 }
+
                 resolve(changes);
               }
             });
@@ -787,7 +999,6 @@ router.put("/:id", async (req, res) => {
       } catch (fahrzeugError) {
         console.error("❌ Fahrzeug-Synchronisation Fehler:", fahrzeugError);
         fahrzeugSyncError = fahrzeugError.message;
-        // Nicht den ganzen Request abbrechen
       }
     } else {
       console.log("ℹ️ Keine gültige Fahrzeug-ID - keine Synchronisation", {
@@ -797,7 +1008,91 @@ router.put("/:id", async (req, res) => {
       });
     }
 
-    // ✅ SCHRITT 3: Aktualisierte Daten zurückgeben
+    // ✅ SCHRITT 3: Käufer-ID in Handelsgeschäft aktualisieren (bei abgeschlossenem Verkauf)
+    let kaeuferUpdateResult = 0;
+
+    if (typ === "verkauf" && status === "abgeschlossen" && verkauft_an) {
+      const neuerBesitzerId = parseInt(verkauft_an);
+
+      if (!isNaN(neuerBesitzerId) && neuerBesitzerId > 0) {
+        console.log(
+          `💼 Aktualisiere Käufer-ID im Handelsgeschäft für Kunde ${neuerBesitzerId}`
+        );
+
+        try {
+          // Prüfen ob neuer Käufer existiert und seine Daten abrufen
+          const kaeuferInfo = await new Promise((resolve, reject) => {
+            db.get(
+              "SELECT name, kunden_nr, telefon, email FROM kunden WHERE id = ?",
+              [neuerBesitzerId],
+              (err, row) => {
+                if (err) reject(err);
+                else resolve(row);
+              }
+            );
+          });
+
+          if (kaeuferInfo) {
+            console.log(
+              `✅ Käufer-Info gefunden: ${kaeuferInfo.name} (${kaeuferInfo.kunden_nr})`
+            );
+
+            // Käufer-ID in fahrzeug_handel-Tabelle setzen
+            const updateKaeuferSql = `
+              UPDATE fahrzeug_handel 
+              SET kaeufer_id = ? 
+              WHERE id = ?
+            `;
+
+            kaeuferUpdateResult = await new Promise((resolve, reject) => {
+              db.run(updateKaeuferSql, [neuerBesitzerId, id], function (err) {
+                if (err) {
+                  // Fallback: Wenn kaeufer_id-Spalte nicht existiert, weiter ohne Fehler
+                  if (err.message.includes("no such column: kaeufer_id")) {
+                    console.log(
+                      "⚠️ kaeufer_id-Spalte nicht gefunden - Migration erforderlich"
+                    );
+                    console.log(
+                      "💡 Tipp: Führen Sie die Käufer-ID-Migration aus für vollständige Funktionalität"
+                    );
+                    resolve(0); // Kein Fehler, aber auch kein Update
+                  } else {
+                    console.error("❌ Käufer-ID-Update fehlgeschlagen:", err);
+                    reject(err);
+                  }
+                } else {
+                  console.log(
+                    `✅ Käufer-ID in Handelsgeschäft gesetzt: ${neuerBesitzerId}`
+                  );
+                  resolve(this.changes);
+                }
+              });
+            });
+
+            besitzerwechselStatus = `Fahrzeug verkauft an ${kaeuferInfo.name} (${kaeuferInfo.kunden_nr}) - Besitzer gewechselt, Käufer-ID aktualisiert`;
+          } else {
+            console.warn(
+              `⚠️ Käufer-ID ${neuerBesitzerId} nicht in Kunden-Datenbank gefunden`
+            );
+            besitzerwechselStatus = `Verkauft_an ID ${neuerBesitzerId} gesetzt - aber Kunde nicht gefunden`;
+          }
+        } catch (kaeuferError) {
+          console.error(
+            "❌ Fehler beim Abrufen/Setzen der Käufer-Info:",
+            kaeuferError
+          );
+          besitzerwechselStatus = `Käufer-Update fehlgeschlagen: ${kaeuferError.message}`;
+        }
+      } else {
+        console.log(
+          `📝 Verkauft_an "${verkauft_an}" ist keine Kunden-ID - nur verkauft_an gesetzt`
+        );
+        besitzerwechselStatus = `Verkauft_an als Text gesetzt (${verkauft_an}) - kein Käufer-ID-Update`;
+      }
+    }
+
+    // ✅ SCHRITT 4: Aktualisierte Daten zurückgeben
+    // ✅ SCHRITT 4: Aktualisierte Daten zurückgeben
     const updatedHandel = await new Promise((resolve, reject) => {
       db.get("SELECT * FROM fahrzeug_handel WHERE id = ?", [id], (err, row) => {
         if (err) {
@@ -812,7 +1107,7 @@ router.put("/:id", async (req, res) => {
       });
     });
 
-    // 🔧 VERBESSERTE Erfolgreiche Antwort
+    // 🔧 ERWEITERTE Erfolgreiche Antwort mit Besitzerwechsel-Info
     const response = {
       message: "Handelsgeschäft erfolgreich aktualisiert",
       handelsgeschaeft: updatedHandel,
@@ -822,16 +1117,31 @@ router.put("/:id", async (req, res) => {
         fahrzeug_id: hasFahrzeugId ? fahrzeugIdNumber : null,
         fahrzeug_sync_attempts: hasFahrzeugId ? 1 : 0,
         fahrzeug_sync_error: fahrzeugSyncError,
+        besitzerwechsel: besitzerwechselStatus,
+        kaeufer_update: kaeuferUpdateResult > 0,
       },
     };
 
     if (fahrzeugSyncResult > 0) {
       response.message += " (Fahrzeugdaten synchronisiert)";
-    } else if (fahrzeugSyncError) {
-      response.message += ` (Fahrzeug-Sync fehlgeschlagen: ${fahrzeugSyncError})`;
     }
 
-    console.log("✅ PUT Request erfolgreich abgeschlossen:", response.updates);
+    if (besitzerwechselStatus && besitzerwechselStatus.includes("gewechselt")) {
+      response.message += " (Fahrzeug-Besitzer geändert)";
+    }
+
+    if (kaeuferUpdateResult > 0) {
+      response.message += " (Käufer-Info aktualisiert)";
+    }
+
+    if (fahrzeugSyncError) {
+      response.message += ` (Fahrzeug-Sync Warnung: ${fahrzeugSyncError})`;
+    }
+
+    console.log("✅ PUT Request erfolgreich abgeschlossen:", {
+      ...response.updates,
+      message: response.message,
+    });
     res.json(response);
   } catch (error) {
     console.error("❌ PUT Request Fehler:", error);

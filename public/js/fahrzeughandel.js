@@ -125,62 +125,67 @@ function initializeFahrzeughandelEvents() {
 // Tabelle aktualisieren
 function updateFahrzeughandelTable() {
   const tableBody = document.querySelector("#fahrzeughandel-table tbody");
-  if (!tableBody) return;
-
-  // Gefilterte Daten
-  const filteredData = getFilteredData();
-
-  if (filteredData.length === 0) {
-    tableBody.innerHTML = `
-      <tr>
-        <td colspan="9" class="text-center" style="padding: 2rem; color: #6b7280;">
-          <i class="fas fa-search" style="font-size: 2rem; margin-bottom: 1rem; opacity: 0.5;"></i>
-          <div>Keine Handelsgeschäfte gefunden</div>
-          <div style="font-size: 0.875rem; margin-top: 0.5rem;">
-            ${
-              currentFilter !== "alle"
-                ? "Versuchen Sie einen anderen Filter"
-                : "Erstellen Sie Ihr erstes Handelsgeschäft"
-            }
-          </div>
-        </td>
-      </tr>
-    `;
+  if (!tableBody) {
+    console.error("❌ Fahrzeughandel-Tabelle nicht gefunden");
     return;
   }
+
+  const filteredData = getFilteredData();
 
   tableBody.innerHTML = filteredData
     .map(
       (geschaeft) => `
-    <tr data-handel-id="${geschaeft.id}">
+    <tr>
       <td>
-        <strong>${geschaeft.handel_nr}</strong>
+        <div style="font-size: 0.875rem; margin-bottom: 0.25rem;">
+          ${geschaeft.handel_nr}
+        </div>
       </td>
       <td>
-        <span class="typ-badge typ-${geschaeft.typ}">
-          <i class="fas fa-arrow-${
-            geschaeft.typ === "ankauf" ? "down" : "up"
-          }"></i>
+        <div class="typ-badge typ-${geschaeft.typ}">
           ${geschaeft.typ}
-        </span>
+        </div>
       </td>
       <td>
         <div>
           <strong>${geschaeft.kennzeichen}</strong>
         </div>
         <div style="font-size: 0.875rem; color: #6b7280;">
-          ${geschaeft.marke} ${geschaeft.modell}
-          ${geschaeft.baujahr ? ` (${geschaeft.baujahr})` : ""}
+          ${geschaeft.marke} ${geschaeft.modell} ${
+        geschaeft.baujahr ? `(${geschaeft.baujahr})` : ""
+      } 
         </div>
+        ${
+          geschaeft.fahrzeug_kilometerstand
+            ? `<div style="font-size: 0.75rem; color: #9ca3af;">
+        ${formatNumber(geschaeft.fahrzeug_kilometerstand)} km
+       </div>`
+            : ""
+        }
+${
+  geschaeft.vin
+    ? `<div style="font-size: 0.75rem; color: #9ca3af; font-family: monospace;">
+        ${geschaeft.vin}
+       </div>`
+    : ""
+}
+
       </td>
       <td>
         ${
-          geschaeft.kunde_name
+          geschaeft.kaeufer_info
+            ? `<div><strong>${geschaeft.kaeufer_info.name}</strong></div>
+               <div style="font-size: 0.875rem; color: #6b7280;">
+                 ${geschaeft.kaeufer_info.kunden_nr}
+                 
+               </div>
+               `
+            : geschaeft.kunde_name
             ? `<div><strong>${geschaeft.kunde_name}</strong></div>
-           <div style="font-size: 0.875rem; color: #6b7280;">${
-             geschaeft.kunden_nr || ""
-           }</div>`
-            : geschaeft.verkauft_an || "<em>Nicht angegeben</em>"
+               <div style="font-size: 0.875rem; color: #6b7280;">${
+                 geschaeft.kunden_nr || ""
+               }</div>`
+            : geschaeft.verkauft_an_display || "<em>Nicht angegeben</em>"
         }
       </td>
       <td>
@@ -217,35 +222,26 @@ function updateFahrzeughandelTable() {
         </span>
       </td>
       <td>
-        <div class="action-buttons">
-          <button class="btn btn-sm btn-primary" onclick="editFahrzeughandel(${
-            geschaeft.id
-          })" title="Bearbeiten">
-            <i class="fas fa-edit"></i>
-          </button>
-          ${
-            geschaeft.typ === "verkauf"
-              ? `
-      <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); createRechnungFromHandel(${geschaeft.id})" title="Rechnung erstellen">
-        <i class="fas fa-file-invoice"></i>
-      </button>
-    `
-              : ""
-          }
-          <button class="btn btn-sm btn-danger" onclick="deleteFahrzeughandel(${
-            geschaeft.id
-          }, '${geschaeft.handel_nr}')" title="Löschen">
-            <i class="fas fa-trash"></i>
-          </button>
-        </div>
+        ${generateActionButtons(geschaeft)}
       </td>
     </tr>
   `
     )
     .join("");
 
-  console.log(`✅ Tabelle aktualisiert: ${filteredData.length} Einträge`);
+  console.log(
+    `✅ Tabelle aktualisiert: ${filteredData.length} Einträge (mit Käufer-Info)`
+  );
 }
+
+// Helper-Funktion für Zahlenformatierung
+function formatNumber(num) {
+  return new Intl.NumberFormat("de-DE").format(num);
+}
+
+console.log(
+  "🎉 Erweiterte Fahrzeughandel-Queries mit Käufer-ID-Unterstützung bereit!"
+);
 
 async function createRechnungFromHandel(handelId) {
   try {
@@ -542,6 +538,9 @@ function validateFormData(data) {
     errors.push("Datum ist erforderlich");
     highlightField("handel-datum");
   }
+
+  const kaeuferErrors = validateKaeuferForVerkauf(data);
+  errors.push(...kaeuferErrors);
 
   // Bei neuem Fahrzeug (kein fahrzeug_id) sind VIN und Kunde Pflicht
   const istNeuesFahrzeug = !data.fahrzeug_id;
@@ -1024,6 +1023,74 @@ window.closeFahrzeughandelModalDynamic = function () {
   console.log("✅ Modal geschlossen");
 };
 
+function generateActionButtons(geschaeft) {
+  // Wenn Status "abgeschlossen" ist, keine Action-Buttons anzeigen
+  if (geschaeft.status === "abgeschlossen") {
+    return `<span style="color: #10b981; font-weight: 500;">Keine Änderungen mehr möglich !!!</span>`;
+  }
+
+  // Normale Action-Buttons für alle anderen Status
+  return `
+    <div class="action-buttons">
+      <button class="btn btn-sm btn-primary" onclick="editFahrzeughandel(${
+        geschaeft.id
+      })" title="Bearbeiten">
+        <i class="fas fa-edit"></i>
+      </button>
+      ${
+        geschaeft.typ === "verkauf"
+          ? `
+            <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); createRechnungFromHandel(${geschaeft.id})" title="Rechnung erstellen">
+              <i class="fas fa-file-invoice"></i>
+            </button>
+          `
+          : ""
+      }
+      <button class="btn btn-sm btn-danger" onclick="deleteFahrzeughandel(${
+        geschaeft.id
+      }, '${geschaeft.handel_nr}')" title="Löschen">
+        <i class="fas fa-trash"></i>
+      </button>
+    </div>
+  `;
+}
+
+// 2. ✅ KÄUFER-VALIDIERUNG BEIM SPEICHERN VERBESSERT
+// Diese Funktion erweitert die bestehende validateFormData-Funktion
+
+function validateKaeuferForVerkauf(data) {
+  const errors = [];
+
+  // Bei Verkäufen muss immer ein Käufer angegeben werden
+  if (data.typ === "verkauf") {
+    const verkauftAnSelect = document.getElementById("handel-verkauft-an");
+    const verkauftAnWert = verkauftAnSelect?.value;
+
+    if (!verkauftAnWert) {
+      errors.push("Käufer muss bei Verkäufen ausgewählt werden");
+      highlightField("handel-verkauft-an");
+    }
+  }
+
+  return errors;
+}
+
+// 3. ✅ FOCUS AUF GESCHÄFTSTYP BEI NEUEM MODAL
+// Diese Funktion erweitert initializeFahrzeughandelModal
+
+function setFocusOnGeschaeftstyp(handelId) {
+  // Bei neuem Geschäft (kein handelId) Focus auf Geschäftstyp setzen
+  if (!handelId) {
+    setTimeout(() => {
+      const typSelect = document.getElementById("handel-typ");
+      if (typSelect) {
+        typSelect.focus();
+        console.log("✅ Focus auf Geschäftstyp gesetzt");
+      }
+    }, 150); // Kleine Verzögerung für DOM-Bereitschaft
+  }
+}
+
 function initializeFahrzeughandelModal(handelId) {
   // Dropdowns füllen
   populateDropdowns();
@@ -1047,6 +1114,7 @@ function initializeFahrzeughandelModal(handelId) {
       const today = new Date().toISOString().split("T")[0];
       datumEl.value = today;
     }
+    setFocusOnGeschaeftstyp(handelId);
   }
 
   console.log("✅ Fahrzeughandel-Modal initialisiert");

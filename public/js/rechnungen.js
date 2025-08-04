@@ -12,18 +12,44 @@ async function updateRechnungStatus(id, status) {
   try {
     const rechnung = await apiCall(`/api/rechnungen/${id}`);
 
-    // NEUE PRÜFUNG: Verhindere Änderung von bezahlten Rechnungen
+    // ERWEITERTE PRÜFUNG: Verhindere Änderung von bezahlten Rechnungen
     if (rechnung.status === "bezahlt") {
       showNotification(
-        "Bezahlte Rechnungen können nicht mehr geändert werden",
+        "⚠️ Bezahlte Rechnungen können nicht mehr geändert werden",
         "warning"
       );
+      // Status-Dropdown zurücksetzen
+      const dropdown = document.querySelector(`select[onchange*="${id}"]`);
+      if (dropdown) {
+        dropdown.value = rechnung.status;
+      }
       return;
+    }
+
+    // NEUE PRÜFUNG: Bei Änderung zu "bezahlt" zusätzliche Bestätigung
+    if (status === "bezahlt") {
+      const confirmed = await customConfirm(
+        `🟢 Rechnung als BEZAHLT markieren?\n\nRechnung: ${
+          rechnung.rechnung_nr
+        }\nBetrag: ${formatCurrency(
+          rechnung.gesamtbetrag
+        )}\n\n⚠️ Nach dieser Änderung kann die Rechnung nicht mehr bearbeitet werden!`,
+        "💰 Rechnung als bezahlt markieren"
+      );
+
+      if (!confirmed) {
+        // Status-Dropdown zurücksetzen
+        const dropdown = document.querySelector(`select[onchange*="${id}"]`);
+        if (dropdown) {
+          dropdown.value = rechnung.status;
+        }
+        return;
+      }
     }
 
     rechnung.status = status;
 
-    // NEUE LOGIK: Wenn Status auf "bezahlt" gesetzt wird, Anzahlung anpassen
+    // ERWEITERTE LOGIK: Wenn Status auf "bezahlt" gesetzt wird, Anzahlung anpassen
     if (status === "bezahlt") {
       // Anzahlung auf Gesamtbetrag setzen, damit Restbetrag = 0 wird
       rechnung.anzahlung_betrag = rechnung.gesamtbetrag;
@@ -35,12 +61,53 @@ async function updateRechnungStatus(id, status) {
     }
 
     await apiCall(`/api/rechnungen/${id}`, "PUT", rechnung);
-    showNotification("Status erfolgreich aktualisiert", "success");
-    loadRechnungen();
+    showNotification(
+      `✅ Status erfolgreich auf "${status}" geändert`,
+      "success"
+    );
+    loadRechnungen(); // Tabelle neu laden
   } catch (error) {
-    showNotification("Fehler beim Aktualisieren des Status", "error");
-    loadRechnungen();
+    console.error("❌ Fehler beim Aktualisieren des Status:", error);
+    showNotification("❌ Fehler beim Aktualisieren des Status", "error");
+    loadRechnungen(); // Tabelle neu laden
   }
+}
+
+// =======================================================================================
+// RECHNUNGEN ACTION-BUTTONS - BEARBEITEN BEI BEZAHLTEN RECHNUNGEN AUSBLENDEN
+// Diese Funktion ersetzt die hardcodierten Action-Buttons in der Rechnungen-Tabelle
+// =======================================================================================
+
+// ✅ FUNKTION ZUR GENERIERUNG DER ACTION-BUTTONS FÜR RECHNUNGEN
+function generateRechnungActionButtons(rechnung) {
+  // Wenn Status "bezahlt" ist, nur eingeschränkte Buttons anzeigen
+  if (rechnung.status === "bezahlt") {
+    return `
+      <div class="action-buttons">
+        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewRechnung(${rechnung.id})" title="Anzeigen">
+          <i class="fas fa-eye"></i>
+        </button>
+        <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); printRechnung(${rechnung.id})" title="Drucken">
+          <i class="fas fa-print"></i>
+        </button>
+        
+      </div>
+    `;
+  }
+
+  // Normale Action-Buttons für alle anderen Status
+  return `
+    <div class="action-buttons">
+      <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editRechnung(${rechnung.id})" title="Bearbeiten">
+        <i class="fas fa-edit"></i>
+      </button>
+      <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewRechnung(${rechnung.id})" title="Anzeigen">
+        <i class="fas fa-eye"></i>
+      </button>
+      <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); printRechnung(${rechnung.id})" title="Drucken">
+        <i class="fas fa-print"></i>
+      </button>
+  `;
 }
 
 // Rechnungen laden und Tabelle füllen
@@ -51,7 +118,7 @@ export async function loadRechnungen() {
     const tableBody = document.querySelector("#rechnungen-table tbody");
     if (tableBody) {
       tableBody.innerHTML =
-        '<tr><td colspan="6" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Laden...</td></tr>';
+        '<tr><td colspan="7" style="text-align: center; padding: 20px;"><i class="fas fa-spinner fa-spin"></i> Laden...</td></tr>';
     }
 
     const cacheBuster = Date.now();
@@ -65,22 +132,28 @@ export async function loadRechnungen() {
     }
 
     function addAnzahlungsInfoToRow(rechnung) {
+      // Bei bezahlten Rechnungen keine Anzahlungsinfo anzeigen
+      if (rechnung.status === "bezahlt") {
+        return "";
+      }
+
+      // Nur bei nicht-bezahlten Rechnungen Anzahlungsinfo anzeigen
       if (rechnung.anzahlung_betrag > 0) {
         return `
-      <div class="anzahlung-info" style="font-size: 0.9em; color: var(--primary); margin-top: 0.25rem;">
-        Anzahlung: ${formatCurrency(rechnung.anzahlung_betrag)}
-        ${
-          rechnung.restbetrag > 0
-            ? `<br>Restbetrag: ${formatCurrency(rechnung.restbetrag)}`
-            : ""
-        }
-      </div>
-    `;
+          <div class="anzahlung-info" style="font-size: 0.9em; color: var(--primary); margin-top: 0.25rem;">
+            Anzahlung: ${formatCurrency(rechnung.anzahlung_betrag)}
+            ${
+              rechnung.restbetrag > 0
+                ? `<br>Restbetrag: ${formatCurrency(rechnung.restbetrag)}`
+                : ""
+            }
+          </div>
+        `;
       }
       return "";
     }
 
-    // Komplett neue HTML generieren
+    // ✅ KOMPLETT NEUE HTML-GENERIERUNG MIT VERBESSERTER ACTION-BUTTON-LOGIK
     const newTableHTML = window.rechnungen
       .map(
         (rechnung) => `
@@ -94,97 +167,94 @@ export async function loadRechnungen() {
         }</td>
                 <td>${formatDate(rechnung.rechnungsdatum)}</td>
                 <td>
-    ${
-      rechnung.status === "bezahlt"
-        ? `<span class="status-badge status-bezahlt" style="
-             font-weight: 600; 
-             border-radius: 20px; 
-             padding: 0.35rem 0.75rem;
-             font-size: 0.85rem;
-             background: rgba(34, 197, 94, 0.1);
-             color: #22c55e;
-             border: 2px solid #22c55e;
-             display: inline-block;
-           ">🟢 Bezahlt</span>`
-        : `<select class="form-select status-dropdown status-${
-            rechnung.status
-          }" 
-                   onchange="updateRechnungStatus(${rechnung.id}, this.value)" 
-                   onclick="event.stopPropagation()"
-                   style="
-                     font-weight: 600; 
-                     border-radius: 20px; 
-                     padding: 0.25rem 0.75rem;
-                     font-size: 0.85rem;
-                     border: 2px solid;
-                     background: ${
-                       rechnung.status === "offen"
-                         ? "rgba(245, 158, 11, 0.1)"
-                         : rechnung.status === "teilbezahlt"
-                         ? "rgba(59, 130, 246, 0.1)"
-                         : rechnung.status === "mahnung"
-                         ? "rgba(239, 68, 68, 0.1)"
-                         : rechnung.status === "storniert"
-                         ? "rgba(107, 114, 128, 0.1)"
-                         : "transparent"
-                     };
-                     color: ${
-                       rechnung.status === "offen"
-                         ? "#f59e0b"
-                         : rechnung.status === "teilbezahlt"
-                         ? "#3b82f6"
-                         : rechnung.status === "mahnung"
-                         ? "#ef4444"
-                         : rechnung.status === "storniert"
-                         ? "#6b7280"
-                         : "#333"
-                     };
-                   ">
-               <option value="offen" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;" ${
-                 rechnung.status === "offen" ? "selected" : ""
-               }>🟡 Offen</option>
-               <option value="teilbezahlt" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;" ${
-                 rechnung.status === "teilbezahlt" ? "selected" : ""
-               }>🔵 Teilbezahlt</option>
-               <option value="bezahlt" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;" ${
-                 rechnung.status === "bezahlt" ? "selected" : ""
-               }>🟢 Bezahlt</option>
-               <option value="mahnung" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;" ${
-                 rechnung.status === "mahnung" ? "selected" : ""
-               }>🔴 Mahnung</option>
-               <option value="storniert" style="background: rgba(107, 114, 128, 0.1); color: #6b7280;" ${
-                 rechnung.status === "storniert" ? "selected" : ""
-               }>⚫ Storniert</option>
-           </select>`
-    }
-</td>
-                <td>
-                       ${formatCurrency(rechnung.gesamtbetrag)}
-                       ${addAnzahlungsInfoToRow(rechnung)}
+                  ${
+                    rechnung.status === "bezahlt"
+                      ? `<span class="status-badge status-bezahlt" style="
+                           font-weight: 600; 
+                           border-radius: 20px; 
+                           padding: 0.35rem 0.75rem;
+                           font-size: 0.85rem;
+                           background: rgba(34, 197, 94, 0.1);
+                           color: #22c55e;
+                           border: 2px solid #22c55e;
+                           display: inline-block;
+                         ">🟢 Bezahlt</span>`
+                      : `<select class="form-select status-dropdown status-${
+                          rechnung.status
+                        }" 
+                               onchange="updateRechnungStatus(${
+                                 rechnung.id
+                               }, this.value)" 
+                               onclick="event.stopPropagation()"
+                               style="
+                                 font-weight: 600; 
+                                 border-radius: 20px; 
+                                 padding: 0.25rem 0.75rem;
+                                 font-size: 0.85rem;
+                                 border: 2px solid;
+                                 background: ${
+                                   rechnung.status === "offen"
+                                     ? "rgba(245, 158, 11, 0.1)"
+                                     : rechnung.status === "teilbezahlt"
+                                     ? "rgba(59, 130, 246, 0.1)"
+                                     : rechnung.status === "mahnung"
+                                     ? "rgba(239, 68, 68, 0.1)"
+                                     : rechnung.status === "storniert"
+                                     ? "rgba(107, 114, 128, 0.1)"
+                                     : "transparent"
+                                 };
+                                 color: ${
+                                   rechnung.status === "offen"
+                                     ? "#f59e0b"
+                                     : rechnung.status === "teilbezahlt"
+                                     ? "#3b82f6"
+                                     : rechnung.status === "mahnung"
+                                     ? "#ef4444"
+                                     : rechnung.status === "storniert"
+                                     ? "#6b7280"
+                                     : "#6b7280"
+                                 };
+                                 border-color: ${
+                                   rechnung.status === "offen"
+                                     ? "#f59e0b"
+                                     : rechnung.status === "teilbezahlt"
+                                     ? "#3b82f6"
+                                     : rechnung.status === "mahnung"
+                                     ? "#ef4444"
+                                     : rechnung.status === "storniert"
+                                     ? "#6b7280"
+                                     : "#d1d5db"
+                                 };
+                               ">
+                               <option value="offen" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;" ${
+                                 rechnung.status === "offen" ? "selected" : ""
+                               }>🟡 Offen</option>
+                               <option value="teilbezahlt" style="background: rgba(59, 130, 246, 0.1); color: #3b82f6;" ${
+                                 rechnung.status === "teilbezahlt"
+                                   ? "selected"
+                                   : ""
+                               }>🔵 Teilbezahlt</option>
+                               <option value="bezahlt" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;" ${
+                                 rechnung.status === "bezahlt" ? "selected" : ""
+                               }>🟢 Bezahlt</option>
+                               <option value="mahnung" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;" ${
+                                 rechnung.status === "mahnung" ? "selected" : ""
+                               }>🔴 Mahnung</option>
+                               <option value="storniert" style="background: rgba(107, 114, 128, 0.1); color: #6b7280;" ${
+                                 rechnung.status === "storniert"
+                                   ? "selected"
+                                   : ""
+                               }>⚫ Storniert</option>
+                           </select>`
+                  }
                 </td>
                 <td>
-                    <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editRechnung(${
-                      rechnung.id
-                    })" title="Bearbeiten">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewRechnung(${
-                      rechnung.id
-                    })" title="Anzeigen">
-                        <i class="fas fa-eye"></i>
-                    </button>
-                    <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); printRechnung(${
-                      rechnung.id
-                    })" title="Drucken">
-                        <i class="fas fa-print"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteRechnung(${
-                      rechnung.id
-                    })" title="Löschen">
-                        <i class="fas fa-trash"></i>
-                    </button>
+                  ${formatCurrency(rechnung.gesamtbetrag)}
+                  ${addAnzahlungsInfoToRow(rechnung)}
                 </td>
-               
+                <td>
+                  ${generateRechnungActionButtons(rechnung)}
+                </td>
             </tr>
         `
       )
@@ -210,7 +280,9 @@ export async function loadRechnungen() {
       });
     });
 
-    console.log("✅ Rechnungen-Tabelle erfolgreich aktualisiert");
+    console.log(
+      "✅ Rechnungen-Tabelle erfolgreich aktualisiert (mit Action-Button-Logik)"
+    );
 
     // Event für andere Module dispatchen
     document.dispatchEvent(
@@ -221,20 +293,15 @@ export async function loadRechnungen() {
   } catch (error) {
     console.error("❌ Fehler beim Laden der Rechnungen:", error);
 
-    // ✅ 7. Fehler-Behandlung mit User-Feedback
+    // Fallback bei Fehlern
     const tableBody = document.querySelector("#rechnungen-table tbody");
     if (tableBody) {
       tableBody.innerHTML = `
         <tr>
-          <td colspan="6" style="text-align: center; padding: 20px; color: #dc3545;">
+          <td colspan="7" style="text-align: center; padding: 20px; color: #ef4444;">
             <i class="fas fa-exclamation-triangle"></i> 
             Fehler beim Laden der Rechnungen
-            <br>
-            <small>${error.message || "Unbekannter Fehler"}</small>
-            <br>
-            <button class="btn btn-sm btn-primary" onclick="loadRechnungen()" style="margin-top: 10px;">
-              <i class="fas fa-retry"></i> Erneut versuchen
-            </button>
+            <br><small style="color: #6b7280; margin-top: 8px;">${error.message}</small>
           </td>
         </tr>
       `;
@@ -254,6 +321,7 @@ window.calculateAnzahlung = calculateAnzahlung;
 window.toggleAnzahlungSection = toggleAnzahlungSection;
 window.quickAnzahlungUpdate = quickAnzahlungUpdate;
 window.updateAnzahlung = updateAnzahlung;
+window.generateRechnungActionButtons = generateRechnungActionButtons;
 
 export async function showRechnungModal(rechnungId = null) {
   if (!window.kunden || window.kunden.length === 0) {

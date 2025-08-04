@@ -14,7 +14,7 @@ const readline = require("readline");
 
 const CONFIG = {
   APP_NAME: "KFZFacPRO",
-  VERSION: "3.0.0",
+  VERSION: "2.1.1",
   NODE_MIN_VERSION: "16.0.0",
   SALT_ROUNDS: 12,
   DEFAULT_ADMIN: {
@@ -251,6 +251,9 @@ class FahrzeughandelMigration {
       // Trigger für automatische Gewinnberechnung
       await this.createTriggers();
 
+      // Käufer-ID Migration (falls Tabelle bereits existierte)
+      await this.runKaeuferIdMigration();
+
       Logger.success("✅ Fahrzeughandel-Migration erfolgreich abgeschlossen!");
     } catch (error) {
       Logger.error("❌ Migration fehlgeschlagen: " + error.message);
@@ -293,7 +296,8 @@ class FahrzeughandelMigration {
           -- Zusatzinformationen
           bemerkungen TEXT,
           interne_notizen TEXT,
-          verkauft_an TEXT, -- Käufer-Info falls nicht in Kunden-DB
+          verkauft_an TEXT, -- Käufer-Info falls nicht in Kunden-DB (Text)
+          kaeufer_id INTEGER, -- Käufer-Referenz zu Kunden-DB (ID)
           
           -- Timestamps
           erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -302,7 +306,8 @@ class FahrzeughandelMigration {
           
           -- Foreign Keys
           FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE SET NULL,
-          FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL
+          FOREIGN KEY (fahrzeug_id) REFERENCES fahrzeuge (id) ON DELETE SET NULL,
+          FOREIGN KEY (kaeufer_id) REFERENCES kunden (id) ON DELETE SET NULL
         )
       `;
 
@@ -317,6 +322,57 @@ class FahrzeughandelMigration {
     });
   }
 
+  async runKaeuferIdMigration() {
+    Logger.info("🔄 Käufer-ID-Migration für Fahrzeughandel...");
+
+    return new Promise((resolve, reject) => {
+      const migrations = [
+        "ALTER TABLE fahrzeug_handel ADD COLUMN kaeufer_id INTEGER REFERENCES kunden(id)",
+        "CREATE INDEX IF NOT EXISTS idx_fahrzeug_handel_kaeufer_id ON fahrzeug_handel(kaeufer_id)",
+      ];
+
+      let completed = 0;
+      let hasErrors = false;
+
+      migrations.forEach((sql, index) => {
+        this.db.run(sql, (err) => {
+          completed++;
+
+          if (err && !err.message.includes("duplicate column name")) {
+            Logger.error(
+              `❌ Käufer-ID Migration ${index + 1} fehlgeschlagen: ${
+                err.message
+              }`
+            );
+            hasErrors = true;
+          } else if (err && err.message.includes("duplicate column name")) {
+            Logger.info(
+              `✅ Käufer-ID Migration ${
+                index + 1
+              } bereits vorhanden (übersprungen)`
+            );
+          } else {
+            Logger.success(`✅ Käufer-ID Migration ${index + 1} erfolgreich`);
+          }
+
+          if (completed === migrations.length) {
+            if (hasErrors) {
+              Logger.warning(
+                "⚠️ Käufer-ID Migration mit Fehlern abgeschlossen!"
+              );
+              reject(new Error("Käufer-ID Migration mit Fehlern"));
+            } else {
+              Logger.success(
+                "✅ Käufer-ID Migration erfolgreich abgeschlossen!"
+              );
+              resolve();
+            }
+          }
+        });
+      });
+    });
+  }
+
   createIndexes() {
     return new Promise((resolve, reject) => {
       const indexes = [
@@ -327,6 +383,7 @@ class FahrzeughandelMigration {
         "CREATE INDEX IF NOT EXISTS idx_fahrzeug_handel_kunden_id ON fahrzeug_handel(kunden_id)",
         "CREATE INDEX IF NOT EXISTS idx_fahrzeug_handel_fahrzeug_id ON fahrzeug_handel(fahrzeug_id)",
         "CREATE INDEX IF NOT EXISTS idx_fahrzeug_handel_kennzeichen ON fahrzeug_handel(kennzeichen)",
+        "CREATE INDEX IF NOT EXISTS idx_fahrzeug_handel_kaeufer_id ON fahrzeug_handel(kaeufer_id)",
       ];
 
       let completed = 0;
@@ -438,6 +495,7 @@ class FahrzeughandelMigration {
       {
         handel_nr: "H000001",
         typ: "ankauf",
+        kunden_id: 1,
         datum: "2024-01-15",
         kennzeichen: "DO-AB-123",
         marke: "Volkswagen",
@@ -453,6 +511,7 @@ class FahrzeughandelMigration {
       {
         handel_nr: "H000002",
         typ: "verkauf",
+        kaeufer_id: 2,
         datum: "2024-01-20",
         kennzeichen: "DO-AB-123",
         marke: "Volkswagen",
@@ -464,19 +523,37 @@ class FahrzeughandelMigration {
         ankaufspreis: 12500.0,
         verkaufspreis: 15800.0,
         gewinn: 3300.0,
-        status: "offen",
-        verkauft_an: "Max Mustermann",
+        status: "abgeschlossen",
+        verkauft_an: "Maria Musterfrau",
         bemerkungen: "Kratzer repariert, TÜV neu gemacht",
+      },
+      {
+        handel_nr: "H000003",
+        typ: "verkauf",
+        datum: "2024-02-10",
+        kennzeichen: "RE-ST-987",
+        marke: "BMW",
+        modell: "320i",
+        baujahr: 2019,
+        kilometerstand: 38000,
+        farbe: "Schwarz",
+        zustand: "sehr gut",
+        ankaufspreis: 18500.0,
+        verkaufspreis: 22800.0,
+        gewinn: 4300.0,
+        status: "offen",
+        verkauft_an: "Externes Autohaus Schmidt",
+        bemerkungen: "Verkauf an externe Firma - kein Kunde in DB",
       },
     ];
 
     return new Promise((resolve, reject) => {
       const stmt = this.db.prepare(`
         INSERT INTO fahrzeug_handel (
-          handel_nr, typ, datum, kennzeichen, marke, modell, baujahr, 
+          handel_nr, typ, kunden_id, kaeufer_id, datum, kennzeichen, marke, modell, baujahr, 
           kilometerstand, farbe, zustand, ankaufspreis, verkaufspreis, 
           gewinn, status, verkauft_an, bemerkungen
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       let completed = 0;
@@ -486,6 +563,8 @@ class FahrzeughandelMigration {
         stmt.run(
           data.handel_nr,
           data.typ,
+          data.kunden_id || null,
+          data.kaeufer_id || null,
           data.datum,
           data.kennzeichen,
           data.marke,
@@ -495,10 +574,10 @@ class FahrzeughandelMigration {
           data.farbe,
           data.zustand,
           data.ankaufspreis,
-          data.verkaufspreis,
-          data.gewinn,
+          data.verkaufspreis || null,
+          data.gewinn || null,
           data.status,
-          data.verkauft_an,
+          data.verkauft_an || null,
           data.bemerkungen,
           (err) => {
             completed++;
@@ -516,6 +595,122 @@ class FahrzeughandelMigration {
             }
           }
         );
+      });
+    });
+  }
+}
+
+// =============================================================================
+// VOLLSTÄNDIGE MIGRATION KLASSE
+// =============================================================================
+
+class CompleteMigration {
+  constructor(db) {
+    this.db = db;
+  }
+
+  async execute() {
+    Logger.header("Vollständige DB-Migration durchführen");
+    Logger.info("🔄 Starte alle notwendigen Migrations...");
+
+    try {
+      // 1. Anzahlungs-Migration
+      await this.runAnzahlungsMigration();
+
+      // 2. Skonto-Migration
+      await this.runSkontoMigration();
+
+      // 3. Kilometerstand-Migration
+      await this.runKilometerstandMigration();
+
+      // Hinweis: Käufer-ID-Migration erfolgt in FahrzeughandelMigration
+
+      Logger.success("✅ Alle Basis-Migrations erfolgreich abgeschlossen!");
+    } catch (error) {
+      Logger.error("❌ Migration fehlgeschlagen: " + error.message);
+      throw error;
+    }
+  }
+
+  async runAnzahlungsMigration() {
+    Logger.info("🔄 Anzahlungs-Migration...");
+
+    const migrations = [
+      "ALTER TABLE rechnungen ADD COLUMN anzahlung_betrag DECIMAL(10,2) DEFAULT 0",
+      "ALTER TABLE rechnungen ADD COLUMN anzahlung_datum DATE",
+      "ALTER TABLE rechnungen ADD COLUMN restbetrag DECIMAL(10,2) DEFAULT 0",
+      "ALTER TABLE rechnungen ADD COLUMN anzahlung_aktiv INTEGER DEFAULT 0",
+      "UPDATE rechnungen SET restbetrag = gesamtbetrag WHERE restbetrag = 0 OR restbetrag IS NULL",
+      "CREATE INDEX IF NOT EXISTS idx_rechnungen_anzahlung ON rechnungen(anzahlung_aktiv)",
+    ];
+
+    return this.executeMigrationList(migrations, "Anzahlungs");
+  }
+
+  async runSkontoMigration() {
+    Logger.info("🔄 Skonto-Migration...");
+
+    const migrations = [
+      "ALTER TABLE rechnungen ADD COLUMN skonto_aktiv BOOLEAN DEFAULT 0",
+      "ALTER TABLE rechnungen ADD COLUMN skonto_betrag DECIMAL(10,2) DEFAULT 0",
+    ];
+
+    return this.executeMigrationList(migrations, "Skonto");
+  }
+
+  async runKilometerstandMigration() {
+    Logger.info("🔄 Kilometerstand-Migration...");
+
+    const migrations = [
+      "ALTER TABLE fahrzeuge ADD COLUMN kilometerstand INTEGER DEFAULT 0",
+      "CREATE INDEX IF NOT EXISTS idx_fahrzeuge_kilometerstand ON fahrzeuge(kilometerstand)",
+    ];
+
+    return this.executeMigrationList(migrations, "Kilometerstand");
+  }
+
+  async executeMigrationList(migrations, migrationName) {
+    return new Promise((resolve, reject) => {
+      let completed = 0;
+      let hasErrors = false;
+
+      migrations.forEach((sql, index) => {
+        this.db.run(sql, (err) => {
+          completed++;
+
+          if (err && !err.message.includes("duplicate column name")) {
+            Logger.error(
+              `❌ ${migrationName} Migration ${index + 1} fehlgeschlagen: ${
+                err.message
+              }`
+            );
+            hasErrors = true;
+          } else if (err && err.message.includes("duplicate column name")) {
+            Logger.info(
+              `✅ ${migrationName} Migration ${
+                index + 1
+              } bereits vorhanden (übersprungen)`
+            );
+          } else {
+            Logger.success(
+              `✅ ${migrationName} Migration ${index + 1} erfolgreich`
+            );
+          }
+
+          if (completed === migrations.length) {
+            if (hasErrors) {
+              Logger.warning(
+                `⚠️ ${migrationName} Migration mit Fehlern abgeschlossen!`
+              );
+              reject(new Error(`${migrationName} Migration mit Fehlern`));
+            } else {
+              Logger.success(
+                `✅ ${migrationName} Migration erfolgreich abgeschlossen!`
+              );
+              resolve();
+            }
+          }
+        });
       });
     });
   }
@@ -572,7 +767,10 @@ class DatabaseManager {
           })
           .then(() => this.insertTemplates())
           .then(() => this.createAuthUser())
-          .then(() => this.runSkontoMigration())
+          .then(() => {
+            const completeMigration = new CompleteMigration(this.db);
+            return completeMigration.execute();
+          })
           .then(() => {
             const fahrzeughandelMigration = new FahrzeughandelMigration(
               this.db
@@ -603,51 +801,6 @@ class DatabaseManager {
         this.db.run("PRAGMA cache_size=10000");
         Logger.success("Datenbank-Einstellungen konfiguriert");
         resolve();
-      });
-    });
-  }
-
-  async runSkontoMigration() {
-    Logger.header("Skonto-Migration ausführen");
-    Logger.info("🔄 Starte Migration für Skonto-Checkbox...");
-
-    const migrations = [
-      "ALTER TABLE rechnungen ADD COLUMN skonto_aktiv BOOLEAN DEFAULT 0",
-      "ALTER TABLE rechnungen ADD COLUMN skonto_betrag DECIMAL(10,2) DEFAULT 0",
-      "UPDATE rechnungen SET restbetrag = gesamtbetrag WHERE restbetrag = 0 OR restbetrag IS NULL",
-    ];
-
-    return new Promise((resolve, reject) => {
-      let completed = 0;
-      let hasErrors = false;
-
-      migrations.forEach((sql, index) => {
-        this.db.run(sql, (err) => {
-          completed++;
-
-          if (err && !err.message.includes("duplicate column name")) {
-            Logger.error(
-              `❌ Migration ${index + 1} fehlgeschlagen: ${err.message}`
-            );
-            hasErrors = true;
-          } else if (err && err.message.includes("duplicate column name")) {
-            Logger.info(
-              `✅ Migration ${index + 1} bereits vorhanden (übersprungen)`
-            );
-          } else {
-            Logger.success(`✅ Migration ${index + 1} erfolgreich`);
-          }
-
-          if (completed === migrations.length) {
-            if (hasErrors) {
-              Logger.warning("⚠️ Migration mit Fehlern abgeschlossen!");
-              reject(new Error("Migration mit Fehlern"));
-            } else {
-              Logger.success("✅ Skonto-Migration erfolgreich abgeschlossen!");
-              resolve();
-            }
-          }
-        });
       });
     });
   }
@@ -738,6 +891,7 @@ class DatabaseManager {
           baujahr INTEGER,
           farbe TEXT,
           farbcode TEXT,
+          kilometerstand INTEGER DEFAULT 0,
           erstellt_am DATETIME DEFAULT CURRENT_TIMESTAMP,
           aktualisiert_am DATETIME DEFAULT CURRENT_TIMESTAMP,
           FOREIGN KEY (kunden_id) REFERENCES kunden (id) ON DELETE CASCADE
@@ -880,6 +1034,7 @@ class DatabaseManager {
       "CREATE INDEX idx_kunden_nr ON kunden(kunden_nr)",
       "CREATE INDEX idx_fahrzeuge_kennzeichen ON fahrzeuge(kennzeichen)",
       "CREATE INDEX idx_fahrzeuge_kunden_id ON fahrzeuge(kunden_id)",
+      "CREATE INDEX idx_fahrzeuge_kilometerstand ON fahrzeuge(kilometerstand)",
       "CREATE INDEX idx_auftraege_datum ON auftraege(datum)",
       "CREATE INDEX idx_auftraege_status ON auftraege(status)",
       "CREATE INDEX idx_auftraege_kunden_id ON auftraege(kunden_id)",
@@ -887,10 +1042,10 @@ class DatabaseManager {
       "CREATE INDEX idx_rechnungen_datum ON rechnungen(rechnungsdatum)",
       "CREATE INDEX idx_rechnungen_status ON rechnungen(status)",
       "CREATE INDEX idx_rechnungen_kunden_id ON rechnungen(kunden_id)",
+      "CREATE INDEX idx_rechnungen_anzahlung ON rechnungen(anzahlung_aktiv)",
       "CREATE INDEX idx_rechnung_positionen_rechnung_id ON rechnung_positionen(rechnung_id)",
       "CREATE INDEX idx_templates_typ ON templates(typ)",
       "CREATE INDEX idx_einstellungen_key ON einstellungen(key)",
-      "CREATE INDEX IF NOT EXISTS idx_rechnungen_anzahlung ON rechnungen(anzahlung_betrag)",
     ];
 
     let completed = 0;
@@ -1225,7 +1380,7 @@ class DatabaseManager {
   async insertFahrzeuge(kundenIds) {
     Logger.info("Füge Demo-Fahrzeuge ein...");
 
-    // Demo-Fahrzeuge
+    // Demo-Fahrzeuge mit Kilometerstand
     const demoFahrzeuge = [
       [
         1,
@@ -1236,6 +1391,7 @@ class DatabaseManager {
         2020,
         "Schwarz Metallic",
         "C41",
+        45000,
       ],
       [
         1,
@@ -1246,8 +1402,19 @@ class DatabaseManager {
         2019,
         "Silber",
         "744U",
+        67000,
       ],
-      [2, "IJ-KL 789", "Audi", "A4", "WAUZZZ8E1234567", 2021, "Weiß", "LY9C"],
+      [
+        2,
+        "IJ-KL 789",
+        "Audi",
+        "A4",
+        "WAUZZZ8E1234567",
+        2021,
+        "Weiß",
+        "LY9C",
+        23000,
+      ],
       [
         3,
         "MN-OP 012",
@@ -1257,8 +1424,19 @@ class DatabaseManager {
         2018,
         "Blau Metallic",
         "LD5Q",
+        78000,
       ],
-      [3, "QR-ST 345", "Ford", "Focus", "WF0DXXGCBDVW12345", 2022, "Rot", "RR"],
+      [
+        3,
+        "QR-ST 345",
+        "Ford",
+        "Focus",
+        "WF0DXXGCBDVW12345",
+        2022,
+        "Rot",
+        "RR",
+        12000,
+      ],
       [
         4,
         "UV-WX 678",
@@ -1268,6 +1446,7 @@ class DatabaseManager {
         2020,
         "Grau",
         "GAR",
+        34000,
       ],
       [
         5,
@@ -1278,11 +1457,12 @@ class DatabaseManager {
         2019,
         "Grün Metallic",
         "9P",
+        56000,
       ],
     ];
 
     const fahrzeugStmt = this.db.prepare(
-      "INSERT INTO fahrzeuge (kunden_id, kennzeichen, marke, modell, vin, baujahr, farbe, farbcode) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO fahrzeuge (kunden_id, kennzeichen, marke, modell, vin, baujahr, farbe, farbcode, kilometerstand) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     const fahrzeugIds = [];
     let completed = 0;
@@ -1303,7 +1483,7 @@ class DatabaseManager {
 
           fahrzeugIds[index] = this.lastID;
           Logger.success(
-            `Demo-Fahrzeug ${completed}/${demoFahrzeuge.length}: ${fahrzeug[1]} (${fahrzeug[2]} ${fahrzeug[3]})`
+            `Demo-Fahrzeug ${completed}/${demoFahrzeuge.length}: ${fahrzeug[1]} (${fahrzeug[2]} ${fahrzeug[3]}, ${fahrzeug[8]} km)`
           );
 
           if (completed === demoFahrzeuge.length) {
@@ -1393,7 +1573,7 @@ class DatabaseManager {
   async insertRechnungen(kundenIds, fahrzeugIds) {
     Logger.info("Füge Demo-Rechnungen ein...");
 
-    // Demo-Rechnungen
+    // Demo-Rechnungen mit Anzahlungs-Daten
     const demoRechnungen = [
       [
         "R001",
@@ -1410,13 +1590,39 @@ class DatabaseManager {
         167.2,
         0,
         1047.2,
+        500.0,
+        "2024-01-20",
+        547.2,
+        1,
+        "Zahlbar innerhalb von 14 Tagen ohne Abzug.",
+        "12 Monate Gewährleistung auf alle Arbeiten.",
+      ],
+      [
+        "R002",
+        2,
+        kundenIds[1],
+        fahrzeugIds[2],
+        "2024-01-28",
+        "2024-01-20",
+        "offen",
+        385.0,
+        0,
+        0,
+        385.0,
+        73.15,
+        0,
+        458.15,
+        0,
+        null,
+        458.15,
+        0,
         "Zahlbar innerhalb von 14 Tagen ohne Abzug.",
         "12 Monate Gewährleistung auf alle Arbeiten.",
       ],
     ];
 
     const rechnungStmt = this.db.prepare(
-      "INSERT INTO rechnungen (rechnung_nr, auftrag_id, kunden_id, fahrzeug_id, rechnungsdatum, auftragsdatum, status, zwischensumme, rabatt_prozent, rabatt_betrag, netto_nach_rabatt, mwst_19, mwst_7, gesamtbetrag, zahlungsbedingungen, gewaehrleistung) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO rechnungen (rechnung_nr, auftrag_id, kunden_id, fahrzeug_id, rechnungsdatum, auftragsdatum, status, zwischensumme, rabatt_prozent, rabatt_betrag, netto_nach_rabatt, mwst_19, mwst_7, gesamtbetrag, anzahlung_betrag, anzahlung_datum, restbetrag, anzahlung_aktiv, zahlungsbedingungen, gewaehrleistung) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
     );
     let completed = 0;
 
@@ -1690,6 +1896,7 @@ class DatabaseManager {
       "SELECT COUNT(*) as count FROM rechnungen",
       "SELECT COUNT(*) as count FROM users",
       "SELECT COUNT(*) as count FROM einstellungen",
+      "SELECT COUNT(*) as count FROM fahrzeug_handel",
     ];
 
     const stats = {};
@@ -1706,6 +1913,7 @@ class DatabaseManager {
         stats[tableName] = result.count;
       } catch (error) {
         Logger.warning(`Statistik für ${query} fehlgeschlagen`);
+        stats[query.split(" FROM ")[1]] = 0;
       }
     }
 
@@ -2031,7 +2239,7 @@ if (fs.existsSync(sourceDb)) {
     Logger.header("Setup erfolgreich abgeschlossen");
 
     Logger.success(
-      `🎉 ${CONFIG.APP_NAME} mit Authentifizierung erfolgreich eingerichtet!`
+      `🎉 ${CONFIG.APP_NAME} mit vollständigen DB-Erweiterungen erfolgreich eingerichtet!`
     );
 
     // Statistiken anzeigen
@@ -2042,35 +2250,46 @@ if (fs.existsSync(sourceDb)) {
     Logger.log("✅ System-Anforderungen geprüft", "green");
     Logger.log("✅ Verzeichnisse erstellt", "green");
     Logger.log("✅ Abhängigkeiten installiert", "green");
-    Logger.log("✅ Datenbank initialisiert", "green");
-    Logger.log("✅ Alle Tabellen erstellt", "green");
+    Logger.log("✅ Datenbank vollständig initialisiert", "green");
+    Logger.log("✅ Alle Tabellen mit Erweiterungen erstellt", "green");
     Logger.log("✅ Standard-Einstellungen konfiguriert", "green");
     if (this.dbManager.includeDemoData) {
-      Logger.log("✅ Demo-Daten eingefügt", "green");
+      Logger.log("✅ Demo-Daten mit erweiterten Feldern eingefügt", "green");
     } else {
       Logger.log("⏭️ Demo-Daten übersprungen", "yellow");
     }
     Logger.log("✅ Auth-System eingerichtet", "green");
     Logger.log("✅ Backup-System eingerichtet", "green");
     Logger.log("✅ Development-Tools konfiguriert", "green");
+    Logger.log("✅ Anzahlungs-Migration durchgeführt", "green");
     Logger.log("✅ Skonto-Migration durchgeführt", "green");
+    Logger.log("✅ Kilometerstand-Migration durchgeführt", "green");
+    Logger.log("✅ Käufer-ID-Migration durchgeführt", "green");
     Logger.log("✅ Fahrzeughandel-Tabelle erstellt", "green");
 
     Logger.log("\n📊 Datenbank-Inhalt:", "blue");
     Logger.log(`• 👥 Kunden: ${stats.kunden || 0}`, "white");
-    Logger.log(`• 🚗 Fahrzeuge: ${stats.fahrzeuge || 0}`, "white");
+    Logger.log(
+      `• 🚗 Fahrzeuge: ${stats.fahrzeuge || 0} (mit Kilometerstand)`,
+      "white"
+    );
     Logger.log(`• 📋 Templates: ${stats.templates || 0}`, "white");
     Logger.log(`• 📝 Aufträge: ${stats.auftraege || 0}`, "white");
-    Logger.log(`• 🧾 Rechnungen: ${stats.rechnungen || 0}`, "white");
+    Logger.log(
+      `• 🧾 Rechnungen: ${stats.rechnungen || 0} (mit Anzahlung & Skonto)`,
+      "white"
+    );
     Logger.log(`• 🔐 Benutzer: ${stats.users || 0}`, "white");
     Logger.log(`• ⚙️ Einstellungen: ${stats.einstellungen || 0}`, "white");
+    Logger.log(`• 🚗💰 Fahrzeughandel: ${stats.fahrzeug_handel || 0}`, "white");
 
-    if (stats.einstellungen > 50) {
-      Logger.log("\n🎨 Layout-Editor verfügbar!", "green");
-      Logger.log("   → Öffnen Sie die Einstellungen im System", "white");
-      Logger.log('   → Wechseln Sie zum "Layout-Design" Tab', "white");
-      Logger.log("   → Passen Sie das Layout nach Ihren Wünschen an", "white");
-    }
+    Logger.log("\n🆕 Neue Features verfügbar:", "green");
+    Logger.log("• Anzahlungs-System für Rechnungen", "white");
+    Logger.log("• Skonto-Berechnung", "white");
+    Logger.log("• Kilometerstand-Tracking", "white");
+    Logger.log("• Vollständiges Fahrzeughandel-Modul", "white");
+    Logger.log("• Käufer-ID System für bessere Kundenreferenzen", "white");
+    Logger.log("• Layout-Editor mit erweiterten Optionen", "white");
 
     Logger.log("\n🔐 Authentifizierung:", "cyan");
     Logger.log(`Username: ${CONFIG.DEFAULT_ADMIN.username}`, "white");
@@ -2083,6 +2302,7 @@ if (fs.existsSync(sourceDb)) {
     Logger.log("3. Mit admin/admin123 anmelden", "white");
     Logger.log("4. Passwort ändern", "white");
     Logger.log("5. Firmendaten vervollständigen", "white");
+    Logger.log("6. Neue Features testen", "white");
 
     Logger.log("\n🛠️ Verfügbare Kommandos:", "magenta");
     Logger.log("• npm start              - Server starten", "white");
@@ -2090,24 +2310,6 @@ if (fs.existsSync(sourceDb)) {
     Logger.log("• npm run setup-reset    - Datenbank zurücksetzen", "white");
     Logger.log("• npm run setup-demo     - Setup mit Demo-Daten", "white");
     Logger.log("• npm run backup         - Backup erstellen", "white");
-
-    Logger.log("\n🎯 System-Features:", "yellow");
-    Logger.log("• Vollständige Benutzerauthentifizierung", "white");
-    Logger.log("• Rollen-basierte Zugriffskontrolle", "white");
-    Logger.log("• Kunden- und Fahrzeugverwaltung", "white");
-    Logger.log("• Auftrags- und Rechnungssystem", "white");
-    Logger.log("• Template-System", "white");
-    Logger.log("• Layout-Editor für individuelle Designs", "white");
-    Logger.log("• Automatische Backup-Funktionen", "white");
-    Logger.log("• User-Management-Interface", "white");
-    Logger.log("• Fahrzeughandel-Modul", "white");
-    Logger.log("• Skonto-Funktionalität für Rechnungen", "white");
-
-    Logger.log("\n🔧 Wartung:", "cyan");
-    Logger.log("• Backups in /backups", "white");
-    Logger.log("• Logs in /logs", "white");
-    Logger.log("• Einstellungen über Web-Interface", "white");
-    Logger.log("• Session-Daten in der Datenbank", "white");
 
     Logger.log("\n✨ Viel Erfolg mit KFZFacPRO!", "green");
   }
@@ -2145,6 +2347,8 @@ module.exports = {
   Logger,
   Utils,
   CONFIG,
+  CompleteMigration,
+  FahrzeughandelMigration,
 };
 
 // Setup starten

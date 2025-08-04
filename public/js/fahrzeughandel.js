@@ -803,7 +803,7 @@ window.showFahrzeughandelModal = function (handelId = null) {
         <!-- Grunddaten - 3 Spalten -->
         <div class="form-grid">
           <div class="form-group">
-            <label for="handel-typ" class="form-label">Typ</label>
+            <label for="handel-typ" class="form-label">Geschäfts-Typ</label>
             <select id="handel-typ" class="form-select" onchange="handleTypChange()">
               <option value="">Bitte wählen</option>
               <option value="ankauf">Ankauf</option>

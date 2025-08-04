@@ -1359,6 +1359,9 @@ window.handleTypChange = function () {
     .getElementById("handel-verkauft-an")
     ?.closest(".form-group");
 
+  // NEU: Kunden-Feld referenzieren
+  const kundenSelect = document.getElementById("handel-kunde");
+
   if (typ === "ankauf") {
     if (verkaufspreisGroup) {
       verkaufspreisGroup.style.opacity = "0.6";
@@ -1372,6 +1375,13 @@ window.handleTypChange = function () {
     }
     if (verkauftAnGroup) {
       verkauftAnGroup.style.display = "none";
+    }
+
+    // NEU: Kunden-Feld aktivieren bei Ankauf
+    if (kundenSelect) {
+      kundenSelect.disabled = false;
+      kundenSelect.style.opacity = "1";
+      kundenSelect.style.pointerEvents = "auto";
     }
   } else if (typ === "verkauf") {
     if (verkaufspreisGroup) {
@@ -1387,13 +1397,35 @@ window.handleTypChange = function () {
     if (verkauftAnGroup) {
       verkauftAnGroup.style.display = "block";
     }
+
+    // NEU: Kunden-Feld deaktivieren bei Verkauf (Kunde muss derselbe bleiben)
+    if (kundenSelect) {
+      kundenSelect.disabled = true;
+      kundenSelect.style.opacity = "0.6";
+      kundenSelect.style.pointerEvents = "none";
+
+      // Optionale Tooltip-Info hinzufügen
+      if (!kundenSelect.title) {
+        kundenSelect.title =
+          "Kunde kann bei Verkauf nicht geändert werden - muss derselbe wie beim Ankauf bleiben";
+      }
+    }
   } else {
+    // Kein Typ ausgewählt - alles auf Standard zurücksetzen
     [verkaufspreisGroup, gewinnGroup, verkauftAnGroup].forEach((group) => {
       if (group) {
         group.style.opacity = "1";
         group.style.display = "block";
       }
     });
+
+    // NEU: Kunden-Feld wieder aktivieren
+    if (kundenSelect) {
+      kundenSelect.disabled = false;
+      kundenSelect.style.opacity = "1";
+      kundenSelect.style.pointerEvents = "auto";
+      kundenSelect.title = "";
+    }
   }
 
   calculateProfit();

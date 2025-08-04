@@ -54,11 +54,7 @@ async function loadAuftraege() {
               })">
                 <i class="fas fa-file-invoice"></i>
               </button>
-              <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteAuftrag(${
-                auftrag.id
-              })">
-                <i class="fas fa-trash"></i>
-              </button>
+              
             </div>
           </td>
         </tr>

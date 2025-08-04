@@ -75,16 +75,46 @@
         </button>
       </form>
 
-      <div class="login-footer">
-        Secure Login • © 2025 Meine Firma </br>Author: Flammang Yves
+      <div class="login-footer" id="login-footer">
+        Secure Login • © 2024 - <span id="current-year">2025</span> Meine Firma
+        • Flammang Yves
       </div>
     </div>
 
-    <div class="version-info">v2.1.1 + Auth</div>
+    <div class="version-info" id="version-info">v2.0.1 + Auth</div>
 
     <script type="module" src="js/notifications.js"></script>
 
     <script>
+      // Funktion zum dynamischen Laden der Version und des aktuellen Jahres
+      async function loadDynamicInfo() {
+        try {
+          // Version von API laden
+          const versionResponse = await fetch("/api/version");
+          if (versionResponse.ok) {
+            const versionData = await versionResponse.json();
+            if (versionData.success && versionData.version) {
+              document.getElementById(
+                "version-info"
+              ).textContent = `v${versionData.version} + Auth`;
+              console.log("✅ Version dynamisch geladen:", versionData.version);
+            }
+          } else {
+            console.warn("⚠️ Version-API nicht erreichbar, verwende Fallback");
+          }
+        } catch (error) {
+          console.warn("⚠️ Fehler beim Laden der Version:", error);
+        }
+
+        // Aktuelles Jahr setzen
+        const currentYear = new Date().getFullYear();
+        document.getElementById("current-year").textContent = currentYear;
+        console.log("📅 Jahr automatisch gesetzt:", currentYear);
+      }
+
+      // Beim Laden der Seite ausführen
+      document.addEventListener("DOMContentLoaded", loadDynamicInfo);
+
       class RobustLoginManager {
         constructor() {
           this.form = null;
@@ -333,38 +363,38 @@
         showCriticalError() {
           // Zeige einen kritischen Fehler an
           document.body.innerHTML = `
-            <div style="
-              position: fixed; 
-              top: 50%; 
-              left: 50%; 
-              transform: translate(-50%, -50%);
-              background: #f8f9fa;
-              border: 2px solid #dc3545;
-              border-radius: 8px;
-              padding: 20px;
-              text-align: center;
-              box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-              font-family: Arial, sans-serif;
-              max-width: 400px;
-            ">
-              <h3 style="color: #dc3545; margin: 0 0 15px 0;">⚠️ Initialisierungsfehler</h3>
-              <p style="margin: 0 0 15px 0; color: #333;">
-                Die Login-Seite konnte nicht korrekt geladen werden.
-              </p>
-              <button onclick="window.location.reload(true)" 
-                      style="
-                        background: #007bff; 
-                        color: white; 
-                        border: none; 
-                        padding: 10px 20px; 
-                        border-radius: 4px; 
-                        cursor: pointer;
-                        font-size: 14px;
-                      ">
-                🔄 Seite neu laden
-              </button>
-            </div>
-          `;
+                  <div style="
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: #f8f9fa;
+                    border: 2px solid #dc3545;
+                    border-radius: 8px;
+                    padding: 20px;
+                    text-align: center;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    font-family: Arial, sans-serif;
+                    max-width: 400px;
+                  ">
+                    <h3 style="color: #dc3545; margin: 0 0 15px 0;">⚠️ Initialisierungsfehler</h3>
+                    <p style="margin: 0 0 15px 0; color: #333;">
+                      Die Login-Seite konnte nicht korrekt geladen werden.
+                    </p>
+                    <button onclick="window.location.reload(true)"
+                            style="
+                              background: #007bff;
+                              color: white;
+                              border: none;
+                              padding: 10px 20px;
+                              border-radius: 4px;
+                              cursor: pointer;
+                              font-size: 14px;
+                            ">
+                      🔄 Seite neu laden
+                    </button>
+                  </div>
+                `;
         }
 
         async handleFormSubmit(event) {

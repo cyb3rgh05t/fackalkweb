@@ -12,12 +12,25 @@ async function updateRechnungStatus(id, status) {
   try {
     const rechnung = await apiCall(`/api/rechnungen/${id}`);
 
-    // ERWEITERTE PRÜFUNG: Verhindere Änderung von bezahlten Rechnungen
-    if (rechnung.status === "bezahlt") {
+    // ERWEITERTE PRÜFUNG: Verhindere Änderung von finalen Status (bezahlt, storniert, mahnung)
+    if (
+      rechnung.status === "bezahlt" ||
+      rechnung.status === "storniert" ||
+      rechnung.status === "mahnung"
+    ) {
+      const statusNames = {
+        bezahlt: "Bezahlte",
+        storniert: "Stornierte",
+        mahnung: "Mahnungs-",
+      };
+
       showNotification(
-        "⚠️ Bezahlte Rechnungen können nicht mehr geändert werden",
+        `⚠️ ${
+          statusNames[rechnung.status]
+        }rechnungen können nicht mehr geändert werden`,
         "warning"
       );
+
       // Status-Dropdown zurücksetzen
       const dropdown = document.querySelector(`select[onchange*="${id}"]`);
       if (dropdown) {
@@ -26,15 +39,32 @@ async function updateRechnungStatus(id, status) {
       return;
     }
 
-    // NEUE PRÜFUNG: Bei Änderung zu "bezahlt" zusätzliche Bestätigung
-    if (status === "bezahlt") {
-      const confirmed = await customConfirm(
-        `🟢 Rechnung als BEZAHLT markieren?\n\nRechnung: ${
+    // ERWEITERTE PRÜFUNG: Bei Änderung zu finalem Status zusätzliche Bestätigung
+    const finalStates = ["bezahlt", "storniert", "mahnung"];
+    if (finalStates.includes(status)) {
+      const confirmMessages = {
+        bezahlt: `🟢 Rechnung als BEZAHLT markieren?\n\nRechnung: ${
           rechnung.rechnung_nr
         }\nBetrag: ${formatCurrency(
           rechnung.gesamtbetrag
         )}\n\n⚠️ Nach dieser Änderung kann die Rechnung nicht mehr bearbeitet werden!`,
-        "💰 Rechnung als bezahlt markieren"
+        storniert: `❌ Rechnung als STORNIERT markieren?\n\nRechnung: ${
+          rechnung.rechnung_nr
+        }\nBetrag: ${formatCurrency(
+          rechnung.gesamtbetrag
+        )}\n\n⚠️ Nach dieser Änderung kann die Rechnung nicht mehr bearbeitet werden!\n\nDies sollte nur bei ungültigen oder zurückgenommenen Rechnungen verwendet werden.`,
+        mahnung: `⚠️ Rechnung als MAHNUNG markieren?\n\nRechnung: ${
+          rechnung.rechnung_nr
+        }\nBetrag: ${formatCurrency(
+          rechnung.gesamtbetrag
+        )}\n\n⚠️ Nach dieser Änderung kann die Rechnung nicht mehr bearbeitet werden!\n\nDies markiert die Rechnung als überfällig und wird auf dem Ausdruck angezeigt.`,
+      };
+
+      const confirmed = await customConfirm(
+        confirmMessages[status],
+        `${
+          status === "bezahlt" ? "💰" : status === "storniert" ? "❌" : "⚠️"
+        } Rechnung als ${status} markieren`
       );
 
       if (!confirmed) {
@@ -49,7 +79,7 @@ async function updateRechnungStatus(id, status) {
 
     rechnung.status = status;
 
-    // ERWEITERTE LOGIK: Wenn Status auf "bezahlt" gesetzt wird, Anzahlung anpassen
+    // ERWEITERTE LOGIK: Status-spezifische Anpassungen
     if (status === "bezahlt") {
       // Anzahlung auf Gesamtbetrag setzen, damit Restbetrag = 0 wird
       rechnung.anzahlung_betrag = rechnung.gesamtbetrag;
@@ -58,11 +88,25 @@ async function updateRechnungStatus(id, status) {
       if (!rechnung.anzahlung_datum) {
         rechnung.anzahlung_datum = new Date().toISOString().split("T")[0];
       }
+    } else if (status === "storniert") {
+      // Bei Stornierung Restbetrag auf 0 setzen (keine Zahlung mehr erforderlich)
+      rechnung.restbetrag = 0;
     }
 
     await apiCall(`/api/rechnungen/${id}`, "PUT", rechnung);
+
+    // Status-spezifische Erfolgsmeldungen
+    const successMessages = {
+      bezahlt: "✅ Rechnung als bezahlt markiert",
+      storniert: "❌ Rechnung als storniert markiert",
+      mahnung: "⚠️ Rechnung als Mahnung markiert",
+      offen: "🟡 Rechnung als offen markiert",
+      teilbezahlt: "🔵 Rechnung als teilbezahlt markiert",
+    };
+
     showNotification(
-      `✅ Status erfolgreich auf "${status}" geändert`,
+      successMessages[status] ||
+        `✅ Status erfolgreich auf "${status}" geändert`,
       "success"
     );
     loadRechnungen(); // Tabelle neu laden
@@ -80,17 +124,42 @@ async function updateRechnungStatus(id, status) {
 
 // ✅ FUNKTION ZUR GENERIERUNG DER ACTION-BUTTONS FÜR RECHNUNGEN
 function generateRechnungActionButtons(rechnung) {
-  // Wenn Status "bezahlt" ist, nur eingeschränkte Buttons anzeigen
-  if (rechnung.status === "bezahlt") {
+  // Wenn Status final ist (bezahlt, storniert, mahnung), nur eingeschränkte Buttons anzeigen
+  if (
+    rechnung.status === "bezahlt" ||
+    rechnung.status === "storniert" ||
+    rechnung.status === "mahnung"
+  ) {
+    let statusText = "";
+    let statusColor = "";
+    let statusIcon = "";
+
+    switch (rechnung.status) {
+      case "bezahlt":
+        statusText = "Bezahlt";
+        statusColor = "#10b981";
+        statusIcon = "&#10004";
+        break;
+      case "storniert":
+        statusText = "Storniert";
+        statusColor = "#ef4444";
+        statusIcon = "❌";
+        break;
+      case "mahnung":
+        statusText = "Mahnung";
+        statusColor = "#f59e0b";
+        statusIcon = "⚠️";
+        break;
+    }
+
     return `
       <div class="action-buttons">
         <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewRechnung(${rechnung.id})" title="Anzeigen">
           <i class="fas fa-eye"></i>
         </button>
-        <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); printRechnung(${rechnung.id})" title="Drucken">
+        <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); printRechnung(${rechnung.id})" title="Drucken">
           <i class="fas fa-print"></i>
         </button>
-        
       </div>
     `;
   }
@@ -104,9 +173,11 @@ function generateRechnungActionButtons(rechnung) {
       <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); viewRechnung(${rechnung.id})" title="Anzeigen">
         <i class="fas fa-eye"></i>
       </button>
-      <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); printRechnung(${rechnung.id})" title="Drucken">
+      <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); printRechnung(${rechnung.id})" title="Drucken">
         <i class="fas fa-print"></i>
       </button>
+      
+    </div>
   `;
 }
 
@@ -168,17 +239,45 @@ export async function loadRechnungen() {
                 <td>${formatDate(rechnung.rechnungsdatum)}</td>
                 <td>
                   ${
-                    rechnung.status === "bezahlt"
-                      ? `<span class="status-badge status-bezahlt" style="
+                    rechnung.status === "bezahlt" ||
+                    rechnung.status === "storniert" ||
+                    rechnung.status === "mahnung"
+                      ? `<span class="status-badge status-${
+                          rechnung.status
+                        }" style="
                            font-weight: 600; 
                            border-radius: 20px; 
                            padding: 0.35rem 0.75rem;
                            font-size: 0.85rem;
-                           background: rgba(34, 197, 94, 0.1);
-                           color: #22c55e;
-                           border: 2px solid #22c55e;
+                           background: ${
+                             rechnung.status === "bezahlt"
+                               ? "rgba(34, 197, 94, 0.1)"
+                               : rechnung.status === "storniert"
+                               ? "rgba(239, 68, 68, 0.1)"
+                               : "rgba(245, 158, 11, 0.1)"
+                           };
+                           color: ${
+                             rechnung.status === "bezahlt"
+                               ? "#22c55e"
+                               : rechnung.status === "storniert"
+                               ? "#ef4444"
+                               : "#f59e0b"
+                           };
+                           border: 2px solid ${
+                             rechnung.status === "bezahlt"
+                               ? "#22c55e"
+                               : rechnung.status === "storniert"
+                               ? "#ef4444"
+                               : "#f59e0b"
+                           };
                            display: inline-block;
-                         ">🟢 Bezahlt</span>`
+                         ">${
+                           rechnung.status === "bezahlt"
+                             ? "🟢 Bezahlt"
+                             : rechnung.status === "storniert"
+                             ? "❌ Storniert"
+                             : "⚠️ Mahnung"
+                         }</span>`
                       : `<select class="form-select status-dropdown status-${
                           rechnung.status
                         }" 
@@ -197,10 +296,6 @@ export async function loadRechnungen() {
                                      ? "rgba(245, 158, 11, 0.1)"
                                      : rechnung.status === "teilbezahlt"
                                      ? "rgba(59, 130, 246, 0.1)"
-                                     : rechnung.status === "mahnung"
-                                     ? "rgba(239, 68, 68, 0.1)"
-                                     : rechnung.status === "storniert"
-                                     ? "rgba(107, 114, 128, 0.1)"
                                      : "transparent"
                                  };
                                  color: ${
@@ -208,10 +303,6 @@ export async function loadRechnungen() {
                                      ? "#f59e0b"
                                      : rechnung.status === "teilbezahlt"
                                      ? "#3b82f6"
-                                     : rechnung.status === "mahnung"
-                                     ? "#ef4444"
-                                     : rechnung.status === "storniert"
-                                     ? "#6b7280"
                                      : "#6b7280"
                                  };
                                  border-color: ${
@@ -219,10 +310,6 @@ export async function loadRechnungen() {
                                      ? "#f59e0b"
                                      : rechnung.status === "teilbezahlt"
                                      ? "#3b82f6"
-                                     : rechnung.status === "mahnung"
-                                     ? "#ef4444"
-                                     : rechnung.status === "storniert"
-                                     ? "#6b7280"
                                      : "#d1d5db"
                                  };
                                ">
@@ -237,14 +324,14 @@ export async function loadRechnungen() {
                                <option value="bezahlt" style="background: rgba(34, 197, 94, 0.1); color: #22c55e;" ${
                                  rechnung.status === "bezahlt" ? "selected" : ""
                                }>🟢 Bezahlt</option>
-                               <option value="mahnung" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;" ${
+                               <option value="mahnung" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b;" ${
                                  rechnung.status === "mahnung" ? "selected" : ""
-                               }>🔴 Mahnung</option>
-                               <option value="storniert" style="background: rgba(107, 114, 128, 0.1); color: #6b7280;" ${
+                               }>⚠️ Mahnung</option>
+                               <option value="storniert" style="background: rgba(239, 68, 68, 0.1); color: #ef4444;" ${
                                  rechnung.status === "storniert"
                                    ? "selected"
                                    : ""
-                               }>⚫ Storniert</option>
+                               }>❌ Storniert</option>
                            </select>`
                   }
                 </td>

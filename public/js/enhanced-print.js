@@ -89,13 +89,13 @@
   const DEFAULT_LAYOUT_SETTINGS = {
     // Schrift und Typographie
     layout_font_family: "Arial, sans-serif",
-    layout_font_size_normal: "14px",
-    layout_font_size_small: "12px",
-    layout_font_size_large: "16px",
-    layout_font_size_h1: "24px",
-    layout_font_size_h2: "20px",
-    layout_font_size_h3: "18px",
-    layout_line_height: "1.5",
+    layout_font_size_normal: "12px",
+    layout_font_size_small: "10px",
+    layout_font_size_large: "14px",
+    layout_font_size_h1: "22px",
+    layout_font_size_h2: "18px",
+    layout_font_size_h3: "16px",
+    layout_line_height: "1.3",
     layout_letter_spacing: "0px",
 
     // Farben
@@ -523,35 +523,40 @@
       const customerInfo = this.generateCustomerInfo(data);
       const positions = this.generatePositions(type, data);
       const summary = this.generateSummary(type, data);
-      const footer = this.generateFooter();
-      const signature = this.generateSignature(type);
+
+      // Footer nur für Rechnung anzeigen, nie für Auftrag
+      const footer =
+        this.layoutSettings.layout_footer_enabled === "true" &&
+        type !== "auftrag"
+          ? this.generateFooter()
+          : "";
+
+      // Signature nur für Auftrag anzeigen, wenn aktiviert
+      const signature =
+        this.layoutSettings.layout_signature_enabled === "true" &&
+        type === "auftrag"
+          ? this.generateSignature(type)
+          : "";
 
       return `
-        <!DOCTYPE html>
-        <html lang="de">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>${this.getDocumentTitle(type, data)}</title>
-            <style>${css}</style>
-          </head>
-          <body>
-            ${header}
-            ${customerInfo}
-            ${positions}
-            ${summary}
-            ${
-              this.layoutSettings.layout_footer_enabled === "true" ? footer : ""
-            }
-            ${
-              this.layoutSettings.layout_signature_enabled === "true" &&
-              type === "auftrag"
-                ? signature
-                : ""
-            }
-          </body>
-        </html>
-      `;
+    <!DOCTYPE html>
+    <html lang="de">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${this.getDocumentTitle(type, data)}</title>
+        <style>${css}</style>
+      </head>
+      <body>
+        ${header}
+        ${customerInfo}
+        ${positions}
+        ${summary}
+        ${footer}
+        ${signature}
+      </body>
+    </html>
+  `;
     }
 
     // Header generieren
@@ -593,8 +598,8 @@
 
         if (logoSrc) {
           logoHtml = `<img src="${logoSrc}" alt="Firmenlogo" class="company-logo" 
-                           style="max-width: ${this.layoutSettings.layout_logo_max_width}; max-height: ${this.layoutSettings.layout_logo_max_height}; display: block;"
-                           onerror="this.style.display='none'; console.error('Logo konnte nicht geladen werden');">`;
+                       style="max-width: ${this.layoutSettings.layout_logo_max_width}; max-height: ${this.layoutSettings.layout_logo_max_height}; display: block;"
+                       onerror="this.style.display='none'; console.error('Logo konnte nicht geladen werden');">`;
         }
       } else {
         console.log("ℹ️ Logo: Kein Logo in Einstellungen gefunden");
@@ -627,48 +632,109 @@
         }
       }
 
+      // ✅ NEUER STATUS-BANNER FÜR STORNIERT/MAHNUNG
+      let statusBanner = "";
+      if (
+        type === "rechnung" &&
+        (data.status === "storniert" || data.status === "mahnung")
+      ) {
+        const statusConfig = {
+          storniert: {
+            text: "STORNIERT",
+            icon: "❌",
+            bgColor: "#fee2e2",
+            borderColor: "#ef4444",
+            textColor: "#dc2626",
+            message: "Diese Rechnung wurde storniert und ist ungültig.",
+          },
+          mahnung: {
+            text: "MAHNUNG",
+            icon: "⚠️",
+            bgColor: "#fef3c7",
+            borderColor: "#f59e0b",
+            textColor: "#d97706",
+            message: "Dies ist eine Mahnung - Zahlung überfällig!",
+          },
+        };
+
+        const config = statusConfig[data.status];
+
+        statusBanner = `
+      <div style="
+        margin: 1rem 0 2rem 0;
+        padding: 1rem;
+        background: ${config.bgColor};
+        border: 3px solid ${config.borderColor};
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      ">
+        <div style="
+          font-size: 24px;
+          font-weight: bold;
+          color: ${config.textColor};
+          margin-bottom: 0.5rem;
+          letter-spacing: 2px;
+        ">
+          ${config.icon} ${config.text} ${config.icon}
+        </div>
+        <p style="
+          margin: 0;
+          font-size: 14px;
+          color: ${config.textColor};
+          font-weight: 500;
+        ">
+          ${config.message}
+        </p>
+      </div>
+    `;
+      }
+
       return `
-        <div class="document-header">
-          <div class="company-info">
-            ${logoHtml}
-            <h1 style="color: ${
-              this.layoutSettings.layout_color_primary
-            }; margin: ${logoHtml ? "0.5rem 0 0 0" : "0"}; font-size: ${
+    <div class="document-header">
+      <div class="company-info">
+        ${logoHtml}
+        <h1 style="color: ${
+          this.layoutSettings.layout_color_primary
+        }; margin: ${logoHtml ? "0.5rem 0 0 0" : "0"}; font-size: ${
         this.layoutSettings.layout_font_size_h1
       };">${firmenname}</h1>
-            <div style="margin-top: 0.5rem; line-height: ${
-              this.layoutSettings.layout_line_height
-            };">
-              ${getSetting("firmen_strasse", "Musterstraße 123")}<br>
-              ${getSetting("firmen_plz", "12345")} ${getSetting(
+        <div style="margin-top: 0.5rem; line-height: ${
+          this.layoutSettings.layout_line_height
+        };">
+          ${getSetting("firmen_strasse", "Musterstraße 123")}<br>
+          ${getSetting("firmen_plz", "12345")} ${getSetting(
         "firmen_ort",
         "Musterstadt"
       )}<br>
-              Tel: ${getSetting("firmen_telefon", "+49 123 456789")}<br>
-              E-Mail: ${getSetting("firmen_email", "info@meine-firma.de")}
-            </div>
-          </div>
-          <div class="document-title" style="text-align: right;">
-            <h1 style="color: ${
-              this.layoutSettings.layout_color_primary
-            }; margin: 0; font-size: ${
+          Tel: ${getSetting("firmen_telefon", "+49 123 456789")}<br>
+          E-Mail: ${getSetting("firmen_email", "info@meine-firma.de")}
+        </div>
+      </div>
+      <div class="document-title" style="text-align: right;">
+        <h1 style="color: ${
+          this.layoutSettings.layout_color_primary
+        }; margin: 0; font-size: ${
         this.layoutSettings.layout_font_size_h1
       };">${documentTitle}</h1>
-            <h2 style="margin: 0.5rem 0; font-size: ${
-              this.layoutSettings.layout_font_size_h2
-            };">Nr. ${documentNumber}</h2>
-            <p style="margin: 0; color: ${
-              this.layoutSettings.layout_color_muted
-            };">Datum: ${formatDate(data.rechnungsdatum || data.datum)}</p>
-            ${additionalHeaderInfo}
-          </div>
-        </div>
-        <hr style="border: none; border-top: ${
-          this.layoutSettings.layout_header_border
-        } ${this.layoutSettings.layout_color_primary}; margin: ${
+        <h2 style="margin: 0.5rem 0; font-size: ${
+          this.layoutSettings.layout_font_size_h2
+        };">Nr. ${documentNumber}</h2>
+        <p style="margin: 0; color: ${
+          this.layoutSettings.layout_color_muted
+        };">Datum: ${formatDate(data.rechnungsdatum || data.datum)}</p>
+        ${additionalHeaderInfo}
+      </div>
+    </div>
+    <hr style="border: none; border-top: ${
+      this.layoutSettings.layout_header_border
+    } ${this.layoutSettings.layout_color_primary}; margin: ${
         this.layoutSettings.layout_section_spacing
       } 0;">
-      `;
+    
+    <!-- ✅ STATUS-BANNER FÜR STORNIERT/MAHNUNG -->
+    ${statusBanner}
+  `;
     }
 
     // Kundeninformationen generieren - ERWEITERT mit Kundennummer und Fahrzeugfarbe
@@ -956,25 +1022,25 @@
         <!-- Rechnungshinweise (nur wenn vorhanden) -->
         ${rechnungshinweiseHtml}
         
-        <div style="margin-top: 2rem;">
-          <p><strong>Zahlungsbedingungen:</strong><br>
-          ${
-            data.zahlungsbedingungen ||
-            getSetting(
-              "zahlungstext",
-              "Zahlbar innerhalb von 14 Tagen ohne Abzug."
-            )
-          }</p>
-          
-          <p><strong>Gewährleistung:</strong><br>
-          ${
-            data.gewaehrleistung ||
-            getSetting(
-              "gewaehrleistung",
-              "12 Monate Gewährleistung auf alle Arbeiten."
-            )
-          }</p>
-        </div>
+        <div style="margin-top: 2rem; font-size: 0.5rem; color: #666; line-height: 1.4;">
+  <p><strong style="font-size: 0.6rem; color: #444;">Zahlungsbedingungen:</strong><br>
+    ${
+      data.zahlungsbedingungen ||
+      getSetting("zahlungstext", "Zahlbar innerhalb von 14 Tagen ohne Abzug.")
+    }
+  </p>
+  
+  <p><strong style="font-size: 0.6rem; color: #444;">Gewährleistung:</strong><br>
+    ${
+      data.gewaehrleistung ||
+      getSetting(
+        "gewaehrleistung",
+        "12 Monate Gewährleistung auf alle Arbeiten."
+      )
+    }
+  </p>
+</div>
+
       </div>
     `;
       } else {
@@ -1018,21 +1084,21 @@
     // Footer generieren
     generateFooter() {
       return `
-        <div class="footer">
-          <p>
-            ${getSetting("firmenname", "Meine Firma")} | 
-            ${getSetting("rechtsform", "")} ${getSetting(
+    <div class="footer" style="position: fixed; left: 0; bottom: 10px; width: 100%; font-size: 0.5rem; color: #666; line-height: 1.3; text-align: center;">
+      <p>
+        ${getSetting("firmenname", "Meine Firma")} | 
+        ${getSetting("rechtsform", "")} ${getSetting(
         "geschaeftsfuehrer",
         ""
       )}<br>
-            Steuernr.: ${getSetting("steuernummer", "")} | 
-            USt-IdNr.: ${getSetting("umsatzsteuer_id", "")}<br>
-            ${getSetting("bank_name", "")} | 
-            IBAN: ${getSetting("bank_iban", "")} | 
-            BIC: ${getSetting("bank_bic", "")}
-          </p>
-        </div>
-      `;
+        Steuernr.: ${getSetting("steuernummer", "")} | 
+        USt-IdNr.: ${getSetting("umsatzsteuer_id", "")}<br>
+        ${getSetting("bank_name", "")} | 
+        IBAN: ${getSetting("bank_iban", "")} | 
+        BIC: ${getSetting("bank_bic", "")}
+      </p>
+    </div>
+  `;
     }
 
     // Unterschriften-Bereich generieren
@@ -1069,38 +1135,44 @@
     openPrintWindow(html, title) {
       // Print-Controls zu HTML hinzufügen
       const printControls = `
-        <div id="print-controls" style="position: fixed; top: 10px; right: 10px; background: white; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000;">
-          <button onclick="window.print()" style="background: #007bff; color: white; border: none; padding: 8px 16px; margin-right: 5px; border-radius: 3px; cursor: pointer;">
-            🖨️ Drucken
-          </button>
-          <button onclick="window.close()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 3px; cursor: pointer;">
-            ❌ Schließen
-          </button>
-        </div>
-        
-        <style>
-          @media print {
-            #print-controls { display: none !important; }
-          }
-          
-          #print-controls button:hover {
-            opacity: 0.8;
-          }
-        </style>
-      `;
+    <div id="print-controls" style="position: fixed; top: 10px; right: 10px; background: white; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000;">
+      <button onclick="window.print()" style="background: #007bff; color: white; border: none; padding: 8px 16px; margin-right: 5px; border-radius: 3px; cursor: pointer;">
+        🖨️ Drucken
+      </button>
+      <button onclick="window.close()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 3px; cursor: pointer;">
+        ❌ Schließen
+      </button>
+    </div>
+    
+    <style>
+      @media print {
+        #print-controls { display: none !important; }
+      }
+
+      #print-controls button:hover {
+        opacity: 0.8;
+      }
+    </style>
+  `;
 
       // HTML mit Print-Controls erweitern
       const fullHtml = html.replace("</body>", printControls + "</body>");
 
+      // Öffne das Fenster im möglichst großen Modus (dann manuell in den Vollbildmodus wechseln)
       const printWindow = window.open(
         "",
         "_blank",
-        "width=1024,height=768,scrollbars=yes,resizable=yes"
+        "width=" +
+          (window.innerWidth - 10) +
+          ",height=" +
+          (window.innerHeight - 10) +
+          ",scrollbars=yes,resizable=yes"
       );
+
       printWindow.document.write(fullHtml);
       printWindow.document.close();
 
-      // Warten bis Fenster vollständig geladen ist
+      // Warten bis das Fenster vollständig geladen ist
       printWindow.onload = () => {
         printWindow.focus();
 
@@ -1436,6 +1508,386 @@
     }
   }
 
+  async function viewRechnungMitAnzahlung(id) {
+    try {
+      const rechnung = await safeApiCall(`/api/rechnungen/${id}`);
+
+      if (!rechnung) {
+        safeShowNotification("Rechnung nicht gefunden", "error");
+        return;
+      }
+
+      // Positionen HTML generieren
+      const positionenHtml = rechnung.positionen
+        .map(
+          (pos) => `
+      <tr>
+        <td>${pos.beschreibung}</td>
+        <td class="text-right">${pos.menge}</td>
+        <td class="text-right">${formatCurrency(pos.einzelpreis)}</td>
+        <td class="text-right">${pos.mwst_prozent}%</td>
+        <td class="text-right">${formatCurrency(pos.gesamt)}</td>
+      </tr>
+    `
+        )
+        .join("");
+
+      // SKonto-Einstellungen prüfen (nur wenn beide gesetzt)
+      const skontoTage = getSetting("skonto_tage", "").trim();
+      const skontoProzent = getSetting("skonto_prozent", "").trim();
+      const showSkonto =
+        rechnung.skonto_aktiv &&
+        skontoTage &&
+        skontoProzent &&
+        skontoTage !== "" &&
+        skontoProzent !== "";
+
+      // SKonto-Hinweis nur generieren wenn Einstellungen vorhanden
+      let skontoHinweis = "";
+      if (showSkonto) {
+        skontoHinweis = `
+        <div style="background: rgba(33, 150, 243, 0.1); 
+                    border: 1px solid #2196f3; 
+                    border-radius: 8px; 
+                    padding: 0.75rem 1rem; 
+                    margin: 1rem 0; 
+                    font-size: 0.9em; 
+                    color: #1976d2;">
+          <i class="fas fa-percentage" style="margin-right: 0.5rem;"></i>
+          <strong>Skonto:</strong> Bei Zahlung innerhalb von ${skontoTage} Tagen erhalten Sie ${skontoProzent}% Skonto.
+        </div>
+      `;
+      }
+
+      // ✅ NEUE ANZAHLUNGSDETAILS GENERIEREN - KORRIGIERT FÜR TEILBEZAHLT + THEME-STYLE
+      let anzahlungsBereich = "";
+      // Erweiterte Bedingung: Anzahlung > 0 ODER anzahlung_aktiv ODER Status ist teilbezahlt
+      if (
+        rechnung.anzahlung_betrag > 0 ||
+        rechnung.anzahlung_aktiv ||
+        rechnung.status === "teilbezahlt"
+      ) {
+        const anzahlungsBetrag = parseFloat(rechnung.anzahlung_betrag) || 0;
+        const restbetrag =
+          parseFloat(rechnung.restbetrag) ||
+          parseFloat(rechnung.gesamtbetrag) - anzahlungsBetrag;
+        const anzahlungsDatum = rechnung.anzahlung_datum;
+
+        anzahlungsBereich = `
+        <div style="margin: 1.5rem 0; padding: 1.5rem; background: var(--clr-surface-a10); border: 1px solid var(--accent-success); border-radius: 8px;">
+          <h4 style="margin: 0 0 1rem 0; color: var(--accent-success); display: flex; align-items: center;">
+            <i class="fas fa-coins" style="margin-right: 0.5rem;"></i>
+            Anzahlungsdetails
+          </h4>
+          
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+            <div style="text-align: center; padding: 0.75rem; background: var(--clr-surface-a20); border-radius: 6px; border: 1px solid var(--border-color);">
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Gesamtbetrag</div>
+              <div style="font-size: 1.1rem; font-weight: bold; color: var(--text-primary);">${formatCurrency(
+                rechnung.gesamtbetrag
+              )}</div>
+            </div>
+            
+            <div style="text-align: center; padding: 0.75rem; background: var(--clr-surface-a20); border-radius: 6px; border: 1px solid var(--accent-success);">
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Anzahlung</div>
+              <div style="font-size: 1.1rem; font-weight: bold; color: var(--accent-success);">${formatCurrency(
+                anzahlungsBetrag
+              )}</div>
+              ${
+                anzahlungsDatum
+                  ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">${formatDate(
+                      anzahlungsDatum
+                    )}</div>`
+                  : ""
+              }
+            </div>
+            
+            <div style="text-align: center; padding: 0.75rem; background: var(--clr-surface-a20); border-radius: 6px; border: 1px solid ${
+              restbetrag > 0 ? "var(--accent-warning)" : "var(--accent-success)"
+            };">
+              <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">Restbetrag</div>
+              <div style="font-size: 1.1rem; font-weight: bold; color: ${
+                restbetrag > 0
+                  ? "var(--accent-warning)"
+                  : "var(--accent-success)"
+              };">
+                ${formatCurrency(restbetrag)}
+              </div>
+              ${
+                restbetrag <= 0
+                  ? '<div style="font-size: 0.75rem; color: var(--accent-success); margin-top: 0.25rem;">✅ Vollständig bezahlt</div>'
+                  : ""
+              }
+            </div>
+          </div>
+          
+          ${
+            restbetrag > 0
+              ? `
+            <div style="background: var(--clr-surface-tonal-a10); border: 1px solid var(--accent-warning); border-radius: 6px; padding: 0.75rem; text-align: center;">
+              <strong style="color: var(--accent-warning);">⚠️ Noch zu zahlen: ${formatCurrency(
+                restbetrag
+              )}</strong>
+            </div>
+          `
+              : `
+            <div style="background: var(--clr-surface-tonal-a10); border: 1px solid var(--accent-success); border-radius: 6px; padding: 0.75rem; text-align: center;">
+              <strong style="color: var(--accent-success);">✅ Rechnung vollständig beglichen</strong>
+            </div>
+          `
+          }
+        </div>
+      `;
+      }
+
+      // Rechnungshinweise nur anzeigen wenn vorhanden
+      let rechnungshinweiseHtml = "";
+      if (
+        rechnung.rechnungshinweise &&
+        rechnung.rechnungshinweise.trim() !== ""
+      ) {
+        rechnungshinweiseHtml = `
+        <div style="margin: 1.5rem 0; padding: 1rem; background: #fff3cd; border-radius: 8px; border-left: 4px solid #ffc107;">
+          <h4 style="margin: 0 0 0.5rem 0; color: #856404;">
+            <i class="fas fa-info-circle" style="margin-right: 0.5rem;"></i>Hinweise
+          </h4>
+          <p style="margin: 0; line-height: 1.6; color: #856404;">${rechnung.rechnungshinweise}</p>
+        </div>
+      `;
+      }
+
+      // Firmen-/Steuerinformationen
+      const steuernummer = getSetting("steuernummer", "");
+      const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
+
+      const content = `
+      <!-- Rechnungskopf -->
+      <div style="text-align: center; margin-bottom: 2rem;">
+        <h2 style="color: #007bff; margin-bottom: 0;">RECHNUNG</h2>
+        <div style="font-size: 18px; font-weight: bold;">${
+          rechnung.rechnung_nr
+        }</div>
+      </div>
+      
+      <!-- Grid-Layout wie bei viewAuftrag - 2 Spalten -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+        <div>
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Kunde:</label>
+            <div><strong>${rechnung.kunde_name}</strong></div>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Rechnungsdatum:</label>
+            <div>${formatDate(rechnung.rechnungsdatum)}</div>
+          </div>
+          ${
+            rechnung.auftrag_nr
+              ? `
+          <div class="form-group">
+            <label class="form-label">Auftrag-Nr.:</label>
+            <div>${rechnung.auftrag_nr}</div>
+          </div>`
+              : ""
+          }
+        </div>
+        <div>
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Fahrzeug:</label>
+            <div>${rechnung.kennzeichen} - ${rechnung.marke} ${
+        rechnung.modell
+      }</div>
+          </div>
+          <div class="form-group" style="margin-bottom: 1.5rem;">
+            <label class="form-label">Status:</label>
+            <div><span class="status status-${rechnung.status}">${
+        rechnung.status === "offen"
+          ? "Offen"
+          : rechnung.status === "bezahlt"
+          ? "Bezahlt"
+          : rechnung.status === "teilbezahlt"
+          ? "Teilbezahlt"
+          : rechnung.status === "mahnung"
+          ? "Mahnung"
+          : rechnung.status === "storniert"
+          ? "Storniert"
+          : rechnung.status
+      }</span></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Gesamtbetrag:</label>
+            <div><strong>${formatCurrency(rechnung.gesamtbetrag)}</strong></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ✅ ANZAHLUNGSBEREICH (NEU) -->
+      ${anzahlungsBereich}
+
+      <!-- Rechnungsempfänger und Fahrzeug nebeneinander -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0;">
+        <!-- Rechnungsempfänger -->
+        <div>
+          <h3 style="margin-bottom: 1rem; color: var(--accent-primary);">Empfänger:</h3>
+          <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 1rem;">
+            <strong style="font-size: 1.1rem;">${rechnung.kunde_name}</strong>
+            ${
+              rechnung.kunden_nr
+                ? `<br><small style="color: var(--text-muted);">(Kd.-Nr.: ${rechnung.kunden_nr})</small>`
+                : ""
+            }<br>
+            <div style="line-height: 1.5;">
+              ${rechnung.strasse || ""}<br>
+              ${rechnung.plz || ""} ${rechnung.ort || ""}<br>
+              ${
+                rechnung.telefon
+                  ? `<span style="color: var(--text-muted);">Tel:</span> ${rechnung.telefon}`
+                  : ""
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Fahrzeug -->
+        <div>
+          <h3 style="margin-bottom: 1rem; color: var(--accent-primary);">Fahrzeug:</h3>
+          <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 1rem;">
+            <strong style="font-size: 1.1rem;">${rechnung.kennzeichen} - ${
+        rechnung.marke
+      } ${rechnung.modell}</strong><br>
+            <div style="line-height: 1.5;">
+              ${
+                rechnung.vin
+                  ? `<span style="color: var(--text-muted);">VIN:</span> ${rechnung.vin}<br>`
+                  : ""
+              }
+              ${
+                rechnung.farbe || rechnung.farbcode
+                  ? `<span style="color: var(--text-muted);">Farbe:</span> ${
+                      rechnung.farbe || ""
+                    } ${rechnung.farbcode ? `(${rechnung.farbcode})` : ""}`
+                  : ""
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Positionen -->
+      <h3>Leistungen:</h3>
+      <table class="table" style="margin-bottom: 2rem;">
+        <thead>
+          <tr>
+            <th>Beschreibung</th>
+            <th>Menge</th>
+            <th>Einzelpreis</th>
+            <th>MwSt.</th>
+            <th>Gesamt</th>
+          </tr>
+        </thead>
+        <tbody>${positionenHtml}</tbody>
+      </table>
+
+      <!-- Rechnungssumme Grid -->
+      <div style="margin: 2rem 0; padding: 1.5rem; background: var(--bg-tertiary); border-radius: 8px;">
+        <div style="display: grid; grid-template-columns: 1fr auto; gap: 1rem; align-items: center;">
+          <div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>Zwischensumme netto:</span>
+              <span>${formatCurrency(rechnung.zwischensumme)}</span>
+            </div>
+            ${
+              rechnung.rabatt_prozent > 0
+                ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; color: var(--accent-danger);">
+              <span>Rabatt (${rechnung.rabatt_prozent}%):</span>
+              <span>-${formatCurrency(rechnung.rabatt_betrag)}</span>
+            </div>`
+                : ""
+            }
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>MwSt. 19%:</span>
+              <span>${formatCurrency(rechnung.mwst_19)}</span>
+            </div>
+            ${
+              rechnung.mwst_7 > 0
+                ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+              <span>MwSt. 7%:</span>
+              <span>${formatCurrency(rechnung.mwst_7)}</span>
+            </div>`
+                : ""
+            }
+            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; border-top: 1px solid var(--border-color); padding-top: 0.5rem;">
+              <span>Gesamtbetrag:</span>
+              <span>${formatCurrency(rechnung.gesamtbetrag)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- SKonto-Hinweis (nur wenn gesetzt) -->
+      ${skontoHinweis}
+
+      <!-- Rechnungshinweise (nur wenn vorhanden) -->
+      ${rechnungshinweiseHtml}
+
+      <!-- Zahlungsbedingungen und Gewährleistung -->
+      <div style="margin: 1.5rem 0;">
+        <h4>Zahlungsbedingungen:</h4>
+        <p style="line-height: 1.6;">${
+          rechnung.zahlungsbedingungen ||
+          getSetting(
+            "zahlungstext",
+            "Zahlbar innerhalb von 14 Tagen ohne Abzug."
+          )
+        }</p>
+      </div>
+
+      <div style="margin: 1.5rem 0;">
+        <h4>Gewährleistung:</h4>
+        <p style="line-height: 1.6;">${
+          rechnung.gewaehrleistung ||
+          getSetting(
+            "gewaehrleistung",
+            "12 Monate Gewährleistung auf alle Arbeiten."
+          )
+        }</p>
+      </div>
+
+      <!-- Footer mit Steuerinformationen -->
+      ${
+        steuernummer || umsatzsteuerId
+          ? `
+        <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color); text-align: center; color: var(--text-muted); font-size: 0.9em;">
+          ${steuernummer ? `Steuernummer: ${steuernummer}` : ""}
+          ${steuernummer && umsatzsteuerId ? " | " : ""}
+          ${umsatzsteuerId ? `USt-IdNr.: ${umsatzsteuerId}` : ""}
+        </div>
+      `
+          : ""
+      }
+    `;
+
+      const footer = `
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Schließen</button>
+      <button type="button" class="btn btn-success" onclick="printRechnungDirect(${id})">
+        <i class="fas fa-print"></i> Drucken
+      </button>
+    `;
+
+      // createModal verwenden (sollte global verfügbar sein)
+      if (window.createModal && typeof window.createModal === "function") {
+        createModal(`Rechnung ${rechnung.rechnung_nr}`, content, footer);
+      } else {
+        console.error("createModal Funktion nicht verfügbar");
+        safeShowNotification("Modal-System nicht verfügbar", "error");
+      }
+    } catch (error) {
+      console.error("Fehler beim Laden der Rechnung:", error);
+      safeShowNotification("Fehler beim Laden der Rechnung", "error");
+    }
+  }
+
   // Globale Instanz erstellen
   const enhancedPrint = new EnhancedPrintSystem();
 
@@ -1506,7 +1958,7 @@
   if (typeof window.viewRechnung === "function") {
     window.viewRechnungOriginal = window.viewRechnung; // Backup
   }
-  window.viewRechnung = viewRechnungMitSkonto;
+  window.viewRechnung = viewRechnungMitAnzahlung;
 
   // Export für debugging
   window.enhancedPrint = enhancedPrint;

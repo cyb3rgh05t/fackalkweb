@@ -20,9 +20,11 @@ async function initUserManagement() {
     if (user.role === "admin") {
       console.log("🔑 Admin erkannt - erstelle User-Management...");
       await setupAdminUserManagement();
+      showUserTab(); // Admins können den User-Tab sehen
     } else {
       console.log("🔒 Regular User - verstecke erweiterte Settings...");
-      hideAdvancedSettings();
+      //hideAdvancedSettings();
+      hideUserTab(); // Normale Benutzer können den User-Tab nicht sehen
     }
 
     userManagementReady = true;
@@ -56,6 +58,20 @@ async function loadCurrentUserInfo() {
     console.error("❌ Fehler beim Laden der User-Info:", error);
     return null;
   }
+}
+
+function hideUserTab() {
+  const tab = document.querySelector('[data-tab="users"]');
+  const content = document.getElementById("users-settings");
+  if (tab) tab.style.display = "none";
+  if (content) content.style.display = "none";
+}
+
+function showUserTab() {
+  const tab = document.querySelector('[data-tab="users"]');
+  const content = document.getElementById("users-settings");
+  if (tab) tab.style.display = "";
+  if (content) content.style.display = "";
 }
 
 // Erweiterte Settings verstecken für normale User

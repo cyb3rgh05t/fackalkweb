@@ -1026,7 +1026,9 @@ window.closeFahrzeughandelModalDynamic = function () {
 function generateActionButtons(geschaeft) {
   // Wenn Status "abgeschlossen" ist, keine Action-Buttons anzeigen
   if (geschaeft.status === "abgeschlossen") {
-    return `<span style="color: #10b981; font-weight: 500;">Keine Änderungen mehr möglich !!!</span>`;
+    return `<div style="display: flex; justify-content: center; align-items: center; height: 100%; text-align: center;">
+              <span style="color: #10b981; font-size: 35px; font-weight: 500;">&#10004;</span>
+            </div>`;
   }
 
   // Normale Action-Buttons für alle anderen Status
@@ -1046,11 +1048,6 @@ function generateActionButtons(geschaeft) {
           `
           : ""
       }
-      <button class="btn btn-sm btn-danger" onclick="deleteFahrzeughandel(${
-        geschaeft.id
-      }, '${geschaeft.handel_nr}')" title="Löschen">
-        <i class="fas fa-trash"></i>
-      </button>
     </div>
   `;
 }

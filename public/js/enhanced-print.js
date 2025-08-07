@@ -129,13 +129,14 @@
     layout_table_stripe: "disabled",
     layout_table_border_collapse: "collapse",
 
-    // Footer-Layout
+    // Footer-Layout - ✅ VERBESSERT
     layout_footer_enabled: "true",
     layout_footer_position: "bottom",
     layout_footer_border_top: "true",
     layout_footer_font_size: "9px",
     layout_footer_alignment: "center",
     layout_footer_margin_top: "2rem",
+    layout_footer_print_margin_bottom: "1cm", // ✅ NEU: Abstand unten beim Drucken
 
     // Unterschriften-Bereich
     layout_signature_enabled: "true",
@@ -170,7 +171,194 @@
       });
     }
 
-    // Universelle Print-Funktion
+    printWithIframe(html, title) {
+      // Verstecktes iframe erstellen
+      const iframe = document.createElement("iframe");
+      iframe.style.position = "absolute";
+      iframe.style.left = "-9999px";
+      iframe.style.top = "-9999px";
+      iframe.style.width = "210mm"; // A4 Breite
+      iframe.style.height = "297mm"; // A4 Höhe
+      iframe.style.border = "none";
+
+      document.body.appendChild(iframe);
+
+      // HTML in iframe laden
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      doc.write(html);
+      doc.close();
+
+      // Drucken wenn geladen
+      iframe.onload = () => {
+        setTimeout(() => {
+          try {
+            // Fokus auf iframe setzen
+            iframe.contentWindow.focus();
+
+            // Drucken
+            iframe.contentWindow.print();
+
+            // iframe nach dem Drucken entfernen
+            setTimeout(() => {
+              if (iframe.parentNode) {
+                document.body.removeChild(iframe);
+              }
+            }, 1000);
+          } catch (e) {
+            console.warn("iframe-Print fehlgeschlagen:", e);
+            // iframe trotzdem entfernen
+            if (iframe.parentNode) {
+              document.body.removeChild(iframe);
+            }
+          }
+        }, 500);
+      };
+
+      // Fallback: iframe nach 5 Sekunden entfernen
+      setTimeout(() => {
+        if (iframe.parentNode) {
+          document.body.removeChild(iframe);
+        }
+      }, 5000);
+    }
+
+    // Dann in printDocumentDirect verwenden:
+    async printDocumentDirect(type, id) {
+      try {
+        console.log(`Direkter Druck von ${type} mit ID: ${id}`);
+        const data = await this.loadDocumentData(type, id);
+        const html = this.generatePrintHTMLDirect(type, data);
+
+        // ✅ Wähle zwischen Window oder iframe:
+        // this.directPrintWithHiddenWindow(html, title); // Fenster-Methode
+        this.printWithIframe(html, this.getDocumentTitle(type, data)); // iframe-Methode
+      } catch (error) {
+        console.error(`Fehler beim direkten Drucken von ${type}:`, error);
+        safeShowNotification(
+          `Fehler beim Drucken des ${type}s: ${error.message}`,
+          "error"
+        );
+      }
+    }
+
+    // ✅ DIREKTES DRUCKEN MIT NORMALEM FENSTER
+    directPrintWithHiddenWindow(html, title) {
+      // Normales Print-Fenster öffnen (nicht versteckt für besseres Rendering)
+      const printWindow = window.open(
+        "",
+        "_blank",
+        "width=1024,height=768,scrollbars=yes,resizable=yes"
+      );
+
+      if (!printWindow) {
+        safeShowNotification(
+          "Popup-Blocker verhindert das Drucken. Bitte Popup-Blocker für diese Seite deaktivieren.",
+          "error"
+        );
+        return;
+      }
+
+      // HTML ohne Print-Controls für direkten Druck
+      printWindow.document.write(html);
+      printWindow.document.close();
+
+      // Fenster fokussieren für bessere UX
+      printWindow.focus();
+
+      // Sofort drucken wenn geladen
+      printWindow.onload = () => {
+        setTimeout(() => {
+          // Druckdialog sofort öffnen
+          printWindow.print();
+
+          // Event-Listener für nach dem Drucken
+          printWindow.addEventListener("afterprint", () => {
+            setTimeout(() => {
+              if (!printWindow.closed) {
+                printWindow.close();
+              }
+            }, 500);
+          });
+
+          // Fallback: Fenster nach 3 Sekunden schließen falls nicht gedruckt
+          setTimeout(() => {
+            if (!printWindow.closed) {
+              printWindow.close();
+            }
+          }, 3000);
+        }, 250); // Kurze Verzögerung für vollständiges Rendering
+      };
+
+      // Fallback für den Fall, dass onload nicht funktioniert
+      setTimeout(() => {
+        if (printWindow && !printWindow.closed) {
+          try {
+            printWindow.print();
+            // Auto-Close nach 3 Sekunden
+            setTimeout(() => {
+              if (!printWindow.closed) {
+                printWindow.close();
+              }
+            }, 3000);
+          } catch (e) {
+            console.warn("Fallback-Print fehlgeschlagen:", e);
+            // Bei Fehler das Fenster trotzdem schließen
+            setTimeout(() => {
+              if (!printWindow.closed) {
+                printWindow.close();
+              }
+            }, 1000);
+          }
+        }
+      }, 1000);
+    }
+
+    // ✅ SEPARATE HTML-GENERIERUNG FÜR DIREKTDRUCK (ohne Print-Controls)
+    generatePrintHTMLDirect(type, data) {
+      const css = this.generateLayoutCSS();
+      const header = this.generateHeader(type, data);
+      const customerInfo = this.generateCustomerInfo(data);
+      const positions = this.generatePositions(type, data);
+      const summary = this.generateSummary(type, data);
+
+      // Footer nur für Rechnung anzeigen, nie für Auftrag
+      const footer =
+        this.layoutSettings.layout_footer_enabled === "true" &&
+        type !== "auftrag"
+          ? this.generateFooter()
+          : "";
+
+      // Signature nur für Auftrag anzeigen, wenn aktiviert
+      const signature =
+        this.layoutSettings.layout_signature_enabled === "true" &&
+        type === "auftrag"
+          ? this.generateSignature(type)
+          : "";
+
+      return `
+    <!DOCTYPE html>
+    <html lang="de">
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${this.getDocumentTitle(type, data)}</title>
+        <style>${css}</style>
+      </head>
+      <body>
+        <div class="document-container">
+          ${header}
+          ${customerInfo}
+          ${positions}
+          ${summary}
+          ${signature}
+          ${footer}
+        </div>
+      </body>
+    </html>
+  `;
+    }
+
+    // Universelle Print-Funktion (für Browser-Vorschau, falls noch benötigt)
     async printDocument(type, id) {
       try {
         console.log(`Drucke ${type} mit ID: ${id}`);
@@ -206,13 +394,26 @@
       throw new Error(`Unbekannter Dokumenttyp: ${type}`);
     }
 
-    // CSS für Layout generieren
+    // ✅ VERBESSERTE CSS-Generierung mit Print-optimiertem Footer
     generateLayoutCSS() {
       const settings = this.layoutSettings;
 
       return `
         /* Layout-generiertes CSS */
+        @page {
+          size: ${
+            settings.layout_print_page_size ||
+            DEFAULT_LAYOUT_SETTINGS.layout_print_page_size
+          };
+          margin: ${
+            settings.layout_print_margin ||
+            DEFAULT_LAYOUT_SETTINGS.layout_print_margin
+          };
+        }
+        
         * {
+          margin: 0;
+          padding: 0;
           box-sizing: border-box;
         }
         
@@ -242,6 +443,15 @@
             DEFAULT_LAYOUT_SETTINGS.layout_page_margin
           };
           padding: 0;
+          /* ✅ ENTFERNT: min-height und padding-bottom um zusätzliche Seite zu vermeiden */
+        }
+        
+        .document-container {
+          max-width: 100%;
+          margin: 0 auto;
+          padding: 0;
+          background: white;
+          position: relative;
         }
         
         @media print {
@@ -252,17 +462,13 @@
             } !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+            padding-bottom: 4cm !important; /* Weniger Padding beim Drucken */
           }
           
-          @page {
-            size: ${
-              settings.layout_print_page_size ||
-              DEFAULT_LAYOUT_SETTINGS.layout_print_page_size
-            };
-            margin: ${
-              settings.layout_print_margin ||
-              DEFAULT_LAYOUT_SETTINGS.layout_print_margin
-            };
+          .document-container {
+            margin: 0;
+            padding: 0;
+            box-shadow: none;
           }
         }
         
@@ -444,10 +650,15 @@
           };
         }
         
+        /* ✅ VERBESSERTE FOOTER-STYLES - Kompatibel mit Print */
         .footer {
-          position: fixed;
+          position: absolute;
+          bottom: ${
+            settings.layout_footer_print_margin_bottom ||
+            DEFAULT_LAYOUT_SETTINGS.layout_footer_print_margin_bottom
+          };
           left: 0;
-          bottom: 10px;
+          right: 0;
           width: 100%;
           margin-top: ${
             settings.layout_footer_margin_top ||
@@ -472,6 +683,45 @@
                   DEFAULT_LAYOUT_SETTINGS.layout_color_border
                 }; padding-top: 1rem;`
               : ""
+          }
+          z-index: 1;
+        }
+        
+        /* ✅ PRINT-SPEZIFISCHE STYLES */
+        @media print {
+          .footer {
+            position: fixed !important; /* Für Print verwenden wir doch fixed */
+            bottom: 1cm !important;
+            left: 1cm !important;
+            right: 1cm !important;
+            width: auto !important;
+            page-break-inside: avoid;
+          }
+          
+          .signature-section {
+            page-break-inside: avoid;
+          }
+          
+          .no-print {
+            display: none !important;
+          }
+          
+          /* Print Controls ausblenden */
+          #print-controls {
+            display: none !important;
+          }
+          
+          /* Bessere Seitenumbruch-Kontrolle */
+          .page-break-before {
+            page-break-before: always;
+          }
+          
+          .page-break-after {
+            page-break-after: always;
+          }
+          
+          .page-break-inside-avoid {
+            page-break-inside: avoid;
           }
         }
         
@@ -517,10 +767,46 @@
             DEFAULT_LAYOUT_SETTINGS.layout_color_primary
           };
         }
+        
+        /* Print Controls für Vorschau */
+        #print-controls {
+          position: fixed;
+          top: 10px;
+          right: 10px;
+          background: rgba(255, 255, 255, 0.95);
+          padding: 10px;
+          border: 1px solid #ccc;
+          border-radius: 5px;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+          z-index: 1000;
+          display: flex;
+          gap: 5px;
+        }
+        
+        #print-controls button {
+          background: #007bff;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 3px;
+          cursor: pointer;
+          font-size: 14px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
+        
+        #print-controls button:hover {
+          opacity: 0.8;
+        }
+        
+        #print-controls button.secondary {
+          background: #6c757d;
+        }
       `;
     }
 
-    // Print-HTML generieren
+    // Print-HTML generieren (für Browser-Vorschau)
     generatePrintHTML(type, data) {
       const css = this.generateLayoutCSS();
       const header = this.generateHeader(type, data);
@@ -528,7 +814,7 @@
       const positions = this.generatePositions(type, data);
       const summary = this.generateSummary(type, data);
 
-      // Footer nur für Rechnung anzeigen, nie für Auftrag
+      // ✅ Footer nur für Rechnung anzeigen, nie für Auftrag
       const footer =
         this.layoutSettings.layout_footer_enabled === "true" &&
         type !== "auftrag"
@@ -552,12 +838,14 @@
         <style>${css}</style>
       </head>
       <body>
-        ${header}
-        ${customerInfo}
-        ${positions}
-        ${summary}
-        ${footer}
-        ${signature}
+        <div class="document-container">
+          ${header}
+          ${customerInfo}
+          ${positions}
+          ${summary}
+          ${signature}
+          ${footer}
+        </div>
       </body>
     </html>
   `;
@@ -1026,25 +1314,33 @@
         <!-- Rechnungshinweise (nur wenn vorhanden) -->
         ${rechnungshinweiseHtml}
         
-        <div style="margin-top: 2rem; font-size: 0.5rem; color: #666; line-height: 1.4;">
-  <p><strong style="font-size: 0.6rem; color: #444;">Zahlungsbedingungen:</strong><br>
-    ${
-      data.zahlungsbedingungen ||
-      getSetting("zahlungstext", "Zahlbar innerhalb von 14 Tagen ohne Abzug.")
-    }
-  </p>
-  
-  <p><strong style="font-size: 0.6rem; color: #444;">Gewährleistung:</strong><br>
-    ${
-      data.gewaehrleistung ||
-      getSetting(
-        "gewaehrleistung",
-        "12 Monate Gewährleistung auf alle Arbeiten."
-      )
-    }
-  </p>
-</div>
-
+        <div style="margin-top: 2rem; font-size: ${
+          this.layoutSettings.layout_font_size_small
+        }; color: #666; line-height: 1.4;">
+          <p><strong style="font-size: ${
+            this.layoutSettings.layout_font_size_normal
+          }; color: #444;">Zahlungsbedingungen:</strong><br>
+            ${
+              data.zahlungsbedingungen ||
+              getSetting(
+                "zahlungstext",
+                "Zahlbar innerhalb von 14 Tagen ohne Abzug."
+              )
+            }
+          </p>
+          
+          <p><strong style="font-size: ${
+            this.layoutSettings.layout_font_size_normal
+          }; color: #444;">Gewährleistung:</strong><br>
+            ${
+              data.gewaehrleistung ||
+              getSetting(
+                "gewaehrleistung",
+                "12 Monate Gewährleistung auf alle Arbeiten."
+              )
+            }
+          </p>
+        </div>
       </div>
     `;
       } else {
@@ -1085,24 +1381,50 @@
       }
     }
 
-    // Footer generieren
+    // ✅ VERBESSERTE Footer-Generierung
     generateFooter() {
-      return `
-    <div class="footer">
-      <p>
-        ${getSetting("firmenname", "Meine Firma")} | 
-        ${getSetting("rechtsform", "")} ${getSetting(
-        "geschaeftsfuehrer",
-        ""
-      )}<br>
-        Steuernr.: ${getSetting("steuernummer", "")} | 
-        USt-IdNr.: ${getSetting("umsatzsteuer_id", "")}<br>
-        ${getSetting("bank_name", "")} | 
-        IBAN: ${getSetting("bank_iban", "")} | 
-        BIC: ${getSetting("bank_bic", "")}
-      </p>
-    </div>
-  `;
+      const firmenname = getSetting("firmenname", "Meine Firma");
+      const rechtsform = getSetting("rechtsform", "");
+      const geschaeftsfuehrer = getSetting("geschaeftsfuehrer", "");
+      const steuernummer = getSetting("steuernummer", "");
+      const umsatzsteuerId = getSetting("umsatzsteuer_id", "");
+      const bankname = getSetting("bank_name", "");
+      const iban = getSetting("bank_iban", "");
+      const bic = getSetting("bank_bic", "");
+
+      let footerContent = `<p><strong>${firmenname}</strong>`;
+
+      if (rechtsform || geschaeftsfuehrer) {
+        footerContent += ` | ${rechtsform} ${geschaeftsfuehrer}`.trim();
+      }
+
+      footerContent += "</p>";
+
+      // Bankdaten hinzufügen (falls vorhanden)
+      if (bankname && iban) {
+        footerContent += `<p><strong>Bankverbindung:</strong> ${bankname} | IBAN: ${iban}`;
+        if (bic) {
+          footerContent += ` | BIC: ${bic}`;
+        }
+        footerContent += "</p>";
+      }
+
+      // Steuerdaten hinzufügen (falls vorhanden)
+      if (steuernummer || umsatzsteuerId) {
+        footerContent += "<p>";
+        if (steuernummer) {
+          footerContent += `Steuernr.: ${steuernummer}`;
+        }
+        if (steuernummer && umsatzsteuerId) {
+          footerContent += " | ";
+        }
+        if (umsatzsteuerId) {
+          footerContent += `USt-IdNr.: ${umsatzsteuerId}`;
+        }
+        footerContent += "</p>";
+      }
+
+      return `<div class="footer">${footerContent}</div>`;
     }
 
     // Unterschriften-Bereich generieren
@@ -1132,31 +1454,24 @@
     getDocumentTitle(type, data) {
       const documentType = type === "rechnung" ? "Rechnung" : "Auftrag";
       const number = type === "rechnung" ? data.rechnung_nr : data.auftrag_nr;
-      return `${documentType} ${number}`;
+      return `${documentType} ${number} - ${getSetting(
+        "firmenname",
+        "Meine Firma"
+      )}`;
     }
 
-    // Print-Fenster öffnen
+    // ✅ VERBESSERTE Print-Fenster-Funktion (für Browser-Vorschau)
     openPrintWindow(html, title) {
       // Print-Controls zu HTML hinzufügen
       const printControls = `
-    <div id="print-controls" style="position: fixed; top: 10px; right: 10px; background: white; padding: 10px; border: 1px solid #ccc; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000;">
-      <button onclick="window.print()" style="background: #007bff; color: white; border: none; padding: 8px 16px; margin-right: 5px; border-radius: 3px; cursor: pointer;">
+    <div id="print-controls" class="no-print">
+      <button onclick="window.print()" title="Drucken (Strg+P)">
         🖨️ Drucken
       </button>
-      <button onclick="window.close()" style="background: #6c757d; color: white; border: none; padding: 8px 16px; border-radius: 3px; cursor: pointer;">
+      <button class="secondary" onclick="window.close()" title="Fenster schließen">
         ❌ Schließen
       </button>
     </div>
-    
-    <style>
-      @media print {
-        #print-controls { display: none !important; }
-      }
-
-      #print-controls button:hover {
-        opacity: 0.8;
-      }
-    </style>
   `;
 
       // HTML mit Print-Controls erweitern
@@ -1167,6 +1482,14 @@
         "_blank",
         "width=1024,height=768,scrollbars=yes,resizable=yes"
       );
+
+      if (!printWindow) {
+        safeShowNotification(
+          "Popup-Blocker verhindert das Öffnen des Druckfensters",
+          "error"
+        );
+        return;
+      }
 
       printWindow.document.write(fullHtml);
       printWindow.document.close();
@@ -1212,6 +1535,8 @@
       }, 1000);
     }
   }
+
+  // ✅ VIEW-FUNKTIONEN FÜR RECHNUNG MIT ERWEITERUNGEN (unverändert beibehalten)
 
   async function viewRechnungMitSkonto(id) {
     try {
@@ -1347,7 +1672,7 @@
         <!-- Rechnungsempfänger -->
         <div>
           <h3 style="margin-bottom: 1rem; color: var(--accent-primary);">Empfänger:</h3>
-          <div style="background: var(--bg-tertiary); border-radius: 8px;">
+          <div style="background: var(--bg-tertiary); border-radius: 8px; padding: 1rem;">
             <strong style="font-size: 1.1rem;">${rechnung.kunde_name}</strong>
             ${
               rechnung.kunden_nr
@@ -1369,7 +1694,7 @@
         <!-- Fahrzeug -->
         <div>
           <h3 style="margin-bottom: 1rem; color: var(--accent-primary);">Fahrzeug:</h3>
-          <div style="background: var(--bg-tertiary);  border-radius: 8px;">
+          <div style="background: var(--bg-tertiary);  border-radius: 8px; padding: 1rem;">
             <strong style="font-size: 1.1rem;">${rechnung.kennzeichen} - ${
         rechnung.marke
       } ${rechnung.modell}</strong><br>
@@ -1887,27 +2212,36 @@
     }
   }
 
-  // Globale Instanz erstellen
+  // ✅ GLOBALE INSTANZ ERSTELLEN
   const enhancedPrint = new EnhancedPrintSystem();
 
-  // Bestehende Print-Funktionen ersetzen
+  // ✅ OPTION 1: HAUPTFUNKTIONEN AUF DIREKTDRUCK UMSTELLEN
   window.printRechnung = function (id) {
-    console.log("printRechnung called with id:", id);
-    enhancedPrint.printDocument("rechnung", id);
+    console.log("printRechnung called with id (DIREKTDRUCK):", id);
+    enhancedPrint.printDocumentDirect("rechnung", id);
   };
 
   window.printAuftrag = function (id) {
-    console.log("printAuftrag called with id:", id);
+    console.log("printAuftrag called with id (DIREKTDRUCK):", id);
+    enhancedPrint.printDocumentDirect("auftrag", id);
+  };
+
+  // ✅ ZUSÄTZLICHE FUNKTIONEN (falls Browser-Vorschau noch benötigt wird)
+  window.printRechnungMitVorschau = function (id) {
+    enhancedPrint.printDocument("rechnung", id);
+  };
+
+  window.printAuftragMitVorschau = function (id) {
     enhancedPrint.printDocument("auftrag", id);
   };
 
-  // Neue erweiterte Print-Funktionen
+  // ✅ ERWEITERTE PRINT-FUNKTIONEN (unverändert beibehalten)
   window.printRechnungEnhanced = function (id, options = {}) {
     enhancedPrint.layoutSettings = {
       ...enhancedPrint.layoutSettings,
       ...options,
     };
-    enhancedPrint.printDocument("rechnung", id);
+    enhancedPrint.printDocumentDirect("rechnung", id);
   };
 
   window.printAuftragEnhanced = function (id, options = {}) {
@@ -1915,29 +2249,67 @@
       ...enhancedPrint.layoutSettings,
       ...options,
     };
-    enhancedPrint.printDocument("auftrag", id);
+    enhancedPrint.printDocumentDirect("auftrag", id);
   };
 
-  // Direkter Druck ohne Preview
+  // ✅ DIREKTER DRUCK OHNE PREVIEW (jetzt als Aliase)
   window.printRechnungDirect = function (id) {
-    enhancedPrint.layoutSettings.layout_auto_print = "true";
-    enhancedPrint.printDocument("rechnung", id);
+    console.log("printRechnungDirect called with id:", id);
+    enhancedPrint.printDocumentDirect("rechnung", id);
   };
 
   window.printAuftragDirect = function (id) {
-    enhancedPrint.layoutSettings.layout_auto_print = "true";
-    enhancedPrint.printDocument("auftrag", id);
+    console.log("printAuftragDirect called with id:", id);
+    enhancedPrint.printDocumentDirect("auftrag", id);
   };
 
-  // Bulk-Print-Funktionen
+  // ✅ BULK-PRINT-FUNKTIONEN (unverändert beibehalten)
   window.printMultipleDocuments = async function (documents) {
     for (const doc of documents) {
-      await enhancedPrint.printDocument(doc.type, doc.id);
+      await enhancedPrint.printDocumentDirect(doc.type, doc.id);
       // Kurze Verzögerung zwischen den Dokumenten
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 1500));
     }
   };
 
+  // ✅ ZUSÄTZLICHE DIREKT-PRINT-FUNKTIONEN
+  window.printRechnungSofort = function (id) {
+    console.log("Direkter Rechnungsdruck, ID:", id);
+    enhancedPrint.printDocumentDirect("rechnung", id);
+  };
+
+  window.printAuftragSofort = function (id) {
+    console.log("Direkter Auftragsdruck, ID:", id);
+    enhancedPrint.printDocumentDirect("auftrag", id);
+  };
+
+  // ✅ MODUS-UMSCHALTUNG
+  window.setDirectPrintMode = function (enabled = true) {
+    if (enabled) {
+      // Alle Hauptfunktionen auf Direktdruck umstellen
+      window.printRechnung = function (id) {
+        enhancedPrint.printDocumentDirect("rechnung", id);
+      };
+      window.printAuftrag = function (id) {
+        enhancedPrint.printDocumentDirect("auftrag", id);
+      };
+    } else {
+      // Zurück zu Browser-Vorschau
+      window.printRechnung = function (id) {
+        enhancedPrint.printDocument("rechnung", id);
+      };
+      window.printAuftrag = function (id) {
+        enhancedPrint.printDocument("auftrag", id);
+      };
+    }
+
+    console.log(
+      "Print-Modus geändert:",
+      enabled ? "Direktdruck aktiviert" : "Browser-Vorschau aktiviert"
+    );
+  };
+
+  // ✅ EVENT-LISTENER FÜR EINSTELLUNGEN (unverändert beibehalten)
   // Layout-Einstellungen bei Änderungen aktualisieren
   window.addEventListener("layoutSettingsUpdated", (event) => {
     enhancedPrint.loadLayoutSettings();
@@ -1954,11 +2326,47 @@
     enhancedPrint.loadLayoutSettings();
   }
 
+  // ✅ VIEW-RECHNUNG FUNKTION ÜBERSCHREIBEN (unverändert beibehalten)
   if (typeof window.viewRechnung === "function") {
     window.viewRechnungOriginal = window.viewRechnung; // Backup
   }
   window.viewRechnung = viewRechnungMitAnzahlung;
 
-  // Export für debugging
+  // ✅ EXPORT FÜR DEBUGGING (unverändert beibehalten)
   window.enhancedPrint = enhancedPrint;
+
+  // ✅ HILFSFUNKTIONEN FÜR ENTWICKLER
+  window.printDebugInfo = function () {
+    console.log("=== Enhanced Print System - Debug Info ===");
+    console.log("Direktdruck-Modus:", "AKTIVIERT (Option 1)");
+    console.log("Verfügbare Funktionen:");
+    console.log("- printRechnung(id): Hauptfunktion - Direktdruck");
+    console.log("- printAuftrag(id): Hauptfunktion - Direktdruck");
+    console.log("- printRechnungMitVorschau(id): Mit Browser-Vorschau");
+    console.log("- printAuftragMitVorschau(id): Mit Browser-Vorschau");
+    console.log("- printRechnungSofort(id): Direktdruck (Alias)");
+    console.log("- printAuftragSofort(id): Direktdruck (Alias)");
+    console.log("Layout-Einstellungen:", enhancedPrint.layoutSettings);
+    console.log("===========================================");
+  };
+
+  // ✅ SCHNELL-TEST FUNKTION
+  window.testPrint = function (type = "rechnung", id = 1) {
+    console.log(`🧪 Test-Print: ${type} mit ID ${id}`);
+
+    if (type === "rechnung") {
+      printRechnung(id);
+    } else if (type === "auftrag") {
+      printAuftrag(id);
+    } else {
+      console.error('Ungültiger Type. Verwende "rechnung" oder "auftrag"');
+    }
+  };
+
+  console.log(
+    "✅ Enhanced Print System - Option 1 (Direktdruck für alle Funktionen) geladen"
+  );
+  console.log("🎯 Alle Hauptfunktionen verwenden jetzt Direktdruck!");
+  console.log("📞 Verwende printDebugInfo() für Debug-Informationen");
+  console.log("🧪 Verwende testPrint('rechnung', 1) zum Testen");
 })();

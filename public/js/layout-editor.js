@@ -799,7 +799,7 @@ function getSampleRechnung() {
     
     <div style="text-align: right; margin-top: 2rem; font-size: ${getSetting(
       "layout_font_size_large",
-      "16px"
+      "12px"
     )};">
       <div><strong>Zwischensumme: € 780,00</strong></div>
       <div>zzgl. 19% MwSt: € 148,20</div>
@@ -860,9 +860,18 @@ function getSampleAuftrag() {
     </div>
     
     <h3>Arbeitsschritte</h3>
-    <table>
-      <thead>
-        <tr>
+    <table style="text-align: right; margin-top: 2rem; font-size: ${getSetting(
+      "layout_font_size_large",
+      "12px"
+    )};">
+      <thead style="text-align: right; margin-top: 2rem; font-size: ${getSetting(
+        "layout_font_size_large",
+        "12px"
+      )};">
+        <tr style="text-align: right; margin-top: 2rem; font-size: ${getSetting(
+          "layout_font_size_normal",
+          "10px"
+        )};">
           <th>Beschreibung</th>
           <th>Zeit</th>
           <th>Stundenpreis</th>
@@ -905,7 +914,7 @@ function getSampleAuftrag() {
     
     <div style="text-align: right; margin-top: 2rem; font-size: ${getSetting(
       "layout_font_size_large",
-      "16px"
+      "12px"
     )};">
       <div><strong>Gesamtkosten (netto): € 990,00</strong></div>
       <div>zzgl. 19% MwSt: € 188,10</div>
@@ -922,8 +931,8 @@ function getSampleAuftrag() {
         <p>Hiermit bestätige ich die ordnungsgemäße Ausführung der oben aufgeführten Arbeiten.</p>
         <div class="signature-box"></div>
         <div style="margin-top: 0.5rem; font-size: ${getSetting(
-          "layout_font_size_small",
-          "12px"
+          "layout_font_size_normal",
+          "10px"
         )};">
           Datum und Unterschrift Kunde
         </div>

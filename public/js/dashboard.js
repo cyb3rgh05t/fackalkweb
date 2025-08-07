@@ -708,12 +708,20 @@ function updateSearchInputForMonth(searchInputId) {
  */
 function getDisplayTextForStatus(status) {
   const statusDisplayMap = {
+    // Aufträge
     offen: "Offen",
     in_bearbeitung: "In Bearbeitung",
     abgeschlossen: "Abgeschlossen",
+    storniert: "Storniert",
+
+    // Rechnungen
     bezahlt: "Bezahlt",
     mahnung: "Mahnung",
-    storniert: "Storniert",
+    teilbezahlt: "Teilbezahlt",
+
+    // Fahrzeughandel (falls vorhanden)
+    verkauft: "Verkauft",
+    reserviert: "Reserviert",
   };
 
   return (

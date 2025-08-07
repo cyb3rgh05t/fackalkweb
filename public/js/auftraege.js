@@ -16,8 +16,11 @@ async function loadAuftraege() {
 
     const tbody = document.querySelector("#auftraege-table tbody");
     tbody.innerHTML = auftraege
-      .map(
-        (auftrag) => `
+      .map((auftrag) => {
+        // Status-Spalte: Dropdown oder Badge je nach Status
+        const statusHtml = generateAuftragStatusHtml(auftrag);
+
+        return `
         <tr onclick="viewAuftrag(${auftrag.id})" style="cursor: pointer;">
           <td>${auftrag.auftrag_nr}</td>
           <td>${auftrag.kunde_name || auftrag.name || "-"}</td>
@@ -25,17 +28,7 @@ async function loadAuftraege() {
           auftrag.modell || ""
         }</td>
           <td>${formatDate(auftrag.datum)}</td>
-          <td>
-            <span class="status status-${auftrag.status.replace("_", "-")}">${
-          auftrag.status === "in_bearbeitung"
-            ? "In Bearbeitung"
-            : auftrag.status === "offen"
-            ? "Offen"
-            : auftrag.status === "abgeschlossen"
-            ? "Abgeschlossen"
-            : auftrag.status
-        }</span>
-          </td>
+          <td>${statusHtml}</td>
           <td>${formatCurrency(auftrag.gesamt_kosten)}</td>
           <td>
             <div class="btn-group">
@@ -54,12 +47,11 @@ async function loadAuftraege() {
               })">
                 <i class="fas fa-file-invoice"></i>
               </button>
-              
             </div>
           </td>
         </tr>
-      `
-      )
+      `;
+      })
       .join("");
 
     addSearchToTable("auftraege-table", "auftraege-search");
@@ -67,6 +59,172 @@ async function loadAuftraege() {
     showNotification("Fehler beim Laden der Aufträge", "error");
   }
 }
+
+async function updateAuftragStatus(id, status) {
+  try {
+    const auftrag = await apiCall(`/api/auftraege/${id}`);
+
+    // Prüfe ob Status bereits final ist
+    if (auftrag.status === "abgeschlossen" || auftrag.status === "storniert") {
+      const statusNames = {
+        abgeschlossen: "Abgeschlossene",
+        storniert: "Stornierte",
+      };
+
+      showNotification(
+        `⚠️ ${
+          statusNames[auftrag.status]
+        } Aufträge können nicht mehr geändert werden`,
+        "warning"
+      );
+
+      // Status-Dropdown zurücksetzen
+      const dropdown = document.querySelector(`select[onchange*="${id}"]`);
+      if (dropdown) {
+        dropdown.value = auftrag.status;
+      }
+      return;
+    }
+
+    // Bestätigung für finale Status
+    const finalStates = ["abgeschlossen", "storniert"];
+    if (finalStates.includes(status)) {
+      const confirmMessages = {
+        abgeschlossen: `✅ Auftrag als ABGESCHLOSSEN markieren?\n\nAuftrag: ${auftrag.auftrag_nr}\nKunde: ${auftrag.kunde_name}\n\n⚠️ Nach dieser Änderung kann der Auftrag nicht mehr bearbeitet werden!`,
+        storniert: `❌ Auftrag als STORNIERT markieren?\n\nAuftrag: ${auftrag.auftrag_nr}\nKunde: ${auftrag.kunde_name}\n\n⚠️ Nach dieser Änderung kann der Auftrag nicht mehr bearbeitet werden!\n\nDies sollte nur bei ungültigen oder abgebrochenen Aufträgen verwendet werden.`,
+      };
+
+      const confirmed = await customConfirm(
+        confirmMessages[status],
+        `${
+          status === "abgeschlossen" ? "✅" : "❌"
+        } Auftrag als ${status} markieren`
+      );
+
+      if (!confirmed) {
+        // Status-Dropdown zurücksetzen
+        const dropdown = document.querySelector(`select[onchange*="${id}"]`);
+        if (dropdown) {
+          dropdown.value = auftrag.status;
+        }
+        return;
+      }
+    }
+
+    // Status aktualisieren
+    auftrag.status = status;
+    await apiCall(`/api/auftraege/${id}`, "PUT", auftrag);
+
+    // Status-spezifische Erfolgsmeldungen
+    const successMessages = {
+      offen: "🟡 Auftrag als offen markiert",
+      in_bearbeitung: "🔵 Auftrag in Bearbeitung gesetzt",
+      abgeschlossen: "✅ Auftrag als abgeschlossen markiert",
+      storniert: "❌ Auftrag als storniert markiert",
+    };
+
+    showNotification(
+      successMessages[status] ||
+        `✅ Status erfolgreich auf "${status}" geändert`,
+      "success"
+    );
+
+    loadAuftraege(); // Tabelle neu laden
+  } catch (error) {
+    console.error("❌ Fehler beim Aktualisieren des Auftrag-Status:", error);
+    showNotification("❌ Fehler beim Aktualisieren des Status", "error");
+    loadAuftraege();
+  }
+}
+
+function generateAuftragStatusHtml(auftrag) {
+  // Finale Status: Nur Badge anzeigen
+  if (auftrag.status === "abgeschlossen" || auftrag.status === "storniert") {
+    let statusText = "";
+    let statusColor = "";
+    let statusIcon = "";
+
+    switch (auftrag.status) {
+      case "abgeschlossen":
+        statusText = "Abgeschlossen";
+        statusColor = "#10b981";
+        statusIcon = "🟢";
+        break;
+      case "storniert":
+        statusText = "Storniert";
+        statusColor = "#ef4444";
+        statusIcon = "❌";
+        break;
+    }
+
+    return `<span class="status-badge status-${auftrag.status}" style="
+             font-weight: 600; 
+             border-radius: 20px; 
+             padding: 0.35rem 0.75rem;
+             font-size: 0.85rem;
+             background: rgba(${
+               statusColor === "#10b981" ? "16, 185, 129" : "239, 68, 68"
+             }, 0.1);
+             color: ${statusColor};
+             border: 2px solid ${statusColor};
+             display: inline-block;
+           ">${statusIcon} ${statusText}</span>`;
+  }
+
+  // Bearbeitbare Status: Dropdown anzeigen
+  return `<select class="form-select status-dropdown status-${auftrag.status}" 
+                 onchange="updateAuftragStatus(${auftrag.id}, this.value)" 
+                 onclick="event.stopPropagation()"
+                 style="
+                   font-weight: 600; 
+                   border-radius: 20px; 
+                   padding: 0.25rem 0.75rem;
+                   font-size: 0.85rem;
+                   border: 2px solid;
+                   background: ${getStatusBackground(auftrag.status)};
+                   color: ${getStatusColor(auftrag.status)};
+                   border-color: ${getStatusColor(auftrag.status)};
+                 ">
+            <option value="offen" ${
+              auftrag.status === "offen" ? "selected" : ""
+            }>🟡 Offen</option>
+            <option value="in_bearbeitung" ${
+              auftrag.status === "in_bearbeitung" ? "selected" : ""
+            }>🔵 In Bearbeitung</option>
+            <option value="abgeschlossen" ${
+              auftrag.status === "abgeschlossen" ? "selected" : ""
+            }>🟢 Abgeschlossen</option>
+            <option value="storniert" ${
+              auftrag.status === "storniert" ? "selected" : ""
+            }>❌ Storniert</option>
+          </select>`;
+}
+
+// 4. HILFSFUNKTIONEN für Status-Styling
+function getStatusColor(status) {
+  const colors = {
+    offen: "#f59e0b",
+    in_bearbeitung: "#3b82f6",
+    abgeschlossen: "#10b981",
+    storniert: "#ef4444",
+  };
+  return colors[status] || "#6b7280";
+}
+
+function getStatusBackground(status) {
+  const backgrounds = {
+    offen: "rgba(245, 158, 11, 0.1)",
+    in_bearbeitung: "rgba(59, 130, 246, 0.1)",
+    abgeschlossen: "rgba(16, 185, 129, 0.1)",
+    storniert: "rgba(239, 68, 68, 0.1)",
+  };
+  return backgrounds[status] || "transparent";
+}
+
+window.updateAuftragStatus = updateAuftragStatus;
+window.generateAuftragStatusHtml = generateAuftragStatusHtml;
+window.getStatusColor = getStatusColor;
+window.getStatusBackground = getStatusBackground;
 
 async function showAuftragModal(auftragId = null) {
   const isEdit = !!auftragId;

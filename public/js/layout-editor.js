@@ -5,13 +5,13 @@ import { getSetting, setSetting } from "./einstellungen.js";
 const DEFAULT_LAYOUT_SETTINGS = {
   // Schrift und Typographie
   layout_font_family: "Arial, sans-serif",
-  layout_font_size_normal: "14px",
-  layout_font_size_small: "12px",
-  layout_font_size_large: "16px",
-  layout_font_size_h1: "24px",
-  layout_font_size_h2: "20px",
-  layout_font_size_h3: "18px",
-  layout_line_height: "1.5",
+  layout_font_size_normal: "10px",
+  layout_font_size_small: "8px",
+  layout_font_size_large: "12px",
+  layout_font_size_h1: "20px",
+  layout_font_size_h2: "16px",
+  layout_font_size_h3: "14px",
+  layout_line_height: "1.2",
   layout_letter_spacing: "0px",
 
   // Farben
@@ -137,9 +137,9 @@ function createLayoutContent() {
           <button type="button" class="layout-tab-btn" data-section="elements">
             <i class="fas fa-th-large"></i> Elemente
           </button>
-          <button type="button" class="layout-tab-btn" data-section="print">
+          <!-- <button type="button" class="layout-tab-btn" data-section="print">
             <i class="fas fa-print"></i> Druck
-          </button>
+          </button> -->
         </div>
         
         <!-- Typographie Sektion -->
@@ -319,7 +319,7 @@ function createLayoutContent() {
           </div>
         
         
-        <!-- Druck Sektion -->
+        <!-- Druck Sektion
         <div class="layout-section" id="print-section">
           <h3><i class="fas fa-print"></i> Druck-Einstellungen</h3>
           <div class="form-grid">
@@ -349,7 +349,7 @@ function createLayoutContent() {
               </select>
             </div>
           </div>
-        </div>
+        </div> -->
         
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">
@@ -760,9 +760,18 @@ function getSampleRechnung() {
     </div>
     
     <h3>Rechnungspositionen</h3>
-    <table>
-      <thead>
-        <tr>
+    <table style="text-align: right; margin-top: 2rem; font-size: ${getSetting(
+      "layout_font_size_large",
+      "12px"
+    )};">
+      <thead style="text-align: right; margin-top: 2rem; font-size: ${getSetting(
+        "layout_font_size_large",
+        "12px"
+      )};">
+        <tr style="text-align: right; margin-top: 2rem; font-size: ${getSetting(
+          "layout_font_size_normal",
+          "10px"
+        )};">
           <th>Beschreibung</th>
           <th>Menge</th>
           <th>Einzelpreis</th>

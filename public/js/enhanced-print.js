@@ -89,13 +89,13 @@
   const DEFAULT_LAYOUT_SETTINGS = {
     // Schrift und Typographie
     layout_font_family: "Arial, sans-serif",
-    layout_font_size_normal: "12px",
-    layout_font_size_small: "10px",
-    layout_font_size_large: "14px",
-    layout_font_size_h1: "22px",
-    layout_font_size_h2: "18px",
-    layout_font_size_h3: "16px",
-    layout_line_height: "1.3",
+    layout_font_size_normal: "10px",
+    layout_font_size_small: "8px",
+    layout_font_size_large: "12px",
+    layout_font_size_h1: "20px",
+    layout_font_size_h2: "16px",
+    layout_font_size_h3: "14px",
+    layout_line_height: "1.2",
     layout_letter_spacing: "0px",
 
     // Farben
@@ -133,7 +133,7 @@
     layout_footer_enabled: "true",
     layout_footer_position: "bottom",
     layout_footer_border_top: "true",
-    layout_footer_font_size: "12px",
+    layout_footer_font_size: "9px",
     layout_footer_alignment: "center",
     layout_footer_margin_top: "2rem",
 
@@ -1162,15 +1162,10 @@
       // HTML mit Print-Controls erweitern
       const fullHtml = html.replace("</body>", printControls + "</body>");
 
-      // Öffne das Fenster im möglichst großen Modus (dann manuell in den Vollbildmodus wechseln)
       const printWindow = window.open(
         "",
         "_blank",
-        "width=" +
-          (window.innerWidth - 10) +
-          ",height=" +
-          (window.innerHeight - 10) +
-          ",scrollbars=yes,resizable=yes"
+        "width=1024,height=768,scrollbars=yes,resizable=yes"
       );
 
       printWindow.document.write(fullHtml);

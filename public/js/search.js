@@ -1,9 +1,5 @@
-// Verbesserte Search-Funktionalität für das KFZ-System
-// Diese Datei ersetzt die bestehende public/js/search.js
-
-// Status-Mapping für intelligente Suche
 const statusMapping = {
-  // Aufträge
+  // Aufträge - ERWEITERT um "storniert"
   offen: ["offen", "Offen", "open"],
   in_bearbeitung: [
     "in_bearbeitung",
@@ -13,6 +9,7 @@ const statusMapping = {
     "in-bearbeitung",
     "progress",
     "in progress",
+    "wip",
   ],
   abgeschlossen: [
     "abgeschlossen",
@@ -21,12 +18,27 @@ const statusMapping = {
     "erledigt",
     "completed",
     "done",
+    "finished",
+  ],
+  storniert: [
+    "storniert",
+    "Storniert",
+    "cancelled",
+    "canceled",
+    "cancel",
+    "abgebrochen",
+    "abbruch",
+    "void",
+    "invalid",
   ],
 
-  // Rechnungen
-  bezahlt: ["bezahlt", "Bezahlt", "paid", "bezahlen"],
-  mahnung: ["mahnung", "Mahnung", "reminder", "mahnen"],
-  storniert: ["storniert", "Storniert", "cancelled", "canceled", "cancel"],
+  // Rechnungen (bestehend)
+  bezahlt: ["bezahlt", "Bezahlt", "paid", "bezahlen", "payment"],
+  mahnung: ["mahnung", "Mahnung", "reminder", "mahnen", "overdue"],
+  teilbezahlt: ["teilbezahlt", "partial", "teilweise", "angezahlt"],
+
+  // Gemeinsame Status-Begriffe
+  offen: ["offen", "Offen", "open", "pending", "new"],
 };
 
 // Debug-Flag für erweiterte Logs
@@ -328,14 +340,34 @@ function normalizeStatusText(text) {
     "in bearbeitung": "in_bearbeitung",
     "in-bearbeitung": "in_bearbeitung",
     bearbeitung: "in_bearbeitung",
+    wip: "in_bearbeitung",
+    progress: "in_bearbeitung",
     fertig: "abgeschlossen",
     erledigt: "abgeschlossen",
-    paid: "bezahlt",
+    done: "abgeschlossen",
+    finished: "abgeschlossen",
+    completed: "abgeschlossen",
+    abgebrochen: "storniert",
+    abbruch: "storniert",
     cancelled: "storniert",
     canceled: "storniert",
+    cancel: "storniert",
+    void: "storniert",
+    invalid: "storniert",
+    paid: "bezahlt",
+    payment: "bezahlt",
+    bezahlen: "bezahlt",
+    reminder: "mahnung",
+    mahnen: "mahnung",
+    overdue: "mahnung",
+    partial: "teilbezahlt",
+    teilweise: "teilbezahlt",
+    angezahlt: "teilbezahlt",
+    pending: "offen",
+    new: "offen",
   };
 
-  return normalizations[text] || text.replace(" ", "_").replace("-", "_");
+  return normalizations[text] || text.replace(/\s+/g, "_").replace(/-/g, "_");
 }
 
 /**
@@ -635,6 +667,44 @@ export function testStatusMatching(searchTerm, tableId) {
     `🧪 Ergebnis: ${matches}/${rows.length} Matches für "${searchTerm}"`
   );
 }
+function debugStatusSearch(searchTerm) {
+  console.log(`🔍 Debug Status-Suche: "${searchTerm}"`);
+
+  const tables = ["auftraege-table", "rechnungen-table"];
+
+  tables.forEach((tableId) => {
+    const table = document.getElementById(tableId);
+    if (!table) return;
+
+    const rows = table.querySelectorAll("tbody tr");
+    let matches = 0;
+
+    rows.forEach((row, index) => {
+      const statusCell = findStatusCell(row);
+      if (statusCell) {
+        const currentStatus = extractStatusFromCell(statusCell);
+        const matches = doesStatusMatch(
+          searchTerm.toLowerCase(),
+          currentStatus
+        );
+
+        if (matches) {
+          console.log(
+            `✅ ${tableId} Zeile ${
+              index + 1
+            }: "${currentStatus}" passt zu "${searchTerm}"`
+          );
+          matches++;
+        }
+      }
+    });
+
+    console.log(`📊 ${tableId}: ${matches} Treffer für "${searchTerm}"`);
+  });
+}
+
+window.debugStatusSearch = debugStatusSearch;
+window.normalizeStatusText = normalizeStatusText;
 
 // Export für globale Nutzung
 export default {

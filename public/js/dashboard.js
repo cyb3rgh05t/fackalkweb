@@ -1020,7 +1020,9 @@ function updateAuftraegeTable(auftraege) {
   tbody.innerHTML = recent
     .map(
       (auftrag) => `
-      <tr>
+      <tr onclick="viewAuftrag(${
+        auftrag.id
+      })" style="cursor: pointer;" title="Klicken zum Öffnen">
         <td>${auftrag.auftrag_nr}</td>
         <td>${auftrag.kunde_name || "-"}</td>
         <td>${auftrag.kennzeichen || ""} ${auftrag.marke || ""}</td>
@@ -1032,6 +1034,8 @@ function updateAuftraegeTable(auftraege) {
           ? "Offen"
           : auftrag.status === "abgeschlossen"
           ? "Abgeschlossen"
+          : auftrag.status === "storniert"
+          ? "Storniert"
           : auftrag.status
       }</span></td>
         <td>${formatCurrency(auftrag.gesamt_kosten)}</td>

@@ -103,10 +103,46 @@ async function updateAuftragStatus(id, status) {
     // Bestätigung für finale Status
     const finalStates = ["abgeschlossen", "storniert"];
     if (finalStates.includes(status)) {
+      function getKundenName(auftrag) {
+        // Versuche verschiedene mögliche Feldnamen
+        return (
+          auftrag.kunde_name ||
+          auftrag.name ||
+          auftrag.kundenname ||
+          auftrag.customer_name ||
+          auftrag.kunde?.name ||
+          "Unbekannt"
+        );
+      }
+
+      // Dann verwende in den confirmMessages:
+      const kundenName = getKundenName(auftrag);
+
       const confirmMessages = {
-        abgeschlossen: `✅ Auftrag als ABGESCHLOSSEN markieren?\n\nAuftrag: ${auftrag.auftrag_nr}\nKunde: ${auftrag.kunde_name}\n\n⚠️ Nach dieser Änderung kann der Auftrag nicht mehr bearbeitet werden!`,
-        storniert: `❌ Auftrag als STORNIERT markieren?\n\nAuftrag: ${auftrag.auftrag_nr}\nKunde: ${auftrag.kunde_name}\n\n⚠️ Nach dieser Änderung kann der Auftrag nicht mehr bearbeitet werden!\n\nDies sollte nur bei ungültigen oder abgebrochenen Aufträgen verwendet werden.`,
+        abgeschlossen: `✅ Auftrag als ABGESCHLOSSEN markieren?
+
+Auftrag: ${auftrag.auftrag_nr}
+Kunde: ${kundenName}
+
+⚠️ Nach dieser Änderung kann der Auftrag nicht mehr bearbeitet werden!`,
+        storniert: `❌ Auftrag als STORNIERT markieren?
+
+Auftrag: ${auftrag.auftrag_nr}
+Kunde: ${kundenName}
+
+⚠️ Nach dieser Änderung kann der Auftrag nicht mehr bearbeitet werden!
+
+Dies sollte nur bei ungültigen oder abgebrochenen Aufträgen verwendet werden.`,
       };
+
+      // DEBUG: Um herauszufinden welches Feld den Kundennamen enthält
+      console.log("🔍 DEBUG Auftrag-Objekt:", auftrag);
+      console.log("🔍 Verfügbare Felder:", Object.keys(auftrag));
+      console.log("🔍 Kunde-Felder:", {
+        kunde_name: auftrag.kunde_name,
+        name: auftrag.name,
+        kundenname: auftrag.kundenname,
+      });
 
       const confirmed = await customConfirm(
         confirmMessages[status],

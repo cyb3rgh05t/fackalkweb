@@ -129,20 +129,20 @@
     layout_table_stripe: "disabled",
     layout_table_border_collapse: "collapse",
 
-    // Footer-Layout - ✅ VERBESSERT
+    // Footer-Layout
     layout_footer_enabled: "true",
     layout_footer_position: "bottom",
     layout_footer_border_top: "true",
     layout_footer_font_size: "9px",
     layout_footer_alignment: "center",
     layout_footer_margin_top: "2rem",
-    layout_footer_print_margin_bottom: "1cm", // ✅ NEU: Abstand unten beim Drucken
+    layout_footer_print_margin_bottom: "1cm",
 
     // Unterschriften-Bereich
     layout_signature_enabled: "true",
     layout_signature_height: "4cm",
     layout_signature_border: "1px solid #333",
-    layout_signature_margin_top: "3cm",
+    layout_signature_margin_top: "1.5rem",
 
     // Druckoptionen
     layout_print_page_size: "A4",
@@ -650,7 +650,6 @@
           };
         }
         
-        /* ✅ VERBESSERTE FOOTER-STYLES - Kompatibel mit Print */
         .footer {
           position: absolute;
           bottom: ${
@@ -686,8 +685,7 @@
           }
           z-index: 1;
         }
-        
-        /* ✅ PRINT-SPEZIFISCHE STYLES */
+
         @media print {
           .footer {
             position: fixed !important; /* Für Print verwenden wir doch fixed */
@@ -730,7 +728,8 @@
             settings.layout_signature_margin_top ||
             DEFAULT_LAYOUT_SETTINGS.layout_signature_margin_top
           };
-          page-break-inside: avoid;
+          page-break-inside: auto;
+          break-inside: auto;
         }
         
         .signature-box {
@@ -742,14 +741,45 @@
             settings.layout_signature_height ||
             DEFAULT_LAYOUT_SETTINGS.layout_signature_height
           };
-          margin-bottom: 1rem;
           position: relative;
+          display: flex;
+          justify-content: space-between;
+          gap: 2rem;
+          margin-top: 0;
+          }
+
+        .signature-boxes .signature-box {
+          flex: 1;
+          min-width: 0;
         }
+
+        @media (max-width: 480px) {
+        .signature-boxes {
+          flex-direction: column;
+          gap: 1rem;
+          }
+        }
+
+        @media print {
+        .signature-section {
+          orphans: 2;
+          widows: 2;
+        }
+  
+       .signature-boxes {
+         break-inside: avoid;
+         gap: 1rem;
+         display: flex !important; /* ✅ Sicherstellen dass nebeneinander bleibt */
+         flex-direction: row !important;
+         }
+        }
+        
         
         .signature-label {
           position: absolute;
-          bottom: 5px;
-          left: 10px;
+          bottom: 8px;
+          left: 12px;
+          font-weight: 500;
           font-size: ${
             settings.layout_font_size_small ||
             DEFAULT_LAYOUT_SETTINGS.layout_font_size_small
@@ -1431,23 +1461,33 @@
     generateSignature(type) {
       if (type !== "auftrag") return "";
 
+      const settings = this.layoutSettings;
+
       return `
-        <div class="signature-section">
-          <h3>Unterschriften:</h3>
-          <div style="display: flex; gap: 2rem;">
-            <div style="flex: 1;">
-              <div class="signature-box">
-                <div class="signature-label">Auftraggeber</div>
-              </div>
-            </div>
-            <div style="flex: 1;">
-              <div class="signature-box">
-                <div class="signature-label">Auftragnehmer</div>
-              </div>
-            </div>
-          </div>
+    <div class="signature-section">
+    <div style="margin-bottom: 0.5rem; font-size: ${
+      settings.layout_font_size_small ||
+      DEFAULT_LAYOUT_SETTINGS.layout_font_size_small
+    }; color: ${
+        settings.layout_color_muted ||
+        DEFAULT_LAYOUT_SETTINGS.layout_color_muted
+      } line-height: 1.3;">
+        Mit der Unterschrift bestätigen beide Parteien die Richtigkeit der Angaben und stimmen den Bedingungen zu.
+      </div>
+      <div class="signature-boxes">
+        <div class="signature-box">
+          <div class="signature-label">Auftraggeber / Kunde</div>
         </div>
-      `;
+        <div class="signature-box">
+          <div class="signature-label">Auftragnehmer / ${getSetting(
+            "firmenname",
+            "Meine Firma"
+          )}</div>
+        </div>
+      </div>
+      
+    </div>
+  `;
     }
 
     // Dokument-Titel generieren

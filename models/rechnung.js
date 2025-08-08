@@ -488,6 +488,12 @@ const Rechnung = {
       let hasError = false;
 
       positionen.forEach((pos, index) => {
+        console.log(`Speichere Position ${index}:`, {
+          beschreibung: pos.beschreibung,
+          menge: pos.menge,
+          einheit: pos.einheit,
+          originalPos: pos,
+        });
         // Nur Positionen mit Beschreibung einfügen
         if (!pos.beschreibung || pos.beschreibung.trim() === "") {
           completed++;
@@ -504,7 +510,7 @@ const Rechnung = {
             pos.kategorie || "ZUSATZ",
             pos.beschreibung.trim(),
             parseFloat(pos.menge) || 0,
-            pos.einheit || "Stk.",
+            pos.einheit || "Stk.", // HIER: Besseres Logging
             parseFloat(pos.einzelpreis) || 0,
             parseInt(pos.mwst_prozent) || 19,
             parseFloat(pos.gesamt) || 0,
@@ -514,6 +520,9 @@ const Rechnung = {
             completed++;
 
             if (err) {
+              console.log(
+                `✅ Position ${index} gespeichert mit Einheit: ${pos.einheit}`
+              );
               console.error(`Fehler beim Einfügen der Position ${index}:`, err);
               hasError = true;
               stmt.finalize();

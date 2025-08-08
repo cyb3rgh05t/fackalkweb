@@ -539,39 +539,30 @@ function displayRechnungModal(rechnung = null) {
                    placeholder="0">
           </td>
           <td>
-            <select class="form-select" name="einheit_${index}">
-              <option value="Std." ${
-                (position.einheit || standardPos.einheit) === "Std."
-                  ? "selected"
-                  : ""
-              }>Std.</option>
-              <option value="Liter" ${
-                (position.einheit || standardPos.einheit) === "Liter"
-                  ? "selected"
-                  : ""
-              }>Liter</option>
-              <option value="Stk." ${
-                (position.einheit || standardPos.einheit) === "Stk."
-                  ? "selected"
-                  : ""
-              }>Stk.</option>
-              <option value="m²" ${
-                (position.einheit || standardPos.einheit) === "m²"
-                  ? "selected"
-                  : ""
-              }>m²</option>
-              <option value="Pauschal" ${
-                (position.einheit || standardPos.einheit) === "Pauschal"
-                  ? "selected"
-                  : ""
-              }>Pauschal</option>
-              <option value="kg" ${
-                (position.einheit || standardPos.einheit) === "kg"
-                  ? "selected"
-                  : ""
-              }>kg</option>
-            </select>
-          </td>
+  <select class="form-select" name="einheit_${index}" onchange="calculateRechnungRow(${index})">
+    <option value="Std." ${
+      (position.einheit || standardPos.einheit) === "Std." ? "selected" : ""
+    }>Std.</option>
+    <option value="Min." ${
+      (position.einheit || standardPos.einheit) === "Min." ? "selected" : ""
+    }>Min.</option>
+    <option value="Stk." ${
+      (position.einheit || standardPos.einheit) === "Stk." ? "selected" : ""
+    }>Stk.</option>
+    <option value="Pauschal" ${
+      (position.einheit || standardPos.einheit) === "Pauschal" ? "selected" : ""
+    }>Pauschal</option>
+    <option value="Liter" ${
+      (position.einheit || standardPos.einheit) === "Liter" ? "selected" : ""
+    }>Liter</option>
+    <option value="kg" ${
+      (position.einheit || standardPos.einheit) === "kg" ? "selected" : ""
+    }>kg</option>
+    <option value="m²" ${
+      (position.einheit || standardPos.einheit) === "m²" ? "selected" : ""
+    }>m²</option>
+  </select>
+</td>
           <td>
             <input type="number" step="0.01" class="form-input" 
                    value="${
@@ -1466,9 +1457,13 @@ window.addNewPosition = function () {
       </td>
       <td>
         <select class="form-select" name="einheit_${newIndex}">
-          <option value="Std." selected>Std.</option>
-          <option value="Min.">Min.</option>
-          <option value="Pauschal">Pauschal</option>
+          <option value="Std.">Std.</option>
+  <option value="Min.">Min.</option>
+  <option value="Stk." selected>Stk.</option>
+  <option value="Pauschal">Pauschal</option>
+  <option value="Liter">Liter</option>
+  <option value="kg">kg</option>
+  <option value="m²">m²</option>
         </select>
       </td>
       <td>
@@ -1516,11 +1511,12 @@ window.addNewPosition = function () {
       <td>
         <select class="form-select" name="einheit_${newIndex}">
           <option value="Std.">Std.</option>
-          <option value="Liter">Liter</option>
-          <option value="Stk." selected>Stk.</option>
-          <option value="m²">m²</option>
-          <option value="Pauschal">Pauschal</option>
-          <option value="kg">kg</option>
+  <option value="Min.">Min.</option>
+  <option value="Stk." selected>Stk.</option>
+  <option value="Pauschal">Pauschal</option>
+  <option value="Liter">Liter</option>
+  <option value="kg">kg</option>
+  <option value="m²">m²</option>
         </select>
       </td>
       <td>
@@ -1797,9 +1793,17 @@ window.saveRechnung = async function (rechnungId = null) {
       const menge =
         parseFloat(row.querySelector(`input[name="menge_${index}"]`)?.value) ||
         0;
-      const einheit =
-        row.querySelector(`input[name="einheit_${index}"]`)?.value?.trim() ||
-        "Stk.";
+      const einheitElement = row.querySelector(
+        `select[name="einheit_${index}"]`
+      );
+      const einheit = einheitElement?.value?.trim() || "Stk.";
+
+      // Debugging hinzufügen:
+      console.log(`Position ${index}:`, {
+        einheitElement: einheitElement,
+        selectedValue: einheitElement?.value,
+        finalEinheit: einheit,
+      });
       const einzelpreis =
         parseFloat(
           row.querySelector(`input[name="einzelpreis_${index}"]`)?.value

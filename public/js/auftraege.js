@@ -31,24 +31,38 @@ async function loadAuftraege() {
           <td>${statusHtml}</td>
           <td>${formatCurrency(auftrag.gesamt_kosten)}</td>
           <td>
-            <div class="btn-group">
-              <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editAuftrag(${
-                auftrag.id
-              })">
-                <i class="fas fa-edit"></i>
-              </button>
-              <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); printAuftrag(${
-                auftrag.id
-              })">
-                <i class="fas fa-print"></i>
-              </button>
-              <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); createRechnungFromAuftrag(${
-                auftrag.id
-              })">
-                <i class="fas fa-file-invoice"></i>
-              </button>
-            </div>
-          </td>
+  <div class="btn-group">
+    ${
+      auftrag.status !== "abgeschlossen" && auftrag.status !== "storniert"
+        ? `
+      <button class="btn btn-sm btn-secondary" onclick="event.stopPropagation(); editAuftrag(${auftrag.id})" title="Auftrag bearbeiten">
+        <i class="fas fa-edit"></i>
+      </button>
+    `
+        : `
+      <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); viewAuftrag(${auftrag.id})" title="Auftrag ansehen (nur lesen)">
+        <i class="fas fa-eye"></i>
+      </button>
+    `
+    }
+    
+    <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); printAuftrag(${
+      auftrag.id
+    })" title="Auftrag drucken">
+      <i class="fas fa-print"></i>
+    </button>
+    
+    ${
+      auftrag.status !== "storniert" && auftrag.status !== "abgeschlossen"
+        ? `
+      <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); createRechnungFromAuftrag(${auftrag.id})" title="Rechnung erstellen">
+        <i class="fas fa-file-invoice"></i>
+      </button>
+    `
+        : ""
+    }
+  </div>
+</td>
         </tr>
       `;
       })
@@ -230,6 +244,20 @@ async function showAuftragModal(auftragId = null) {
   const isEdit = !!auftragId;
   let auftrag = null;
 
+  if (auftragId) {
+    const auftrag = await apiCall(`/api/auftraege/${auftragId}`);
+    if (auftrag.status === "abgeschlossen" || auftrag.status === "storniert") {
+      showNotification(
+        `⚠️ ${
+          auftrag.status === "abgeschlossen" ? "Abgeschlossene" : "Stornierte"
+        } Aufträge können nicht bearbeitet werden!`,
+        "warning"
+      );
+      viewAuftrag(auftragId);
+      return;
+    }
+  }
+
   if (isEdit) {
     auftrag = await apiCall(`/api/auftraege/${auftragId}`);
   }
@@ -309,9 +337,21 @@ async function showAuftragModal(auftragId = null) {
             <option value="Min." ${
               (position?.einheit || "") === "Min." ? "selected" : ""
             }>Min.</option>
+            <option value="Stk." ${
+              (position?.einheit || "") === "Stk." ? "selected" : ""
+            }>Stk.</option>
             <option value="Pauschal" ${
               (position?.einheit || "") === "Pauschal" ? "selected" : ""
             }>Pauschal</option>
+            <option value="Liter" ${
+              (position?.einheit || "") === "Liter" ? "selected" : ""
+            }>Liter</option>
+            <option value="kg" ${
+              (position?.einheit || "") === "kg" ? "selected" : ""
+            }>kg</option>
+            <option value="m²" ${
+              (position?.einheit || "") === "m²" ? "selected" : ""
+            }>m²</option>
           </select>
         </td>
         <td>
@@ -916,10 +956,14 @@ window.addNewPosition = function () {
       </td>
       <td>
         <select class="form-select" name="einheit_${newIndex}">
-          <option value="Std." selected>Std.</option>
-          <option value="Min.">Min.</option>
-          <option value="Pauschal">Pauschal</option>
-        </select>
+  <option value="Std." selected>Std.</option>
+  <option value="Min.">Min.</option>
+  <option value="Stk.">Stk.</option>
+  <option value="Pauschal">Pauschal</option>
+  <option value="Liter">Liter</option>
+  <option value="kg">kg</option>
+  <option value="m²">m²</option>
+</select>
       </td>
       <td>
         <input type="number" step="0.01" class="form-input" 
@@ -965,13 +1009,14 @@ window.addNewPosition = function () {
       </td>
       <td>
         <select class="form-select" name="einheit_${newIndex}">
-          <option value="Std.">Std.</option>
-          <option value="Liter">Liter</option>
-          <option value="Stk." selected>Stk.</option>
-          <option value="m²">m²</option>
-          <option value="Pauschal">Pauschal</option>
-          <option value="kg">kg</option>
-        </select>
+  <option value="Std." selected>Std.</option>
+  <option value="Min.">Min.</option>
+  <option value="Stk.">Stk.</option>
+  <option value="Pauschal">Pauschal</option>
+  <option value="Liter">Liter</option>
+  <option value="kg">kg</option>
+  <option value="m²">m²</option>
+</select>
       </td>
       <td>
         <input type="number" step="0.01" class="form-input" 
